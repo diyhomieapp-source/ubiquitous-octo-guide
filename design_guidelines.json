@@ -1,0 +1,179 @@
+{
+  "app_name": "DIYhomie",
+  "personality": "7 Dark-First Utility DARK",
+  "personality_one_liner": "A high-performance, command-center utility that empowers DIYers with precision, clarity, and bold tactical energy.",
+  "color": {
+    "surface": "#121212",
+    "onSurface": "#FFFFFF",
+    "surfaceSecondary": "#1C1C1E",
+    "onSurfaceSecondary": "#E0E0E0",
+    "surfaceTertiary": "#2C2C2E",
+    "onSurfaceTertiary": "#A0A0A5",
+    "surfaceInverse": "#E0E0E0",
+    "onSurfaceInverse": "#121212",
+    "brand": "#FF5A00",
+    "brandPrimary": "#FF5A00",
+    "onBrandPrimary": "#000000",
+    "brandSecondary": "#E65100",
+    "onBrandSecondary": "#FFFFFF",
+    "brandTertiary": "#3E2010",
+    "onBrandTertiary": "#FF8A50",
+    "success": "#00E676",
+    "onSuccess": "#000000",
+    "warning": "#FFC400",
+    "onWarning": "#000000",
+    "error": "#FF3D00",
+    "onError": "#FFFFFF",
+    "info": "#29B6F6",
+    "onInfo": "#000000",
+    "border": "#2C2C2E",
+    "borderStrong": "#4A4A4D",
+    "divider": "#2C2C2E",
+    "ecoMode": "#8C9BA5",
+    "onEcoMode": "#121212"
+  },
+  "typography": {
+    "displayFontFamily": "Bebas Neue",
+    "textFontFamily": "DM Sans",
+    "scale": {
+      "sm": 12,
+      "base": 14,
+      "lg": 16,
+      "xl": 20,
+      "2xl": 24,
+      "3xl": 32,
+      "4xl": 48
+    }
+  },
+  "spacing": {
+    "rule": "Tactical and dense. Use sm/md for module grouping, large oversized tap targets (xl) for Mad-Muscle survey cards, and generous padding for the sticky bottom input area. No wasted space.",
+    "xs": 4,
+    "sm": 8,
+    "md": 12,
+    "lg": 16,
+    "xl": 24,
+    "2xl": 32,
+    "3xl": 48
+  },
+  "radius_tokens": {
+    "sm": 6,
+    "md": 12,
+    "lg": 20,
+    "pill": 999
+  },
+  "shadow_tier": "0",
+  "navigation": "stack_only",
+  "icon_set": "Phosphor",
+  "glassmorphism": {
+    "enabled": "false",
+    "do's": [
+      "Use solid surfaceSecondary or border-driven hierarchy.",
+      "Reserve pure glassmorphism only for the floating Credit Meter badge if a subtle glow/blur combo is needed to emphasize 'Voice mode'."
+    ],
+    "dont's": [
+      "No frosted glass cards. No heavy blurs that reduce clarity.",
+      "Avoid glassmorphism on the main step drawer or chat interface."
+    ]
+  },
+  "platform_libraries": {
+    "glass": {
+      "ios": "expo-glass-effect",
+      "android": "expo-blur",
+      "low_end_android_fallback": "solid surfaceSecondary"
+    },
+    "image": "expo-image",
+    "blur": "expo-blur",
+    "bottom_sheet": "@gorhom/bottom-sheet",
+    "animation": "react-native-reanimated",
+    "gesture": "react-native-gesture-handler"
+  },
+  "screens": [
+    {
+      "name": "Onboarding",
+      "purpose": "Full-screen explainer introducing the elite master contractor AI assistant.",
+      "states": {
+        "loading": "Centered brand-colored activity indicator.",
+        "empty": "N/A",
+        "error": "N/A"
+      },
+      "layout": "Full-bleed background image with heavy vertical scrim (gradient top-to-bottom transparent to 90% surface). Massive Bebas Neue headline, short subtitle, and a sticky sticky brandPrimary CTA at the bottom thumb zone."
+    },
+    {
+      "name": "PreSurvey",
+      "purpose": "High-engagement, Mad-Muscle style visual survey to collect experience, tools, and budget.",
+      "states": {
+        "loading": "N/A",
+        "empty": "N/A",
+        "error": "N/A"
+      },
+      "layout": "1 question per screen. Segmented progress bar at the very top. Headline above. Content area uses oversized tappable option cards (flex column, gap md). Cards contain large icons or photos (like the DeWalt/Makita tool photos) + heavy gradient scrim + bold label. Cards auto-advance to next screen on press (zero friction)."
+    },
+    {
+      "name": "Home",
+      "purpose": "The main operational command center split between dynamic step instructions and a live chat hub.",
+      "states": {
+        "loading": "Skeleton blocks matching the 65/35 split structure.",
+        "empty": "Inactive state: Drawer shows 'What project are we tackling today, Homie?' with abstract background.",
+        "error": "Inline error banner at the top of the chat stream with 'Retry connection' button."
+      },
+      "layout": "No scrolling screen root. Use a strict flex layout. TOP ~65% (Step Drawer): surfaceSecondary background, top segmented progress tracker, 3D technical illustration viewer (flex 1), massive 3xl/4xl instruction text (<20 words), and a massive primary 'DONE - NEXT STEP' button pinned at the drawer's bottom. BOTTOM ~35% (Live Interface Hub): surface background, single-column chat stream (auto-scrolls), docked chat composer at bottom. Include a floating pill-shaped Credit Meter badge overlaid between the two zones or floating above the chat composer, glowing brandPrimary (Voice) or ecoMode (Text)."
+    },
+    {
+      "name": "MissingSupplies",
+      "purpose": "Amazon affiliate bundle tab for missing project supplies.",
+      "states": {
+        "loading": "Skeleton rows of product items.",
+        "empty": "Illustration of an empty toolbox + 'You have all the supplies you need!' + CTA 'Start Project'.",
+        "error": "Failed to load Amazon bundle feed."
+      },
+      "layout": "Vertical flat list. Each row is a product card: left image square (product photo), right side is title, price, and 'Buy on Amazon' brandSecondary button. High contrast, dark-first utility styling. Sticky total checkout CTA."
+    },
+    {
+      "name": "Profile",
+      "purpose": "Dashboard for user experience level, tool inventory, credit balance, and subscription tier.",
+      "states": {
+        "loading": "Centered spinner.",
+        "empty": "N/A",
+        "error": "Failed to load profile."
+      },
+      "layout": "Utility dashboard layout. No soft floating cards—use edge-to-edge stacked modules with thick dividers (1pt borderStrong). Top section: Oversized numeric counters for credits and stats. Mid section: Mono-labeled list of owned tools. Bottom: Subscription paywall CTA container highlighted in brandPrimary."
+    }
+  ],
+  "images": {
+    "onboarding_hero_bg": {
+      "url": "https://images.unsplash.com/photo-1720036236697-018370867320?crop=entropy&cs=srgb&fm=jpg",
+      "alt": "A dark room with lots of machines and lights, setting an industrial DIY tone"
+    },
+    "tool_dewalt_card_bg": {
+      "url": "https://images.pexels.com/photos/37391887/pexels-photo-37391887.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+      "alt": "DeWalt electric sander in a workshop"
+    },
+    "tool_makita_card_bg": {
+      "url": "https://images.pexels.com/photos/20094121/pexels-photo-20094121.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+      "alt": "Makita power tools"
+    },
+    "amazon_affiliate_logo": {
+      "url": "https://images.pexels.com/photos/4560039/pexels-photo-4560039.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+      "alt": "Amazon shopping app icon close-up"
+    },
+    "step_technical_illustration": {
+      "url": "https://images.unsplash.com/photo-1615387000571-bdcfe92eb67c?crop=entropy&cs=srgb&fm=jpg",
+      "alt": "3D technical illustration tool isolated"
+    }
+  },
+  "instructions_to_main_agent": [
+    "Follow 7 Dark-First Utility DARK guidelines strictly. Do not add soft pastel colors, rounded glassmorphism, or AI-default indigo/navy.",
+    "Implement the Mad-Muscle visual survey using oversized tappable option cards (flex: column, gap: md) that auto-advance on tap. When using the tool photos (tool_dewalt_card_bg, etc.) as backgrounds for these cards, you MUST apply a vertical gradient scrim (transparent to 90% surfaceInverse) to ensure text readability.",
+    "For the main Home screen, strictly enforce the ~65/35 height split. The top area (Step Drawer) must contain the 3D illustration and massive step text (use Bebas Neue). Pin the massive 'DONE - NEXT STEP' button to the bottom of this 65% area, not the bottom of the phone.",
+    "The bottom 35% must house the chat. Include a floating pill for the Credit Meter. Use brandPrimary (#FF5A00) to signify Voice/Streaming mode, and ecoMode (#8C9BA5) for Text mode. Add a subtle shadow or glow effect ONLY to this pill to make it stand out.",
+    "Ensure all text rendered on top of images (like the Onboarding hero or survey cards) has the mandatory gradient scrim layer (Layer 1) and that the text is placed in the darkest area (Layer 2).",
+    "Since pure transparent tool logos weren't perfectly matched via the selector, use the provided high-quality tool photos as background images for the tool selection cards."
+  ],
+  "haptics": {
+    "primary_button_press": "impactMedium",
+    "survey_card_tap": "impactLight",
+    "step_done_completion": "notificationSuccess",
+    "chat_message_sent": "impactLight",
+    "mode_toggle_switch": "selection"
+  }
+}
