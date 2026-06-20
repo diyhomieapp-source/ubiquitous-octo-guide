@@ -1,0 +1,42 @@
+{
+  "summary": "DIYhomie MVP fully tested. Backend: 22/22 pytest tests passed (1 skipped — out-of-credits drain is too costly to validate via real LLM). Verified register/login/me, profile update, project CRUD, AI step generation (gpt-4o-mini fallback, returns valid JSON shape with step_title/text_instruction/visual_description/missing_tools/code_alert), text/voice credit deduction (1 vs 2), gpt-image-1 image generation (base64, ~12s), Amazon affiliate supplies + bundle URL, community post→reply→author-only verify with +10 credits / +2 voice min payout, mock billing tier grants, and invalid-tier 400. Frontend E2E (390x844 viewport): Onboarding → 5-card Survey → Auth register → Paywall (Start Trial) → Tabs all navigate cleanly. Home: typing 'Fix leaky kitchen faucet' creates project, shows first step 'Turn off the water supply under the sink.', step image renders, credit meter toggles 'TEXT ECO · 60 cr' → 'VOICE 2x · 59 cr'. Supplies tab shows empty state + Bark hire-pro card. Community: FAB → compose → post creation works and lists. Profile shows credits/voice min, location save, upgrade, logout. testIDs are comprehensive. No critical bugs.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "startup", "issue": "passlib bcrypt version warning in logs (`AttributeError: module 'bcrypt' has no attribute '__about__'`). Auth still works; cosmetic only. Pin `bcrypt<4.1` or upgrade passlib to silence."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "global", "issues": ["DM Sans font files fail to decode on web preview ('OTS parsing error: invalid sfntVersion: 168430090' for DMSans-Regular/Medium/Bold.ttf). UI falls back to system fonts and still looks correct, but custom typography is not applied on web. Verify font binaries are valid TTF and not LFS pointers/HTML 404 pages."]}
+    ],
+    "react_native_issues": [
+      {"component": "Style props", "issue": "Console warning: 'shadow*' style props are deprecated. Use 'boxShadow'. (RN Web deprecation.)"},
+      {"component": "View pointerEvents", "issue": "Console warning: 'props.pointerEvents is deprecated. Use style.pointerEvents'. Update component(s) using pointerEvents as a prop."}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_diyhomie_api.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [
+    "(Optional) Pin `bcrypt<4.1` in backend/requirements.txt to silence harmless passlib warning.",
+    "Fix DM Sans .ttf assets (re-export valid TTF) so custom typography applies on web preview as well.",
+    "Replace deprecated `shadow*` style props with `boxShadow` (or wrap with Platform.select for native vs web).",
+    "Migrate `pointerEvents` prop usage to `style.pointerEvents` (RN ≥0.74)."
+  ],
+  "critical_code_review_comments": [
+    "server.py is a single 516-line file — acceptable for MVP, but split into routers (auth, projects, community, billing) before scaling.",
+    "GET /api/projects strips `steps` field — good for list performance. GET /api/projects/{id} excludes `_id` — good.",
+    "brain_generate concatenates entire history each call; consider trimming or summarizing on long sessions to control token cost.",
+    "Out-of-credits returns 402 with proper detail string — verified by code review (not by live drain test).",
+    "All endpoints require Bearer auth (verified via 401/403 negative test).",
+    "Project ownership enforced via `user_id` filter in every query — good multi-tenant isolation."
+  ],
+  "updated_files": ["/app/backend/tests/test_diyhomie_api.py (new)"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "seed_data_creation": "Tests create TEST_ prefixed users/posts (uuid-suffixed). Not cleaned up — disposable.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Brain is in fallback mode (OpenAI gpt-4o-mini via EMERGENT_LLM_KEY) since PERPLEXITY_API_KEY is empty — this is expected. Step image generation takes ~10-15s. Backend regression tests at /app/backend/tests/test_diyhomie_api.py — run with `pytest backend/tests/ -v`. UI testIDs are comprehensive (see survey-option-{value}, home-input, home-send-button, home-step-instruction, home-credit-meter, paywall-start-trial, etc).",
+  "rca_of_issue": "N/A — no functional bugs found. Only minor cosmetic warnings (fonts/deprecations) documented above."
+}
