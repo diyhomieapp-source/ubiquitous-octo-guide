@@ -16,7 +16,7 @@ export default function Auth() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ mode?: string }>();
-  const { signIn, signUp, updateProfile } = useAuth();
+  const { signIn, signUp, updateProfile, signInWithGoogle } = useAuth();
 
   const [mode, setMode] = useState<"login" | "register">(params.mode === "login" ? "login" : "register");
   const [name, setName] = useState("");
@@ -56,6 +56,16 @@ export default function Auth() {
     }
   };
 
+  const googleSignIn = async () => {
+    setError("");
+    try {
+      const u = await signInWithGoogle();
+      if (u) router.replace(u.onboarded ? "/(tabs)" : "/paywall");
+    } catch (e: any) {
+      setError("Google sign-in failed. Please try again.");
+    }
+  };
+
   return (
     <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <ScrollView
@@ -76,6 +86,16 @@ export default function Auth() {
         <Text style={styles.subtitle}>
           {mode === "register" ? "Save your profile and unlock Homie." : "Pick up where you left off."}
         </Text>
+
+        <Pressable testID="auth-google-button" style={styles.googleBtn} onPress={googleSignIn}>
+          <MaterialCommunityIcons name="google" size={20} color={colors.onSurface} />
+          <Text style={styles.googleText}>Continue with Google</Text>
+        </Pressable>
+        <View style={styles.dividerRow}>
+          <View style={styles.divider} />
+          <Text style={styles.dividerText}>or with email</Text>
+          <View style={styles.divider} />
+        </View>
 
         {mode === "register" && (
           <TextInput
@@ -159,6 +179,11 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   error: { color: colors.error, fontFamily: font.medium, fontSize: type.base, marginBottom: spacing.sm },
+  googleBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, backgroundColor: colors.surfaceSecondary, borderColor: colors.borderStrong, borderWidth: 1.5, paddingVertical: spacing.lg, borderRadius: radius.md },
+  googleText: { color: colors.onSurface, fontFamily: font.bold, fontSize: type.lg },
+  dividerRow: { flexDirection: "row", alignItems: "center", gap: spacing.md, marginVertical: spacing.lg },
+  divider: { flex: 1, height: 1, backgroundColor: colors.border },
+  dividerText: { color: colors.onSurfaceTertiary, fontFamily: font.medium, fontSize: type.sm },
   cta: { backgroundColor: colors.brandPrimary, paddingVertical: spacing.lg, borderRadius: radius.md, alignItems: "center", marginTop: spacing.sm },
   ctaText: { color: colors.onBrandPrimary, fontFamily: font.bold, fontSize: type.lg, letterSpacing: 1 },
   toggle: { alignItems: "center", paddingVertical: spacing.xl },

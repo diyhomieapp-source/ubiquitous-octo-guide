@@ -1,5 +1,14 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { Platform } from "react-native";
+import * as WebBrowser from "expo-web-browser";
+import * as Linking from "expo-linking";
 import { api, setToken, clearToken, getToken } from "@/src/api";
+
+function extractSessionId(url: string | null | undefined): string | null {
+  if (!url) return null;
+  const m = url.match(/[#?&]session_id=([^&]+)/);
+  return m ? decodeURIComponent(m[1]) : null;
+}
 
 export type User = {
   id: string;
@@ -26,6 +35,7 @@ type AuthCtx = {
   refresh: () => Promise<void>;
   setUser: (u: User) => void;
   updateProfile: (patch: Partial<User>) => Promise<User>;
+  signInWithGoogle: () => Promise<User | null>;
 };
 
 const Ctx = createContext<AuthCtx>(null as any);
@@ -49,12 +59,55 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const processSessionId = useCallback(async (sessionId: string) => {
+    const res = await api<{ access_token: string; user: User }>("/auth/google", {
+      method: "POST",
+      body: { session_id: sessionId },
+      auth: false,
+    });
+    await setToken(res.access_token);
+    setUserState(res.user);
+    return res.user;
+  }, []);
+
+  const signInWithGoogle = useCallback(async (): Promise<User | null> => {
+    const redirectUrl = Platform.OS === "web" ? window.location.origin + "/" : Linking.createURL("auth");
+    const authUrl = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
+    if (Platform.OS === "web") {
+      window.location.href = authUrl;
+      return null;
+    }
+    const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUrl);
+    if (result.type === "success" && result.url) {
+      const sid = extractSessionId(result.url);
+      if (sid) return await processSessionId(sid);
+    }
+    return null;
+  }, [processSessionId]);
+
   useEffect(() => {
     (async () => {
-      await refresh();
-      setLoading(false);
+      try {
+        if (Platform.OS === "web" && typeof window !== "undefined") {
+          const sid = extractSessionId(window.location.hash) || extractSessionId(window.location.search);
+          if (sid) {
+            await processSessionId(sid);
+            window.history.replaceState(null, "", window.location.pathname);
+            return;
+          }
+        } else if (Platform.OS !== "web") {
+          const sid = extractSessionId(await Linking.getInitialURL());
+          if (sid) {
+            await processSessionId(sid);
+            return;
+          }
+        }
+        await refresh();
+      } finally {
+        setLoading(false);
+      }
     })();
-  }, [refresh]);
+  }, [refresh, processSessionId]);
 
   const signIn = async (email: string, password: string) => {
     const res = await api<{ access_token: string; user: User }>("/auth/login", {
@@ -90,7 +143,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <Ctx.Provider value={{ user, loading, signIn, signUp, signOut, refresh, setUser: setUserState, updateProfile }}>
+    <Ctx.Provider value={{ user, loading, signIn, signUp, signOut, refresh, setUser: setUserState, updateProfile, signInWithGoogle }}>
       {children}
     </Ctx.Provider>
   );

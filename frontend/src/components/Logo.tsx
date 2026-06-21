@@ -1,23 +1,18 @@
 import { View, Text, StyleSheet } from "react-native";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { Image } from "expo-image";
 import { colors, spacing, font } from "@/src/theme";
+
+const LOGO = require("../../assets/logo-contractor.png");
 
 type Size = "sm" | "md" | "lg";
 
 export function Logo({ size = "md", showWordmark = true }: { size?: Size; showWordmark?: boolean }) {
-  const dim = size === "lg" ? 64 : size === "sm" ? 38 : 50;
-  const icon = size === "lg" ? 34 : size === "sm" ? 20 : 27;
-  const word = size === "lg" ? 38 : size === "sm" ? 22 : 30;
-  const bolt = size === "lg" ? 26 : size === "sm" ? 16 : 20;
+  const dim = size === "lg" ? 92 : size === "sm" ? 44 : 60;
+  const word = size === "lg" ? 40 : size === "sm" ? 22 : 32;
 
   return (
     <View style={styles.row}>
-      <View style={[styles.tile, { width: dim, height: dim, borderRadius: dim * 0.3 }]}>
-        <MaterialCommunityIcons name="account-hard-hat" size={icon} color={colors.onBrandPrimary} />
-        <View style={[styles.badge, { width: bolt, height: bolt, borderRadius: bolt / 2, right: -bolt * 0.2, bottom: -bolt * 0.2 }]}>
-          <MaterialCommunityIcons name="wrench" size={bolt * 0.6} color={colors.brandPrimary} />
-        </View>
-      </View>
+      <Image source={LOGO} style={[styles.tile, { width: dim, height: dim, borderRadius: dim * 0.26 }]} contentFit="cover" />
       {showWordmark && (
         <Text style={[styles.word, { fontSize: word }]}>
           DIY<Text style={{ color: colors.brandPrimary }}>homie</Text>
