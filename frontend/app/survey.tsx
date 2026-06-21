@@ -7,6 +7,7 @@ import * as Haptics from "expo-haptics";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 import { colors, spacing, radius, font, type } from "@/src/theme";
+import { Logo } from "@/src/components/Logo";
 import { storage } from "@/src/utils/storage";
 
 type Card = {
@@ -19,7 +20,7 @@ type Card = {
 type ToolCategory = { title: string; icon: any; items: string[] };
 const TOOL_CATEGORIES: ToolCategory[] = [
   { title: "Hand Tools", icon: "hammer", items: ["Hammer", "Screwdriver Set", "Adjustable Wrench", "Pliers", "Tape Measure", "Utility Knife", "Spirit Level"] },
-  { title: "Power Tools", icon: "drill", items: ["Cordless Drill", "Impact Driver", "Circular Saw", "Jigsaw", "Angle Grinder", "Orbital Sander"] },
+  { title: "Power Tools", icon: "screwdriver", items: ["Cordless Drill", "Impact Driver", "Circular Saw", "Jigsaw", "Angle Grinder", "Orbital Sander"] },
   { title: "Measure & Detect", icon: "ruler-square", items: ["Multimeter", "Stud Finder", "Laser Level"] },
   { title: "Plumbing", icon: "pipe-wrench", items: ["Pipe Wrench", "Plunger", "Hacksaw"] },
   { title: "Finishing", icon: "format-paint", items: ["Caulking Gun", "Putty Knife", "Paint Roller"] },
@@ -116,6 +117,7 @@ export default function Survey() {
 
   return (
     <View style={[styles.root, { paddingTop: insets.top + spacing.md }]}>
+      <View style={styles.logoTop}><Logo size="sm" /></View>
       {/* progress */}
       <View style={styles.progressRow}>
         {CARDS.map((c, i) => (
@@ -236,6 +238,7 @@ export default function Survey() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.surface, paddingHorizontal: spacing.lg },
+  logoTop: { marginBottom: spacing.lg },
   progressRow: { flexDirection: "row", gap: spacing.xs, marginBottom: spacing.lg },
   segment: { flex: 1, height: 5, borderRadius: radius.pill },
   header: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginBottom: spacing.md, minHeight: 28 },

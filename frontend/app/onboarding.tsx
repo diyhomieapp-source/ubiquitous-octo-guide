@@ -6,6 +6,7 @@ import * as Haptics from "expo-haptics";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 import { colors, spacing, radius, font, type } from "@/src/theme";
+import { Logo } from "@/src/components/Logo";
 
 const HERO =
   "https://images.unsplash.com/photo-1720036236697-018370867320?crop=entropy&cs=srgb&fm=jpg&w=1200&q=70";
@@ -23,21 +24,24 @@ export default function Onboarding() {
           style={StyleSheet.absoluteFill}
         />
         <View style={[styles.content, { paddingTop: insets.top + spacing["2xl"], paddingBottom: insets.bottom + spacing.lg }]}>
-          <View style={styles.logoLockup}>
-            <View style={styles.logoMark}>
-              <MaterialCommunityIcons name="hard-hat" size={28} color={colors.onBrandPrimary} />
-            </View>
-            <Text style={styles.wordmark}>DIY<Text style={styles.wordmarkAccent}>homie</Text></Text>
-          </View>
+          <Logo size="md" />
 
           <View style={{ flex: 1 }} />
 
+          <View style={styles.eyebrowRow}>
+            <View style={styles.eyebrowBar} />
+            <Text style={styles.eyebrow}>FIX ANYTHING · BUILD EVERYTHING</Text>
+          </View>
           <Text style={styles.headline}>YOU’VE{"\n"}GOT THIS.</Text>
           <Text style={styles.sub}>
-            That repair you’ve been putting off? Consider it handled. DIYhomie walks you through home repairs,
-            improvements, maintenance and weatherproofing like a master contractor standing right beside you —
-            one clear, confident step at a time.
+            That repair you’ve been putting off? Consider it handled. DIYhomie is your master contractor in your
+            pocket — guiding you through repairs, upgrades, maintenance and weatherproofing, one confident step at a time.
           </Text>
+          <View style={styles.pillsRow}>
+            <View style={styles.pill}><MaterialCommunityIcons name="shield-check" size={14} color={colors.brandPrimary} /><Text style={styles.pillText}>Local codes</Text></View>
+            <View style={styles.pill}><MaterialCommunityIcons name="wrench" size={14} color={colors.brandPrimary} /><Text style={styles.pillText}>Your tools</Text></View>
+            <View style={styles.pill}><MaterialCommunityIcons name="camera" size={14} color={colors.brandPrimary} /><Text style={styles.pillText}>Photo steps</Text></View>
+          </View>
 
           <Pressable
             testID="onboarding-get-started-button"
@@ -68,27 +72,12 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.surface },
   bg: { flex: 1 },
   content: { flex: 1, paddingHorizontal: spacing.xl },
-  logoLockup: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-    alignSelf: "flex-start",
-  },
-  logoMark: {
-    width: 52,
-    height: 52,
-    borderRadius: radius.md,
-    backgroundColor: colors.brandPrimary,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: colors.brandPrimary,
-    shadowOpacity: 0.5,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 8,
-  },
-  wordmark: { color: colors.onSurface, fontFamily: font.bold, fontSize: 34, letterSpacing: -1 },
-  wordmarkAccent: { color: colors.brandPrimary },
+  eyebrowRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginBottom: spacing.md },
+  eyebrowBar: { width: 28, height: 4, borderRadius: radius.pill, backgroundColor: colors.brandPrimary },
+  eyebrow: { color: colors.brandPrimary, fontFamily: font.bold, fontSize: 12, letterSpacing: 1.5 },
+  pillsRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginTop: spacing.lg },
+  pill: { flexDirection: "row", alignItems: "center", gap: spacing.xs, backgroundColor: "rgba(255,255,255,0.06)", borderColor: colors.borderStrong, borderWidth: 1, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.pill },
+  pillText: { color: colors.onSurface, fontFamily: font.bold, fontSize: type.sm },
   headline: {
     color: colors.onSurface,
     fontFamily: font.display,

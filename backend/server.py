@@ -15,6 +15,7 @@ from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field, EmailStr
 import jwt
+import httpx
 from passlib.context import CryptContext
 
 ROOT_DIR = Path(__file__).parent
@@ -337,6 +338,53 @@ async def login(req: LoginReq):
 @api_router.get("/auth/me")
 async def me(user: dict = Depends(get_current_user)):
     return public_user(user)
+
+
+class GoogleAuthReq(BaseModel):
+    session_id: str
+
+
+@api_router.post("/auth/google")
+async def google_auth(req: GoogleAuthReq):
+    try:
+        async with httpx.AsyncClient(timeout=20) as http:
+            r = await http.get(
+                "https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data",
+                headers={"X-Session-ID": req.session_id},
+            )
+    except Exception as e:
+        logger.error(f"google session fetch failed: {e}")
+        raise HTTPException(status_code=502, detail="Could not reach Google sign-in service")
+    if r.status_code != 200:
+        raise HTTPException(status_code=401, detail="Google sign-in failed")
+    data = r.json()
+    email = (data.get("email") or "").lower()
+    if not email:
+        raise HTTPException(status_code=401, detail="Google sign-in returned no email")
+    user = await db.users.find_one({"email": email})
+    if not user:
+        user = {
+            "id": new_id(),
+            "email": email,
+            "name": data.get("name", ""),
+            "picture": data.get("picture", ""),
+            "hashed_password": None,
+            "auth_provider": "google",
+            "experience": None,
+            "tools": [],
+            "budget": None,
+            "pain_point": None,
+            "expectation": None,
+            "location": "",
+            "credits": 60,
+            "voice_minutes": 3,
+            "subscription_tier": "free",
+            "onboarded": False,
+            "created_at": now_iso(),
+        }
+        await db.users.insert_one(user)
+    token = create_token(user["id"])
+    return {"access_token": token, "token_type": "bearer", "user": public_user(user)}
 
 
 @api_router.put("/profile")
