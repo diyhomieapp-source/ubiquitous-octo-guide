@@ -13,7 +13,7 @@ export function Logo({ size = "md", showWordmark = true }: { size?: Size; showWo
   return (
     <View style={styles.row}>
       <View style={[styles.tile, { width: dim, height: dim, borderRadius: dim * 0.3 }]}>
-        <MaterialCommunityIcons name="home-variant" size={icon} color={colors.onBrandPrimary} />
+        <MaterialCommunityIcons name="account-hard-hat" size={icon} color={colors.onBrandPrimary} />
         <View style={[styles.badge, { width: bolt, height: bolt, borderRadius: bolt / 2, right: -bolt * 0.2, bottom: -bolt * 0.2 }]}>
           <MaterialCommunityIcons name="wrench" size={bolt * 0.6} color={colors.brandPrimary} />
         </View>
