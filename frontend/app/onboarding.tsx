@@ -1,4 +1,5 @@
-import { View, Text, StyleSheet, Pressable, ImageBackground } from "react-native";
+import { View, Text, StyleSheet, Pressable } from "react-native";
+import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -8,8 +9,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors, spacing, radius, font, type } from "@/src/theme";
 import { Logo } from "@/src/components/Logo";
 
-const HERO =
-  "https://images.unsplash.com/photo-1720036236697-018370867320?crop=entropy&cs=srgb&fm=jpg&w=1200&q=70";
+const HERO = require("../assets/hero-home.png");
 
 export default function Onboarding() {
   const router = useRouter();
@@ -17,10 +17,11 @@ export default function Onboarding() {
 
   return (
     <View style={styles.root}>
-      <ImageBackground source={{ uri: HERO }} style={styles.bg} resizeMode="cover">
+      <View style={styles.bg}>
+        <Image source={HERO} style={StyleSheet.absoluteFill} contentFit="cover" />
         <LinearGradient
-          colors={["rgba(18,18,18,0.35)", "rgba(18,18,18,0.85)", "rgba(18,18,18,0.98)"]}
-          locations={[0, 0.55, 1]}
+          colors={["rgba(18,18,18,0.05)", "rgba(18,18,18,0.65)", "rgba(18,18,18,0.98)"]}
+          locations={[0, 0.5, 1]}
           style={StyleSheet.absoluteFill}
         />
         <View style={[styles.content, { paddingTop: insets.top + spacing["2xl"], paddingBottom: insets.bottom + spacing.lg }]}>
@@ -40,7 +41,7 @@ export default function Onboarding() {
           <View style={styles.pillsRow}>
             <View style={styles.pill}><MaterialCommunityIcons name="shield-check" size={14} color={colors.brandPrimary} /><Text style={styles.pillText}>Local codes</Text></View>
             <View style={styles.pill}><MaterialCommunityIcons name="wrench" size={14} color={colors.brandPrimary} /><Text style={styles.pillText}>Your tools</Text></View>
-            <View style={styles.pill}><MaterialCommunityIcons name="camera" size={14} color={colors.brandPrimary} /><Text style={styles.pillText}>Photo steps</Text></View>
+            <View style={styles.pill}><MaterialCommunityIcons name="gesture-tap" size={14} color={colors.brandPrimary} /><Text style={styles.pillText}>Interactive steps</Text></View>
           </View>
 
           <Pressable
@@ -63,7 +64,7 @@ export default function Onboarding() {
             <Text style={styles.loginText}>I already have an account</Text>
           </Pressable>
         </View>
-      </ImageBackground>
+      </View>
     </View>
   );
 }
