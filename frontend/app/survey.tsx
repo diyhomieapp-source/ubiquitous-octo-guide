@@ -16,8 +16,15 @@ type Card = {
   options: { label: string; value: string; icon?: any; bg?: string }[];
 };
 
-const DEWALT = "https://images.pexels.com/photos/37391887/pexels-photo-37391887.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940";
-const MAKITA = "https://images.pexels.com/photos/20094121/pexels-photo-20094121.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940";
+type ToolCategory = { title: string; icon: any; items: string[] };
+const TOOL_CATEGORIES: ToolCategory[] = [
+  { title: "Hand Tools", icon: "hammer", items: ["Hammer", "Screwdriver Set", "Adjustable Wrench", "Pliers", "Tape Measure", "Utility Knife", "Spirit Level"] },
+  { title: "Power Tools", icon: "drill", items: ["Cordless Drill", "Impact Driver", "Circular Saw", "Jigsaw", "Angle Grinder", "Orbital Sander"] },
+  { title: "Measure & Detect", icon: "ruler-square", items: ["Multimeter", "Stud Finder", "Laser Level"] },
+  { title: "Plumbing", icon: "pipe-wrench", items: ["Pipe Wrench", "Plunger", "Hacksaw"] },
+  { title: "Finishing", icon: "format-paint", items: ["Caulking Gun", "Putty Knife", "Paint Roller"] },
+  { title: "Safety Gear", icon: "shield-check", items: ["Safety Glasses", "Work Gloves", "Dust Mask"] },
+];
 
 const CARDS: Card[] = [
   {
@@ -32,16 +39,9 @@ const CARDS: Card[] = [
   },
   {
     key: "tools",
-    question: "What's in your tool shed?",
+    question: "What's in your tool kit?",
     multi: true,
-    options: [
-      { label: "Hammer", value: "Hammer", bg: DEWALT },
-      { label: "Cordless Drill", value: "Cordless Drill", bg: MAKITA },
-      { label: "Adjustable Wrench", value: "Adjustable Wrench", bg: DEWALT },
-      { label: "Multimeter", value: "Multimeter", bg: MAKITA },
-      { label: "Screwdriver Set", value: "Screwdriver Set", bg: DEWALT },
-      { label: "None / Basic Hand Tools", value: "None / Basic Hand Tools", bg: MAKITA },
-    ],
+    options: [],
   },
   {
     key: "budget",
@@ -55,6 +55,7 @@ const CARDS: Card[] = [
   {
     key: "pain_point",
     question: "What frustrates you most about DIY guides?",
+    multi: true,
     options: [
       { label: "Too confusing", value: "Too confusing", icon: "head-question-outline" },
       { label: "Missing steps", value: "Missing steps", icon: "format-list-checks" },
@@ -135,13 +136,42 @@ export default function Survey() {
       </View>
 
       <Text style={styles.question} testID="survey-question">{card.question}</Text>
+      {card.multi && <Text style={styles.multiHint}>Select all that apply</Text>}
 
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{ gap: spacing.md, paddingBottom: spacing.xl }}
         showsVerticalScrollIndicator={false}
       >
-        {card.options.map((opt) => {
+        {card.key === "tools" && (
+          <View style={{ gap: spacing.lg }}>
+            {TOOL_CATEGORIES.map((cat) => (
+              <View key={cat.title}>
+                <View style={styles.toolCatHead}>
+                  <MaterialCommunityIcons name={cat.icon} size={15} color={colors.brandPrimary} />
+                  <Text style={styles.toolCatTitle}>{cat.title.toUpperCase()}</Text>
+                </View>
+                <View style={styles.toolGrid}>
+                  {cat.items.map((item) => {
+                    const selected = (answers.tools || []).includes(item);
+                    return (
+                      <Pressable
+                        key={item}
+                        testID={`survey-option-${item}`}
+                        onPress={() => onSelect(item)}
+                        style={[styles.toolChip, selected && styles.toolChipOn]}
+                      >
+                        {selected && <MaterialCommunityIcons name="check" size={13} color={colors.onBrandPrimary} />}
+                        <Text style={[styles.toolChipText, selected && { color: colors.onBrandPrimary }]}>{item}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+        {card.key !== "tools" && card.options.map((opt) => {
           const selected = card.multi
             ? (answers[card.key] || []).includes(opt.value)
             : answers[card.key] === opt.value;
@@ -240,4 +270,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.brandPrimary, paddingVertical: spacing.lg, borderRadius: radius.md, alignItems: "center",
   },
   continueText: { color: colors.onBrandPrimary, fontFamily: font.bold, fontSize: type.lg, letterSpacing: 1 },
+  multiHint: { color: colors.brandPrimary, fontFamily: font.bold, fontSize: type.sm, letterSpacing: 0.5, marginTop: -spacing.md, marginBottom: spacing.lg },
+  toolCatHead: { flexDirection: "row", alignItems: "center", gap: spacing.xs, marginBottom: spacing.sm },
+  toolCatTitle: { color: colors.onSurfaceTertiary, fontFamily: font.bold, fontSize: 11, letterSpacing: 1.5 },
+  toolGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
+  toolChip: { flexDirection: "row", alignItems: "center", gap: spacing.xs, backgroundColor: colors.surfaceSecondary, borderColor: colors.border, borderWidth: 1.5, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
+  toolChipOn: { backgroundColor: colors.brandPrimary, borderColor: colors.brandPrimary },
+  toolChipText: { color: colors.onSurfaceSecondary, fontFamily: font.bold, fontSize: type.base },
 });

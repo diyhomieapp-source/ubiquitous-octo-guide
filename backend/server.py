@@ -107,7 +107,7 @@ class ProfileReq(BaseModel):
     experience: Optional[str] = None
     tools: Optional[List[str]] = None
     budget: Optional[str] = None
-    pain_point: Optional[str] = None
+    pain_point: Optional[List[str]] = None
     expectation: Optional[str] = None
     location: Optional[str] = None
     onboarded: Optional[bool] = None
