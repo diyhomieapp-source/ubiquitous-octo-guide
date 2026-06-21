@@ -23,17 +23,20 @@ export default function Onboarding() {
           style={StyleSheet.absoluteFill}
         />
         <View style={[styles.content, { paddingTop: insets.top + spacing["2xl"], paddingBottom: insets.bottom + spacing.lg }]}>
-          <View style={styles.badge}>
-            <MaterialCommunityIcons name="hard-hat" size={16} color={colors.brandPrimary} />
-            <Text style={styles.badgeText}>DIYHOMIE</Text>
+          <View style={styles.logoLockup}>
+            <View style={styles.logoMark}>
+              <MaterialCommunityIcons name="hard-hat" size={28} color={colors.onBrandPrimary} />
+            </View>
+            <Text style={styles.wordmark}>DIY<Text style={styles.wordmarkAccent}>homie</Text></Text>
           </View>
 
           <View style={{ flex: 1 }} />
 
-          <Text style={styles.headline}>STOP{"\n"}SCROLLING.{"\n"}START{"\n"}BUILDING.</Text>
+          <Text style={styles.headline}>YOU'VE{"\n"}GOT THIS.</Text>
           <Text style={styles.sub}>
-            Repairs, home improvements, maintenance or weatherproofing — DIYhomie guides you through every
-            job one step at a time, with your local codes, your exact tools, and a custom photo for each move.
+            That repair you've been putting off? Consider it handled. DIYhomie walks you through home repairs,
+            improvements, maintenance and weatherproofing like a master contractor standing right beside you —
+            one clear, confident step at a time.
           </Text>
 
           <Pressable
@@ -65,19 +68,27 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.surface },
   bg: { flex: 1 },
   content: { flex: 1, paddingHorizontal: spacing.xl },
-  badge: {
+  logoLockup: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.sm,
+    gap: spacing.md,
     alignSelf: "flex-start",
-    backgroundColor: "rgba(0,0,0,0.4)",
-    borderColor: colors.borderStrong,
-    borderWidth: 1,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.pill,
   },
-  badgeText: { color: colors.onSurface, fontFamily: font.bold, fontSize: 11, letterSpacing: 1 },
+  logoMark: {
+    width: 52,
+    height: 52,
+    borderRadius: radius.md,
+    backgroundColor: colors.brandPrimary,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: colors.brandPrimary,
+    shadowOpacity: 0.5,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 8,
+  },
+  wordmark: { color: colors.onSurface, fontFamily: font.bold, fontSize: 34, letterSpacing: -1 },
+  wordmarkAccent: { color: colors.brandPrimary },
   headline: {
     color: colors.onSurface,
     fontFamily: font.display,
