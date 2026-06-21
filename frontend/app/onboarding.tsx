@@ -32,9 +32,8 @@ export default function Onboarding() {
 
           <Text style={styles.headline}>STOP{"\n"}SCROLLING.{"\n"}START{"\n"}BUILDING.</Text>
           <Text style={styles.sub}>
-            DIYhomie puts an elite master contractor in your pocket. It knows your local building codes,
-            works with the exact tools you own, and walks you through any repair — one confident step at a
-            time, with a custom photo for every move.
+            Repairs, home improvements, maintenance or weatherproofing — DIYhomie guides you through every
+            job one step at a time, with your local codes, your exact tools, and a custom photo for each move.
           </Text>
 
           <Pressable
