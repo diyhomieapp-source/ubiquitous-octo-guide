@@ -20,8 +20,8 @@ export default function Onboarding() {
       <View style={styles.bg}>
         <Image source={HERO} style={StyleSheet.absoluteFill} contentFit="cover" />
         <LinearGradient
-          colors={["rgba(18,18,18,0.1)", "rgba(18,18,18,0.72)", "rgba(18,18,18,1)"]}
-          locations={[0, 0.4, 0.66]}
+          colors={["rgba(18,18,18,0)", "rgba(18,18,18,0.55)", "rgba(18,18,18,1)"]}
+          locations={[0, 0.45, 0.7]}
           style={StyleSheet.absoluteFill}
         />
         <View style={[styles.content, { paddingTop: insets.top + spacing["2xl"], paddingBottom: insets.bottom + spacing.lg }]}>

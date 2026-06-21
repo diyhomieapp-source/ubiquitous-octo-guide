@@ -3,10 +3,11 @@ from emergentintegrations.llm.openai.image_generation import OpenAIImageGenerati
 
 KEY = os.environ.get("EMERGENT_LLM_KEY", "sk-emergent-53aB4D488D1993cB7F")
 PROMPT = (
-    "Moody atmospheric still life of DIY home-improvement tools — a cordless power drill, hammer, "
-    "measuring tape, screws and freshly cut wood on a dark wooden workbench. Dramatic warm rim lighting "
-    "from one side, deep charcoal background fading to pure black at the edges and bottom. Cinematic, "
-    "premium, high detail, no people, no text, no words, no logos."
+    "Crisp, brightly lit flat-lay of recognizable DIY home-improvement tools neatly arranged on a dark "
+    "charcoal surface: a bright orange cordless power drill, a hammer, a yellow spirit level, a tape measure, "
+    "a paint roller, and a small pile of screws. Vivid colors, clean studio lighting, sharp focus, clearly "
+    "readable as a DIY toolkit. The lower portion of the image fades smoothly to pure black. "
+    "No people, no text, no words, no logos."
 )
 
 async def main():
