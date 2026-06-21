@@ -20,9 +20,10 @@ export default function Onboarding() {
       <View style={styles.bg}>
         <Image source={HERO} style={StyleSheet.absoluteFill} contentFit="cover" />
         <LinearGradient
-          colors={["rgba(18,18,18,0)", "rgba(18,18,18,0.55)", "rgba(18,18,18,1)"]}
-          locations={[0, 0.45, 0.7]}
-          style={StyleSheet.absoluteFill}
+          colors={["rgba(18,18,18,0.2)", "rgba(18,18,18,0.85)", "rgba(18,18,18,1)"]}
+          locations={[0, 0.7, 1]}
+          style={styles.topFade}
+          pointerEvents="none"
         />
         <View style={[styles.content, { paddingTop: insets.top + spacing["2xl"], paddingBottom: insets.bottom + spacing.lg }]}>
           <Logo size="md" />
@@ -40,7 +41,7 @@ export default function Onboarding() {
           </Text>
           <View style={styles.pillsRow}>
             <View style={styles.pill}><MaterialCommunityIcons name="shield-check" size={14} color={colors.brandPrimary} /><Text style={styles.pillText}>Local codes</Text></View>
-            <View style={styles.pill}><MaterialCommunityIcons name="wrench" size={14} color={colors.brandPrimary} /><Text style={styles.pillText}>Your tools</Text></View>
+            <View style={styles.pill}><MaterialCommunityIcons name="check-decagram" size={14} color={colors.brandPrimary} /><Text style={styles.pillText}>Accurate guides</Text></View>
             <View style={styles.pill}><MaterialCommunityIcons name="gesture-tap" size={14} color={colors.brandPrimary} /><Text style={styles.pillText}>Interactive steps</Text></View>
           </View>
 
@@ -72,6 +73,7 @@ export default function Onboarding() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.surface },
   bg: { flex: 1 },
+  topImageWrap: { position: "absolute", top: 0, left: 0, right: 0, height: 300, opacity: 0.5, overflow: "hidden" },
   content: { flex: 1, paddingHorizontal: spacing.xl },
   eyebrowRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginBottom: spacing.md },
   eyebrowBar: { width: 28, height: 4, borderRadius: radius.pill, backgroundColor: colors.brandPrimary },
