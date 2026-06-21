@@ -25,15 +25,16 @@ export default function Onboarding() {
         <View style={[styles.content, { paddingTop: insets.top + spacing["2xl"], paddingBottom: insets.bottom + spacing.lg }]}>
           <View style={styles.badge}>
             <MaterialCommunityIcons name="hard-hat" size={16} color={colors.brandPrimary} />
-            <Text style={styles.badgeText}>YOUR SUPERHUMAN CONTRACTOR</Text>
+            <Text style={styles.badgeText}>DIYHOMIE</Text>
           </View>
 
           <View style={{ flex: 1 }} />
 
           <Text style={styles.headline}>STOP{"\n"}SCROLLING.{"\n"}START{"\n"}BUILDING.</Text>
           <Text style={styles.sub}>
-            Meet Homie — an elite master contractor who knows your local codes, matches steps to your exact
-            toolset, and guides you one step at a time.
+            DIYhomie puts an elite master contractor in your pocket. It knows your local building codes,
+            works with the exact tools you own, and walks you through any repair — one confident step at a
+            time, with a custom photo for every move.
           </Text>
 
           <Pressable
