@@ -32,9 +32,9 @@ export default function Onboarding() {
 
           <View style={{ flex: 1 }} />
 
-          <Text style={styles.headline}>YOU'VE{"\n"}GOT THIS.</Text>
+          <Text style={styles.headline}>YOU’VE{"\n"}GOT THIS.</Text>
           <Text style={styles.sub}>
-            That repair you've been putting off? Consider it handled. DIYhomie walks you through home repairs,
+            That repair you’ve been putting off? Consider it handled. DIYhomie walks you through home repairs,
             improvements, maintenance and weatherproofing like a master contractor standing right beside you —
             one clear, confident step at a time.
           </Text>

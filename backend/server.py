@@ -213,6 +213,90 @@ async def generate_step_image(visual_description: str, project_title: str) -> Op
     return None
 
 
+GUIDE_SYSTEM = (
+    "You are 'Homie,' an elite Master Contractor and building inspector inside the DIYhomie app. "
+    "Produce a COMPLETE, beginner-friendly structured DIY guide for a homeowner.\n"
+    "Adapt to the user profile: Experience {experience}, Budget {budget}, Tools owned: {tools}. "
+    "Location: {location} — consider local building codes, permits and climate.\n"
+    "Keep language simple, encouraging and easy to read. "
+    "Respond ONLY with valid JSON (no markdown fences) with EXACTLY these keys:\n"
+    "  'overview': a warm 1-2 sentence intro to the job.\n"
+    "  'tools': array of tool names needed.\n"
+    "  'materials': array of materials/parts to buy.\n"
+    "  'safety_warnings': array of short safety strings.\n"
+    "  'code_alert': short permit/code warning string if relevant, otherwise null.\n"
+    "  'steps': array of 5-9 objects, each {{'title': 2-4 words, 'instruction': one clear sentence under 25 words, "
+    "'visual_description': a literal mechanical description naming the specific tools/parts, written as an image-generation prompt}}.\n"
+    "  'common_mistakes': array of short strings.\n"
+    "  'troubleshooting': array of short 'problem - fix' strings.\n"
+    "  'inspection_checklist': array of short final check items."
+)
+
+
+async def _llm_json(system: str, user_text: str, max_tokens: int = 1800) -> dict:
+    if PERPLEXITY_API_KEY:
+        try:
+            from openai import AsyncOpenAI
+            pplx = AsyncOpenAI(api_key=PERPLEXITY_API_KEY, base_url="https://api.perplexity.ai")
+            resp = await pplx.chat.completions.create(
+                model="sonar-pro",
+                messages=[{"role": "system", "content": system}, {"role": "user", "content": user_text}],
+                max_tokens=max_tokens,
+            )
+            return _strip_json(resp.choices[0].message.content)
+        except Exception as e:
+            logger.warning(f"Perplexity guide failed, falling back: {e}")
+    from emergentintegrations.llm.chat import LlmChat, UserMessage
+    chat = LlmChat(api_key=EMERGENT_LLM_KEY, session_id=new_id(), system_message=system).with_model("openai", "gpt-4o-mini")
+    out = await chat.send_message(UserMessage(text=user_text))
+    return _strip_json(out)
+
+
+async def brain_generate_guide(profile: dict, title: str) -> dict:
+    system = GUIDE_SYSTEM.format(
+        experience=profile.get("experience") or "Weekend Warrior",
+        budget=profile.get("budget") or "Standard",
+        tools=", ".join(profile.get("tools") or []) or "None / basic hand tools",
+        location=profile.get("location") or "United States",
+    )
+    user_text = f"Create the full structured DIY guide for this project: '{title}'."
+    return await _llm_json(system, user_text)
+
+
+async def brain_answer(profile: dict, title: str, question: str) -> str:
+    system = (
+        "You are Homie, a friendly master contractor helping a homeowner with the project "
+        f"'{title}'. Experience: {profile.get('experience') or 'Weekend Warrior'}. "
+        f"Location: {profile.get('location') or 'United States'}. "
+        "Answer their question in a clear, encouraging, practical way. Keep it under 60 words. "
+        "If it's a setback, give the exact fix. Plain text only, no markdown."
+    )
+    if PERPLEXITY_API_KEY:
+        try:
+            from openai import AsyncOpenAI
+            pplx = AsyncOpenAI(api_key=PERPLEXITY_API_KEY, base_url="https://api.perplexity.ai")
+            resp = await pplx.chat.completions.create(
+                model="sonar-pro",
+                messages=[{"role": "system", "content": system}, {"role": "user", "content": question}],
+                max_tokens=300,
+            )
+            return resp.choices[0].message.content.strip()
+        except Exception as e:
+            logger.warning(f"Perplexity answer failed, falling back: {e}")
+    from emergentintegrations.llm.chat import LlmChat, UserMessage
+    chat = LlmChat(api_key=EMERGENT_LLM_KEY, session_id=new_id(), system_message=system).with_model("openai", "gpt-4o-mini")
+    return (await chat.send_message(UserMessage(text=question))).strip()
+
+
+def _owned(tool: str, owned_tools: List[str]) -> bool:
+    t = tool.lower()
+    for ut in owned_tools:
+        first = ut.lower().split("/")[0].split()[0] if ut else ""
+        if first and (first in t or t in ut.lower()):
+            return True
+    return False
+
+
 # ---------------------------------------------------------------- auth routes
 @api_router.post("/auth/register")
 async def register(req: RegisterReq):
@@ -273,9 +357,14 @@ async def start_project(req: StartProjectReq, user: dict = Depends(get_current_u
         "title": req.title,
         "location": req.location or user.get("location", ""),
         "status": "active",
+        "favorite": False,
+        "notes": "",
+        "guide": None,
         "steps": [],
         "missing_supplies": [],
         "created_at": now_iso(),
+        "last_viewed_at": now_iso(),
+        "completed_at": None,
     }
     await db.projects.insert_one(project)
     project.pop("_id", None)
@@ -284,8 +373,156 @@ async def start_project(req: StartProjectReq, user: dict = Depends(get_current_u
 
 @api_router.get("/projects")
 async def list_projects(user: dict = Depends(get_current_user)):
-    projects = await db.projects.find({"user_id": user["id"]}, {"_id": 0, "steps": 0}).sort("created_at", -1).to_list(100)
-    return projects
+    docs = await db.projects.find({"user_id": user["id"]}, {"_id": 0}).sort("last_viewed_at", -1).to_list(200)
+    out = []
+    for p in docs:
+        steps = p.get("steps", [])
+        total = len(steps)
+        done = sum(1 for s in steps if s.get("done"))
+        out.append({
+            "id": p["id"],
+            "title": p["title"],
+            "status": p.get("status", "active"),
+            "favorite": p.get("favorite", False),
+            "has_guide": p.get("guide") is not None,
+            "total_steps": total,
+            "done_steps": done,
+            "progress": int((done / total) * 100) if total else 0,
+            "created_at": p.get("created_at"),
+            "last_viewed_at": p.get("last_viewed_at"),
+        })
+    return out
+
+
+class PatchProjectReq(BaseModel):
+    favorite: Optional[bool] = None
+    notes: Optional[str] = None
+    status: Optional[str] = None
+    touch: Optional[bool] = None
+
+
+@api_router.patch("/projects/{project_id}")
+async def patch_project(project_id: str, req: PatchProjectReq, user: dict = Depends(get_current_user)):
+    project = await db.projects.find_one({"id": project_id, "user_id": user["id"]}, {"_id": 0})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    updates = {}
+    if req.favorite is not None:
+        updates["favorite"] = req.favorite
+    if req.notes is not None:
+        updates["notes"] = req.notes
+    if req.status is not None:
+        updates["status"] = req.status
+        if req.status == "completed":
+            updates["completed_at"] = now_iso()
+    if req.touch:
+        updates["last_viewed_at"] = now_iso()
+    if updates:
+        await db.projects.update_one({"id": project_id}, {"$set": updates})
+    fresh = await db.projects.find_one({"id": project_id}, {"_id": 0})
+    return fresh
+
+
+@api_router.post("/projects/{project_id}/guide")
+async def build_guide(project_id: str, user: dict = Depends(get_current_user)):
+    project = await db.projects.find_one({"id": project_id, "user_id": user["id"]}, {"_id": 0})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    if project.get("guide"):
+        return project
+    cost = 3
+    if user.get("credits", 0) < cost:
+        raise HTTPException(status_code=402, detail="Out of credits. Upgrade to continue.")
+    try:
+        data = await brain_generate_guide(user, project["title"])
+    except Exception as e:
+        logger.error(f"guide error: {e}")
+        raise HTTPException(status_code=502, detail="Homie could not draft the plan. Try again.")
+
+    raw_steps = data.get("steps", []) or []
+    steps = []
+    for i, s in enumerate(raw_steps):
+        steps.append({
+            "id": new_id(),
+            "index": i + 1,
+            "title": s.get("title", f"Step {i + 1}"),
+            "instruction": s.get("instruction", ""),
+            "visual_description": s.get("visual_description", ""),
+            "image_base64": None,
+            "done": False,
+        })
+
+    owned = user.get("tools", []) or []
+    missing_tools = [t for t in (data.get("tools", []) or []) if not _owned(t, owned)]
+    materials = data.get("materials", []) or []
+    missing_supplies = []
+    for x in missing_tools + materials:
+        if x and x not in missing_supplies:
+            missing_supplies.append(x)
+
+    guide = {
+        "overview": data.get("overview", ""),
+        "tools": data.get("tools", []) or [],
+        "materials": materials,
+        "safety_warnings": data.get("safety_warnings", []) or [],
+        "code_alert": data.get("code_alert"),
+        "common_mistakes": data.get("common_mistakes", []) or [],
+        "troubleshooting": data.get("troubleshooting", []) or [],
+        "inspection_checklist": data.get("inspection_checklist", []) or [],
+        "owned_tools": owned,
+    }
+    await db.projects.update_one(
+        {"id": project_id},
+        {"$set": {"guide": guide, "steps": steps, "missing_supplies": missing_supplies, "last_viewed_at": now_iso()}},
+    )
+    new_credits = user.get("credits", 0) - cost
+    await db.users.update_one({"id": user["id"]}, {"$set": {"credits": new_credits}})
+    fresh = await db.projects.find_one({"id": project_id}, {"_id": 0})
+    return fresh
+
+
+class StepDoneReq(BaseModel):
+    done: bool
+
+
+@api_router.post("/projects/{project_id}/steps/{step_id}/done")
+async def set_step_done(project_id: str, step_id: str, req: StepDoneReq, user: dict = Depends(get_current_user)):
+    res = await db.projects.update_one(
+        {"id": project_id, "user_id": user["id"], "steps.id": step_id},
+        {"$set": {"steps.$.done": req.done, "last_viewed_at": now_iso()}},
+    )
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Step not found")
+    project = await db.projects.find_one({"id": project_id}, {"_id": 0})
+    steps = project.get("steps", [])
+    done = sum(1 for s in steps if s.get("done"))
+    total = len(steps)
+    if total and done == total and project.get("status") != "completed":
+        await db.projects.update_one({"id": project_id}, {"$set": {"status": "completed", "completed_at": now_iso()}})
+    return {"done_steps": done, "total_steps": total, "progress": int((done / total) * 100) if total else 0}
+
+
+class AskReq(BaseModel):
+    message: str
+    mode: str = "text"
+
+
+@api_router.post("/projects/{project_id}/ask")
+async def ask_homie(project_id: str, req: AskReq, user: dict = Depends(get_current_user)):
+    project = await db.projects.find_one({"id": project_id, "user_id": user["id"]}, {"_id": 0})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    cost = 2 if req.mode == "voice" else 1
+    if user.get("credits", 0) < cost:
+        raise HTTPException(status_code=402, detail="Out of credits. Upgrade to continue.")
+    try:
+        answer = await brain_answer(user, project["title"], req.message)
+    except Exception as e:
+        logger.error(f"ask error: {e}")
+        raise HTTPException(status_code=502, detail="Homie couldn't answer right now. Try again.")
+    new_credits = user.get("credits", 0) - cost
+    await db.users.update_one({"id": user["id"]}, {"$set": {"credits": new_credits}})
+    return {"answer": answer, "credits": new_credits}
 
 
 @api_router.get("/projects/{project_id}")

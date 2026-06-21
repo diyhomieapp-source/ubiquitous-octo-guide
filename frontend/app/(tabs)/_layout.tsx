@@ -29,6 +29,13 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="projects"
+        options={{
+          title: "PROJECTS",
+          tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="clipboard-list-outline" size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="supplies"
         options={{
           title: "SUPPLIES",

@@ -69,7 +69,7 @@ export default function Auth() {
 
         <View style={styles.logoRow}>
           <MaterialCommunityIcons name="hard-hat" size={28} color={colors.brandPrimary} />
-          <Text style={styles.logo}>DIYHOMIE</Text>
+          <Text style={styles.logo}>DIYhomie</Text>
         </View>
 
         <Text style={styles.title}>{mode === "register" ? "CREATE YOUR ACCOUNT" : "WELCOME BACK"}</Text>

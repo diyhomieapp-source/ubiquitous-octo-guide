@@ -71,7 +71,7 @@ export default function Supplies() {
       ) : !hasProject || items.length === 0 ? (
         <View style={styles.center} testID="supplies-empty">
           <MaterialCommunityIcons name="toolbox-outline" size={56} color={colors.onSurfaceTertiary} />
-          <Text style={styles.emptyTitle}>YOU'RE FULLY STOCKED</Text>
+          <Text style={styles.emptyTitle}>YOU’RE FULLY STOCKED</Text>
           <Text style={styles.emptySub}>
             {hasProject ? "Homie hasn’t flagged any missing tools for this project yet." : "Start a project with Homie and any missing tools will appear here."}
           </Text>
