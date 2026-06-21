@@ -8,13 +8,15 @@ export function Logo({ size = "md", showWordmark = true }: { size?: Size; showWo
   const dim = size === "lg" ? 64 : size === "sm" ? 38 : 50;
   const icon = size === "lg" ? 34 : size === "sm" ? 20 : 27;
   const word = size === "lg" ? 38 : size === "sm" ? 22 : 30;
-  const bolt = size === "lg" ? 14 : size === "sm" ? 9 : 11;
+  const bolt = size === "lg" ? 26 : size === "sm" ? 16 : 20;
 
   return (
     <View style={styles.row}>
       <View style={[styles.tile, { width: dim, height: dim, borderRadius: dim * 0.3 }]}>
-        <MaterialCommunityIcons name="hammer-screwdriver" size={icon} color={colors.onBrandPrimary} />
-        <View style={[styles.bolt, { width: bolt, height: bolt, borderRadius: bolt / 2, top: dim * 0.16, right: dim * 0.16 }]} />
+        <MaterialCommunityIcons name="home-variant" size={icon} color={colors.onBrandPrimary} />
+        <View style={[styles.badge, { width: bolt, height: bolt, borderRadius: bolt / 2, right: -bolt * 0.2, bottom: -bolt * 0.2 }]}>
+          <MaterialCommunityIcons name="wrench" size={bolt * 0.6} color={colors.brandPrimary} />
+        </View>
       </View>
       {showWordmark && (
         <Text style={[styles.word, { fontSize: word }]}>
@@ -37,6 +39,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     elevation: 8,
   },
-  bolt: { position: "absolute", backgroundColor: colors.onBrandPrimary, opacity: 0.9 },
+  bolt: { position: "absolute", backgroundColor: colors.surface, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: colors.onBrandPrimary },
   word: { color: colors.onSurface, fontFamily: font.bold, letterSpacing: -1 },
 });

@@ -30,12 +30,12 @@ export default function Onboarding() {
 
           <View style={styles.eyebrowRow}>
             <View style={styles.eyebrowBar} />
-            <Text style={styles.eyebrow}>FIX ANYTHING · BUILD EVERYTHING</Text>
+            <Text style={styles.eyebrow}>REPAIR · MAINTAIN · IMPROVE</Text>
           </View>
           <Text style={styles.headline}>YOU’VE{"\n"}GOT THIS.</Text>
           <Text style={styles.sub}>
-            That repair you’ve been putting off? Consider it handled. DIYhomie is your master contractor in your
-            pocket — guiding you through repairs, upgrades, maintenance and weatherproofing, one confident step at a time.
+            Clear, step-by-step guides for home repairs, maintenance and improvement projects — built around your
+            tools, your budget and your local codes. Like a master contractor right in your pocket.
           </Text>
           <View style={styles.pillsRow}>
             <View style={styles.pill}><MaterialCommunityIcons name="shield-check" size={14} color={colors.brandPrimary} /><Text style={styles.pillText}>Local codes</Text></View>
