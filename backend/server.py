@@ -478,7 +478,9 @@ async def build_guide(project_id: str, user: dict = Depends(get_current_user)):
         raise HTTPException(status_code=404, detail="Project not found")
     if project.get("guide"):
         return project
-    cost = 3
+    # First guide ever is free (demo / sandbox conversion moment).
+    prior_guides = await db.projects.count_documents({"user_id": user["id"], "guide": {"$ne": None}})
+    cost = 0 if prior_guides == 0 else 3
     if user.get("credits", 0) < cost:
         raise HTTPException(status_code=402, detail="Out of credits. Upgrade to continue.")
     try:

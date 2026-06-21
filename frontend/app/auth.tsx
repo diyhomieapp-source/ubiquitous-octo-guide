@@ -44,10 +44,10 @@ export default function Auth() {
           } catch {}
           await storage.removeItem("diyhomie_pending_survey");
         }
-        router.replace("/paywall");
+        router.replace("/demo");
       } else {
         const u = await signIn(email.trim(), password);
-        router.replace(u.onboarded ? "/(tabs)" : "/paywall");
+        router.replace(u.onboarded ? "/(tabs)" : "/demo");
       }
     } catch (e: any) {
       setError(e.message || "Something went wrong.");
@@ -60,7 +60,7 @@ export default function Auth() {
     setError("");
     try {
       const u = await signInWithGoogle();
-      if (u) router.replace(u.onboarded ? "/(tabs)" : "/paywall");
+      if (u) router.replace(u.onboarded ? "/(tabs)" : "/demo");
     } catch (e: any) {
       setError("Google sign-in failed. Please try again.");
     }

@@ -18,13 +18,14 @@ export default function Onboarding() {
   return (
     <View style={styles.root}>
       <View style={styles.bg}>
-        <Image source={HERO} style={StyleSheet.absoluteFill} contentFit="cover" />
-        <LinearGradient
-          colors={["rgba(18,18,18,0.2)", "rgba(18,18,18,0.85)", "rgba(18,18,18,1)"]}
-          locations={[0, 0.7, 1]}
-          style={styles.topFade}
-          pointerEvents="none"
-        />
+        <View style={styles.topImageWrap} pointerEvents="none">
+          <Image source={HERO} style={[StyleSheet.absoluteFill, { opacity: 0.55 }]} contentFit="cover" />
+          <LinearGradient
+            colors={["rgba(18,18,18,0.15)", "rgba(18,18,18,0.7)", "rgba(18,18,18,1)"]}
+            locations={[0, 0.55, 1]}
+            style={StyleSheet.absoluteFill}
+          />
+        </View>
         <View style={[styles.content, { paddingTop: insets.top + spacing["2xl"], paddingBottom: insets.bottom + spacing.lg }]}>
           <Logo size="md" />
 
@@ -73,7 +74,7 @@ export default function Onboarding() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.surface },
   bg: { flex: 1 },
-  topImageWrap: { position: "absolute", top: 0, left: 0, right: 0, height: 300, opacity: 0.5, overflow: "hidden" },
+  topImageWrap: { position: "absolute", top: 0, left: 0, right: 0, height: 230, opacity: 0.35, overflow: "hidden" },
   content: { flex: 1, paddingHorizontal: spacing.xl },
   eyebrowRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginBottom: spacing.md },
   eyebrowBar: { width: 28, height: 4, borderRadius: radius.pill, backgroundColor: colors.brandPrimary },

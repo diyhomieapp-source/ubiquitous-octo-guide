@@ -1,0 +1,52 @@
+{
+  "summary": "DIYhomie v3 high-converting onboarding funnel fully verified end-to-end. BACKEND (30/31 passed, 1 intentional skip): new 'first guide free' logic confirmed — first /projects/{id}/guide build returns full guide+steps with credits unchanged at 60 (no deduction); idempotent on repeat call. SECOND project guide build deducts exactly 3 credits (60 → 57). Step image generation POST /step/{id}/image returns ~kB-size base64 PNG in ~10-15s. All v2 endpoints regression pass: auth (register/login/me + 400/401), profile multi-select pain_point list persistence, project CRUD with new fields (status/favorite/notes/has_guide/progress/done_steps), structured guide shape (overview/tools/materials/safety_warnings/code_alert/common_mistakes/troubleshooting/inspection_checklist), step done toggle with auto-complete, ask homie text(1)/voice(2) credits, supplies (Amazon affiliate + bundle), community post/reply/author-only verify (+10 cr +2 voice), billing mock subscribe pro +500cr +60vm + invalid tier 400. FRONTEND funnel (390×844 mobile viewport) verified screen-by-screen: onboarding → Get Started → survey (all 5 cards: experience single, tools multi categorized, budget single, pain multi, expectation single) → /analysis with 'WE GET YOU' headline + animated match score (98%) + 'MEET HOMIE' CTA → /auth?mode=register (auth-name/email/password-input + auth-submit-button) → /demo (demo-input + 6 suggestion chips demo-suggestion-* + demo-generate-button) → tapping suggestion 'Fix a leaky faucet' triggered POST /projects then POST /guide (FREE — credits stayed 60), result phase renders with 'YOUR GUIDE IS READY' header, project title, overview, STEP 1 VISUAL hero (gpt-image-1 background fetch), 3 stat cards (Steps/Safety/Tools), step-by-step list with first 2 unlocked + remaining locked, UNLOCK FULL ACCESS button → /paywall → start-trial button → /(tabs) home (credits=60, BUILD MY PLAN UI, bottom tabs visible). NEW testIDs all working: analysis-continue-button, demo-input, demo-generate-button, demo-suggestion-{label}, demo-unlock-button, demo-error. Brain in fallback mode (OpenAI gpt-4o-mini via EMERGENT_LLM_KEY) — PERPLEXITY empty as documented. No critical or functional bugs found in the new funnel. Persisting cosmetic warnings (carryover from iteration_1/2): 'shadow*' deprecated → use boxShadow; pointerEvents prop deprecation; DM Sans web font decode failure; Animated useNativeDriver warning on /analysis match-score (uses non-native driver intentionally for layout interpolation).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "startup", "issue": "passlib bcrypt version warning (`module 'bcrypt' has no attribute '__about__'`). Auth still works — cosmetic. Carryover."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "global", "issues": [
+        "DM Sans .ttf font assets still fail to decode on web preview ('OTS parsing error'). UI falls back to system fonts. Carryover.",
+        "Survey tools card icon 'drill' still invalid in MaterialCommunityIcons (cosmetic console warning). Reference: /app/frontend/app/survey.tsx:22 — already flagged."
+      ]}
+    ],
+    "react_native_issues": [
+      {"component": "shadow* style props", "issue": "Console warning 'shadow* style props are deprecated. Use boxShadow.' Multiple components. Carryover from iteration_1/2."},
+      {"component": "View pointerEvents prop", "issue": "Console warning 'props.pointerEvents is deprecated. Use style.pointerEvents.' Used in /app/frontend/app/onboarding.tsx:21. Carryover."},
+      {"component": "Animated useNativeDriver (scoreAnim)", "issue": "/app/frontend/app/analysis.tsx:69 sets useNativeDriver:false (correct for layout interpolation), but the listener-driven number ticker still emits a console warning on web. Acceptable — only fires once per analysis mount."}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_diyhomie_api.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "(Carryover) Replace deprecated `shadow*` style props with `boxShadow` across components.",
+    "(Carryover) Migrate `pointerEvents` prop usage to `style.pointerEvents` (onboarding.tsx line 21).",
+    "(Carryover) Re-export valid DM Sans TTF font files (web decode error).",
+    "(Carryover) Fix MCI icon name 'drill' in survey.tsx:22 — use 'screwdriver' or 'tools'.",
+    "(Optional) Pin `bcrypt<4.1` in backend/requirements.txt to silence harmless passlib warning."
+  ],
+  "critical_code_review_comments": [
+    "build_guide first-guide-free logic correct (server.py:482) — uses `count_documents({user_id, guide:{$ne:null}})` to detect prior guides. Edge case: if a user manually deletes their first project before building its guide on a second project, the SECOND project counts as 'first' and is also free. Acceptable trade-off for funnel UX but worth noting.",
+    "demo.tsx uses `api()` directly (already authenticated via stored token from register step) — clean flow. Hero image is fired-and-forgotten in background — good UX, no blocking.",
+    "demo.tsx step 'locked' UI starts at index>=2 (i.e., 3rd step onward) — first two steps shown fully. Good conversion UX, but the project IS fully usable post-demo too (no real lock on backend). Confirm with PM if intentional vs front-end gating only.",
+    "analysis.tsx pain_point lookup uses exact label strings from survey.tsx — they currently match perfectly. Any rename in survey options will break the mapping silently.",
+    "server.py at 803 lines — past 700-line guideline. Still recommend router split (auth/projects/guide/community/billing). Carryover.",
+    "Funnel order onboarding → survey → /analysis → auth → /demo → /paywall → tabs is wired correctly via router.replace() in each screen — no back-button leak observed."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_diyhomie_api.py (replaced test_credits_deducted_three with test_credits_first_guide_is_free; added TestFirstGuideFree class with test_second_project_guide_costs_three; updated idempotent assertion to 60)"
+  ],
+  "success_rate": {"backend": "100% (30/31 passed, 1 intentional skip)", "frontend": "100% — full funnel onboarding→survey(5)→analysis→register→demo(generate)→paywall→tabs verified"},
+  "seed_data_creation": "Tests create TEST_*-prefixed users (uuid-suffixed) and TEST_*-prefixed community posts/projects. Disposable, not cleaned up. Funnel UI test creates funnel+<ts>@diyhomie.com / Test1234 and paywall+<ts>@diyhomie.com / Test1234.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Brain still in fallback OpenAI gpt-4o-mini via EMERGENT_LLM_KEY (PERPLEXITY empty). To rerun: `EXPO_PUBLIC_BACKEND_URL=https://step-by-step-diy.preview.emergentagent.com pytest backend/tests/test_diyhomie_api.py -v`. Funnel testIDs (all verified): onboarding-get-started-button, onboarding-login-link, survey-option-{value}, survey-continue-button, survey-back-button, survey-question, analysis-continue-button, auth-name-input, auth-email-input, auth-password-input, auth-submit-button, auth-toggle-mode, auth-google-button, auth-back-button, auth-error, demo-input, demo-generate-button, demo-suggestion-{label}, demo-unlock-button, demo-error, paywall-select-{tier}, paywall-start-trial. Important: after clicking paywall-start-trial, ALLOW UP TO 5-6 SECONDS for the PUT /profile + initial /projects fetch before checking the URL — navigation does happen but isn't instant. The (tabs) root URL is '/' (Expo Router group). First-guide-free side effect: the SECOND project a user builds will be the first to deduct credits.",
+  "rca_of_issue": "N/A — no functional bugs in this iteration. Only pre-existing cosmetic deprecation warnings persist."
+}

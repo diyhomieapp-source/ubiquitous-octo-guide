@@ -170,10 +170,10 @@ class TestGuide:
         assert s["done"] is False
         assert isinstance(s["instruction"], str)
 
-    def test_credits_deducted_three(self, session, user_a, guide_resp):
+    def test_credits_first_guide_is_free(self, session, user_a, guide_resp):
+        # First guide is FREE — credits stay at 60 (no deduction)
         r = session.get(f"{API}/auth/me", headers=auth_h(user_a), timeout=10)
-        # started 60, guide costs 3 => 57
-        assert r.json()["credits"] == 57
+        assert r.json()["credits"] == 60, "First guide should be FREE, credits must remain 60"
 
     def test_guide_idempotent(self, session, user_a, project_a, guide_resp):
         # second call must NOT charge again
@@ -181,7 +181,35 @@ class TestGuide:
                          headers=auth_h(user_a), timeout=60)
         assert r.status_code == 200, r.text
         r2 = session.get(f"{API}/auth/me", headers=auth_h(user_a), timeout=10)
-        assert r2.json()["credits"] == 57
+        assert r2.json()["credits"] == 60
+
+
+# ---------- First-guide-free conversion logic ----------
+class TestFirstGuideFree:
+    """Verify: first guide free (cost 0), second guide costs 3 credits."""
+
+    def test_second_project_guide_costs_three(self, session, user_a, guide_resp):
+        # user_a already has a first guide built (guide_resp). Credits should still be 60.
+        me0 = session.get(f"{API}/auth/me", headers=auth_h(user_a), timeout=10).json()
+        assert me0["credits"] == 60
+
+        # Create a SECOND project
+        rp = session.post(f"{API}/projects", headers=auth_h(user_a),
+                          json={"title": "TEST_second project — paint a door"}, timeout=15)
+        assert rp.status_code == 200, rp.text
+        p2 = rp.json()
+
+        # Build guide on second project
+        rg = session.post(f"{API}/projects/{p2['id']}/guide",
+                          headers=auth_h(user_a), timeout=180)
+        assert rg.status_code == 200, rg.text
+        body = rg.json()
+        assert body.get("guide") is not None
+        assert isinstance(body.get("steps"), list) and len(body["steps"]) >= 1
+
+        # Credits should now be 60 - 3 = 57
+        me1 = session.get(f"{API}/auth/me", headers=auth_h(user_a), timeout=10).json()
+        assert me1["credits"] == 57, f"Second guide should cost 3 credits — got {me1['credits']}"
 
 
 # ---------- Step done toggle ----------

@@ -85,7 +85,7 @@ export default function Survey() {
 
   const finish = async (final: Record<string, any>) => {
     await storage.setItem("diyhomie_pending_survey", JSON.stringify(final));
-    router.replace("/auth?mode=register");
+    router.replace("/analysis");
   };
 
   const advance = (next: Record<string, any>) => {

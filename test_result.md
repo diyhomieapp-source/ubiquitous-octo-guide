@@ -101,3 +101,20 @@
 #====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
+## Iteration 2 — High-Converting Onboarding Funnel (main agent)
+New funnel order: onboarding → survey → /analysis → auth(register) → /demo → /paywall → (tabs)
+
+### Backend
+- task: "First guide free"
+  file: backend/server.py POST /api/projects/{id}/guide
+  detail: First guide ever for a user costs 0 credits (prior_guides==0); subsequent guides cost 3.
+  needs_retesting: true
+
+### Frontend (new screens)
+- /app/frontend/app/analysis.tsx — "WE GET YOU" personalized reveal from stored survey; CTA → /auth?mode=register
+- /app/frontend/app/demo.tsx — sandbox: pick/type a project → POST /projects → POST /projects/{id}/guide (free) → shows overview, hero step image, steps preview (first 2 unlocked, rest locked) → CTA → /paywall
+- survey.tsx finish → /analysis ; auth.tsx register → /demo ; google/login non-onboarded → /demo
+- onboarding.tsx hero image restyled (constrained 230px, faded, blends to black)
+
+### agent_communication
+- main: Built conversion funnel + free first guide. Need backend verification that first guide is free and second costs 3; frontend funnel routing reaches demo and generates a guide.
