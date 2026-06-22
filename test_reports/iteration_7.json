@@ -1,0 +1,49 @@
+{
+  "summary": "Core Magic (intake → context-aware guide → dynamic adapt) validated end-to-end on backend + mobile web (390x844). Backend: 7/7 pytest passing in /app/backend/tests/test_core_magic.py — POST /api/projects/{id}/intake returns 4 well-formed questions, is FREE (credits unchanged), POST /api/projects/{id}/guide accepts {context:{...}} body, persists project.context, returns 5-9 steps with done=false / image_base64=null, generated guide is context-aware (overview/steps/materials mention 'American Standard Cadet 3' / 'concrete' / 'braided'), skip-path (no context) also builds a generic guide, POST /api/projects/{id}/adapt costs exactly 1 credit, returns {reply,project,changed_ids,credits}, changed_ids are real step ids, steps are renumbered 1..N, adapt 400s if no steps exist, regression: POST /api/projects/{id}/ask does NOT mutate steps. Frontend: registered core_tester_<ts>@diyhomie.com, started 'Replace my toilet' from Home — workspace correctly opens with ?new=1 and shows 'A FEW QUICK DETAILS' intake with testIDs intake-model, intake-surface, intake-plumbing, intake-location plus example chips (Kohler Wellworth, TOTO Drake II, ceramic tile, laminate, vinyl, etc.), 'BUILD MY EXACT PLAN' (intake-build) and 'Skip — just build it' (intake-skip) buttons. Filled intake-model='American Standard Cadet 3', tapped intake-build → guide built in ~30s with overview literally referencing 'American Standard Cadet 3' and 9 steps. ASK HOMIE FAB opens sheet with ask-input / ask-send / ask-adapt. Typed 'The closet bolts are rusted and snapped off', tapped ask-adapt → backend POST /api/projects/{id}/adapt returned in ~30s, sheet auto-closed ~1s after success, step count went from 9→10 (inserted step), 1 'UPDATED' badge rendered on the changed step, Homie's reply 'I've added a step to address the rusted closet bolts...' visible in chat on reopen, credits chip shows '59cr' (was 60 → 1 deducted for adapt; first guide free worked). Deprecated package warnings persist (carryover).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "project/[id].tsx ASK HOMIE bottom sheet", "issues": [
+        "On a 390x844 mobile viewport, when the chat ScrollView (maxHeight 300) has content + composer + 'Update my plan with this' + Close, the ask-adapt and ask-send buttons can sit just below the visible area; Playwright flagged 'Element is outside of the viewport' on both. Real users on a real phone would still scroll to them, but on web preview the sheet content overflows. Consider wrapping the entire sheet in a ScrollView, or reducing ScrollView maxHeight from 300 → ~220, or splitting close button into the header. Reference: /app/frontend/app/project/[id].tsx:344-372."
+      ]}
+    ],
+    "react_native_issues": [
+      {"component": "shadow* style props", "issue": "(Carryover) Console warning 'shadow* style props are deprecated. Use boxShadow.' Reference: multiple screens including /app/frontend/app/project/[id].tsx:415 (fab shadowColor/shadowOpacity/shadowRadius)."},
+      {"component": "View pointerEvents prop", "issue": "(Carryover) 'props.pointerEvents is deprecated. Use style.pointerEvents.' Reference: /app/frontend/app/onboarding.tsx:21."},
+      {"component": "Animated useNativeDriver on web", "issue": "(Carryover, expected on web) 'useNativeDriver is not supported... Falling back to JS-based animation.' Informational."}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_core_magic.py",
+    "/app/test_reports/pytest/core_magic_results.xml"
+  ],
+  "action_items": [
+    "OPTIONAL: Adjust ASK HOMIE sheet layout so ask-adapt + ask-send don't fall below the viewport on small phones (e.g. iPhone SE 375x667). Suggested fix in /app/frontend/app/project/[id].tsx: lower ScrollView maxHeight from 300 → 200-220, or wrap composer+adapt+close in a single ScrollView, or move Close into sheetHead as an X icon.",
+    "Carryover: replace deprecated shadow* style props (use boxShadow) and pointerEvents prop (use style.pointerEvents).",
+    "Carryover from iteration 5: demo-startfree-button ~10s perceived freeze."
+  ],
+  "critical_code_review_comments": [
+    "/app/backend/server.py brain_intake() correctly clamps to 4 questions and tolerates non-JSON LLM output by returning {questions: []} (safe degrade).",
+    "build_guide endpoint accepts GuideReq with default GuideReq() — works in pytest when posting without a body. Note: project.context is persisted only when guide is first built; if user revisits intake after a guide exists, the early-return (line 666) means new context is ignored. Not a bug for current spec but worth knowing.",
+    "adapt_guide renumbers indices 1..N sequentially and preserves the 'done' flag on existing steps (good). Inserted steps get 'added': true (could be surfaced in UI for an additional visual tag, but UPDATED badge already covers them via changed_ids).",
+    "Frontend Workspace correctly differentiates ?new=1 (calls startIntake) vs returning (skips intake). intake-skip path calls buildGuide(pid) with no context — verified backend returns generic guide.",
+    "sendAdapt setTimeout(()=>setAskOpen(false), 1000) handles auto-close. setChangedIds(res.changed_ids) drives the UPDATED badge & stepCardChanged border (verified visible).",
+    "First-guide-free logic in build_guide(): prior_guides count uses {guide: {$ne: null}} — correct; cost=0 for the first ever guide. Tested via fresh accounts in both adapt cost test (60→59 credits with first guide free) and skip-path test."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_core_magic.py (new — 7 tests)",
+    "/app/test_reports/pytest/core_magic_results.xml (new junit)",
+    "/app/test_reports/iteration_7.json (new)"
+  ],
+  "success_rate": {"backend": "100% (7/7)", "frontend": "100% on intake + context-aware guide + adapt + regression flows"},
+  "seed_data_creation": "Backend pytest created 2 TEST_coremagic_<ts>@diyhomie.com + TEST_skip_<ts>@diyhomie.com users with 2 projects (Replace my toilet, Patch a small drywall hole, Hang a picture). Frontend created 2 core_tester_<ts>@diyhomie.com users with toilet projects + built guides + 1 adapt edit. All harmless and prefixed.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run backend tests: pytest /app/backend/tests/test_core_magic.py -v -s. Guide build needs 15-40s, adapt 10-30s, intake 5-15s. The fresh-user 'first guide free' rule means the toilet guide in test_guide_with_context_persists_and_is_specific is FREE (60 credits preserved), and adapt then deducts 1 → 59. Frontend testIDs in use on /project/[id].tsx: intake-<key> (dynamic keys: model/surface/plumbing/location for toilet), intake-build, intake-skip, workspace-ask-fab, ask-input, ask-send, ask-adapt, step-card-<index>, step-done-<index>, step-illustrate-<index>, workspace-supplies, workspace-fav, workspace-back, ask-mode-toggle. After register the app lands on /demo — navigate explicitly to /(tabs) to reach Home (already noted in iteration_6). UPDATED badge is styled via stepCardChanged (brandPrimary border 2px) + 'UPDATED' label text — searchable in body.innerText.",
+  "rca_of_issue": "No new bugs requiring RCA. Only design polish — ASK HOMIE sheet's bottom buttons sit on the very edge of a 390-wide viewport when the chat scroller is at maxHeight."
+}

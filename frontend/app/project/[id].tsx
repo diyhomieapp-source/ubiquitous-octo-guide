@@ -15,7 +15,8 @@ import { useAuth } from "@/src/auth";
 import { storage } from "@/src/utils/storage";
 import { AvatarThinking } from "@/src/components/AvatarThinking";
 
-type Step = { id: string; index: number; title: string; instruction: string; visual_description: string; image_base64: string | null; done: boolean };
+type Step = { id: string; index: number; title: string; instruction: string; visual_description: string; image_base64: string | null; done: boolean; added?: boolean };
+type IntakeQ = { key: string; question: string; placeholder?: string; examples?: string[] };
 type Guide = {
   overview: string; tools: string[]; materials: string[]; safety_warnings: string[];
   code_alert: string | null; common_mistakes: string[]; troubleshooting: string[];
@@ -38,7 +39,7 @@ function Section({ title, icon, children, defaultOpen = false }: any) {
 }
 
 export default function Workspace() {
-  const { id } = useLocalSearchParams<{ id: string; new?: string }>();
+  const { id, new: isNew } = useLocalSearchParams<{ id: string; new?: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user, setUser } = useAuth();
@@ -52,11 +53,16 @@ export default function Workspace() {
   const [asking, setAsking] = useState(false);
   const [mode, setMode] = useState<"text" | "voice">("text");
   const askRef = useRef<ScrollView>(null);
+  const [intake, setIntake] = useState<IntakeQ[] | null>(null);
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [loadingIntake, setLoadingIntake] = useState(false);
+  const [changedIds, setChangedIds] = useState<string[]>([]);
 
-  const buildGuide = useCallback(async (pid: string) => {
+  const buildGuide = useCallback(async (pid: string, context?: Record<string, string>) => {
+    setIntake(null);
     setGenerating(true);
     try {
-      const full = await api<Project>(`/projects/${pid}/guide`, { method: "POST", timeout: 120000 });
+      const full = await api<Project>(`/projects/${pid}/guide`, { method: "POST", body: context ? { context } : undefined, timeout: 120000 });
       setProject(full);
       if (user) setUser({ ...user, credits: Math.max(0, (user.credits ?? 0) - 3) });
     } catch (e: any) {
@@ -66,14 +72,24 @@ export default function Workspace() {
     }
   }, [user, setUser, router]);
 
+  const startIntake = useCallback(async (pid: string) => {
+    setLoadingIntake(true);
+    try {
+      const res = await api<{ questions: IntakeQ[] }>(`/projects/${pid}/intake`, { method: "POST", timeout: 60000 });
+      if (res.questions?.length) setIntake(res.questions);
+      else buildGuide(pid);
+    } catch { buildGuide(pid); }
+    finally { setLoadingIntake(false); }
+  }, [buildGuide]);
+
   const load = useCallback(async () => {
     try {
       const p = await api<Project>(`/projects/${id}`);
       setProject(p);
       api(`/projects/${id}`, { method: "PATCH", body: { touch: true } }).catch(() => {});
-      if (!p.guide) buildGuide(p.id);
+      if (!p.guide) { if (isNew === "1") startIntake(p.id); else buildGuide(p.id); }
     } catch {}
-  }, [id, buildGuide]);
+  }, [id, isNew, buildGuide, startIntake]);
 
   useEffect(() => { if (id) load(); }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -130,6 +146,27 @@ export default function Workspace() {
     } finally { setAsking(false); }
   };
 
+  const sendAdapt = async () => {
+    const text = askInput.trim();
+    if (!text || asking || !project) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setAskInput("");
+    setChat((c) => [...c, { id: `${Date.now()}u`, role: "user", text }]);
+    setAsking(true);
+    try {
+      const res = await api<{ reply: string; project: Project; changed_ids: string[]; credits: number }>(`/projects/${project.id}/adapt`, { method: "POST", body: { problem: text }, timeout: 120000 });
+      setProject(res.project);
+      setChangedIds(res.changed_ids || []);
+      setChat((c) => [...c, { id: `${Date.now()}h`, role: "homie", text: res.reply || "I've updated your plan." }]);
+      if (user) setUser({ ...user, credits: res.credits });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setTimeout(() => setAskOpen(false), 1000);
+    } catch (e: any) {
+      const msg = e.message?.toLowerCase().includes("credit") ? "You're out of credits — upgrade to keep going." : "Homie couldn't update the plan right now.";
+      setChat((c) => [...c, { id: `${Date.now()}e`, role: "homie", text: msg }]);
+    } finally { setAsking(false); }
+  };
+
   const g = project?.guide;
 
   return (
@@ -153,6 +190,45 @@ export default function Workspace() {
         <View style={styles.center}>
           <AvatarThinking />
         </View>
+      ) : loadingIntake ? (
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={colors.brandPrimary} />
+          <Text style={styles.genSub}>Getting a few details so your plan is exact…</Text>
+        </View>
+      ) : intake ? (
+        <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + 40, gap: spacing.md }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+          <Text style={styles.intakeTitle}>A FEW QUICK DETAILS</Text>
+          <Text style={styles.intakeSub}>The more Homie knows, the more your plan matches your exact situation — your specific model, your floor, your space. Skip anything you're unsure of.</Text>
+          {intake.map((q) => (
+            <View key={q.key} style={styles.intakeCard}>
+              <Text style={styles.intakeQ}>{q.question}</Text>
+              <TextInput
+                testID={`intake-${q.key}`}
+                style={styles.intakeInput}
+                placeholder={q.placeholder || "Type here…"}
+                placeholderTextColor={colors.onSurfaceTertiary}
+                value={answers[q.key] || ""}
+                onChangeText={(v) => setAnswers((a) => ({ ...a, [q.key]: v }))}
+              />
+              {!!q.examples?.length && (
+                <View style={styles.exRow}>
+                  {q.examples.slice(0, 3).map((ex) => (
+                    <Pressable key={ex} style={styles.exChip} onPress={() => setAnswers((a) => ({ ...a, [q.key]: ex }))}>
+                      <Text style={styles.exText}>{ex}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              )}
+            </View>
+          ))}
+          <Pressable testID="intake-build" style={styles.intakeBuild} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); buildGuide(project!.id, answers); }}>
+            <Text style={styles.intakeBuildText}>BUILD MY EXACT PLAN</Text>
+            <MaterialCommunityIcons name="arrow-right" size={20} color={colors.onBrandPrimary} />
+          </Pressable>
+          <Pressable testID="intake-skip" style={styles.intakeSkip} onPress={() => buildGuide(project!.id)}>
+            <Text style={styles.intakeSkipText}>Skip — just build it</Text>
+          </Pressable>
+        </ScrollView>
       ) : !project ? (
         <View style={styles.center}>
           <ActivityIndicator size="large" color={colors.brandPrimary} />
@@ -209,12 +285,13 @@ export default function Workspace() {
           {/* STEPS */}
           <Text style={styles.stepsHeading}>STEP-BY-STEP</Text>
           {project.steps.map((s) => (
-            <View key={s.id} style={[styles.stepCard, s.done && styles.stepCardDone]} testID={`step-card-${s.index}`}>
+            <View key={s.id} style={[styles.stepCard, s.done && styles.stepCardDone, changedIds.includes(s.id) && styles.stepCardChanged]} testID={`step-card-${s.index}`}>
               <View style={styles.stepTop}>
                 <View style={[styles.stepNum, s.done && { backgroundColor: colors.success }]}>
                   <Text style={styles.stepNumText}>{s.index}</Text>
                 </View>
                 <Text style={styles.stepTitle}>{s.title}</Text>
+                {changedIds.includes(s.id) && <Text style={styles.updatedBadge}>UPDATED</Text>}
                 <Pressable testID={`step-done-${s.index}`} hitSlop={8} onPress={() => toggleDone(s)}>
                   <MaterialCommunityIcons name={s.done ? "checkbox-marked-circle" : "checkbox-blank-circle-outline"} size={26} color={s.done ? colors.success : colors.onSurfaceTertiary} />
                 </Pressable>
@@ -274,7 +351,7 @@ export default function Workspace() {
               </Pressable>
             </View>
             <ScrollView ref={askRef} style={{ maxHeight: 300 }} contentContainerStyle={{ gap: spacing.sm, paddingVertical: spacing.sm }} showsVerticalScrollIndicator={false}>
-              {chat.length === 0 && <Text style={styles.askHint}>Hit a snag? Ask me anything about “{project?.title}” — stuck bolts, leaks, codes, whatever.</Text>}
+              {chat.length === 0 && <Text style={styles.askHint}>Hit a snag? Ask me anything about “{project?.title}”. If something changed mid-job, tap “Update my plan with this” and I'll rewrite your steps.</Text>}
               {chat.map((m) => (
                 <View key={m.id} style={[styles.bubble, m.role === "user" ? styles.bubbleUser : styles.bubbleHomie]}>
                   <Text style={[styles.bubbleText, m.role === "user" && { color: colors.onBrandPrimary }]}>{m.text}</Text>
@@ -288,6 +365,10 @@ export default function Workspace() {
                 <MaterialCommunityIcons name="send" size={20} color={colors.onBrandPrimary} />
               </Pressable>
             </View>
+            <Pressable testID="ask-adapt" style={[styles.adaptBtn, (!askInput.trim() || asking) && { opacity: 0.5 }]} onPress={sendAdapt} disabled={!askInput.trim() || asking}>
+              <MaterialCommunityIcons name="auto-fix" size={16} color={colors.brandPrimary} />
+              <Text style={styles.adaptText}>Update my plan with this</Text>
+            </Pressable>
             <Pressable style={styles.closeBtn} onPress={() => setAskOpen(false)}><Text style={styles.closeText}>Close</Text></Pressable>
           </View>
         </KeyboardAvoidingView>
@@ -352,4 +433,20 @@ const styles = StyleSheet.create({
   sendBtn: { width: 44, height: 44, borderRadius: radius.lg, backgroundColor: colors.brandPrimary, alignItems: "center", justifyContent: "center" },
   closeBtn: { alignItems: "center", paddingVertical: spacing.md },
   closeText: { color: colors.onSurfaceTertiary, fontFamily: font.medium, fontSize: type.base },
+  intakeTitle: { color: colors.onSurface, fontFamily: font.display, fontSize: 30, letterSpacing: 1 },
+  intakeSub: { color: colors.onSurfaceTertiary, fontFamily: font.regular, fontSize: type.base, lineHeight: 21, marginBottom: spacing.sm },
+  intakeCard: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, padding: spacing.lg, borderColor: colors.border, borderWidth: 1, gap: spacing.sm },
+  intakeQ: { color: colors.onSurface, fontFamily: font.bold, fontSize: type.lg },
+  intakeInput: { backgroundColor: colors.surface, borderColor: colors.borderStrong, borderWidth: 1.5, borderRadius: radius.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.md, color: colors.onSurface, fontFamily: font.medium, fontSize: type.base },
+  exRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.xs },
+  exChip: { backgroundColor: colors.surfaceTertiary, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: spacing.xs },
+  exText: { color: colors.onSurfaceSecondary, fontFamily: font.medium, fontSize: type.sm },
+  intakeBuild: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, backgroundColor: colors.brandPrimary, paddingVertical: spacing.lg, borderRadius: radius.md, marginTop: spacing.sm },
+  intakeBuildText: { color: colors.onBrandPrimary, fontFamily: font.bold, fontSize: type.lg, letterSpacing: 1 },
+  intakeSkip: { alignItems: "center", paddingVertical: spacing.md },
+  intakeSkipText: { color: colors.onSurfaceTertiary, fontFamily: font.medium, fontSize: type.base },
+  stepCardChanged: { borderColor: colors.brandPrimary, borderWidth: 2 },
+  updatedBadge: { color: colors.onBrandPrimary, backgroundColor: colors.brandPrimary, fontFamily: font.bold, fontSize: 9, letterSpacing: 1, paddingHorizontal: 6, paddingVertical: 2, borderRadius: radius.pill, overflow: "hidden" },
+  adaptBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.xs, backgroundColor: colors.surface, borderColor: colors.brandPrimary, borderWidth: 1.5, borderRadius: radius.md, paddingVertical: spacing.md, marginTop: spacing.sm },
+  adaptText: { color: colors.brandPrimary, fontFamily: font.bold, fontSize: type.base },
 });

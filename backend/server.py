@@ -279,7 +279,7 @@ async def _llm_json(system: str, user_text: str, max_tokens: int = 1800) -> dict
     return _strip_json(out)
 
 
-async def brain_generate_guide(profile: dict, title: str, weather: str = "") -> dict:
+async def brain_generate_guide(profile: dict, title: str, weather: str = "", context: dict = None) -> dict:
     system = GUIDE_SYSTEM.format(
         experience=profile.get("experience") or "Weekend Warrior",
         budget=profile.get("budget") or "Standard",
@@ -287,6 +287,16 @@ async def brain_generate_guide(profile: dict, title: str, weather: str = "") -> 
         location=profile.get("location") or "United States",
     ) + lang_note(profile)
     user_text = f"Create the full structured DIY guide for this project: '{title}'."
+    if context:
+        details = "; ".join(f"{k}: {v}" for k, v in context.items() if v)
+        if details:
+            user_text += (
+                f"\nThe homeowner gave these EXACT specifics — use them so the guide is precise, "
+                f"not generic: {details}. If a brand and model number are provided, reference THAT "
+                "specific product's real installation/repair procedure, parts, rough-in and known quirks. "
+                "Adapt tools, materials, measurements and steps to the stated surface, site and material "
+                "conditions (e.g. concrete vs. wood subfloor, basement vs. upper floor)."
+            )
     if weather:
         user_text += (
             f"\nCurrent local weather: {weather}. If ANY part of this job happens OUTDOORS, "
@@ -321,6 +331,52 @@ async def brain_answer(profile: dict, title: str, question: str) -> str:
     from emergentintegrations.llm.chat import LlmChat, UserMessage
     chat = LlmChat(api_key=EMERGENT_LLM_KEY, session_id=new_id(), system_message=system).with_model("openai", "gpt-4o-mini")
     return (await chat.send_message(UserMessage(text=question))).strip()
+
+
+async def brain_intake(profile: dict, title: str) -> dict:
+    system = (
+        "You are Homie, a master contractor talking to a homeowner who just told you the job they "
+        "want to do. Before drafting a plan, ask the 2-4 MOST useful plain-language questions that "
+        "would let you write a guide tailored to their EXACT situation instead of a generic one. "
+        "Prioritize: the specific brand + model number of the fixture/part involved (if any), the "
+        "surface/site/material conditions (e.g. floor type, indoor/outdoor, wall material), and the "
+        "single biggest unknown that changes the approach. Keep each question short and friendly, as "
+        "if standing next to them. Respond ONLY with valid JSON (no markdown) of the form: "
+        '{"questions": [{"key": "model", "question": "...", "placeholder": "...", '
+        '"examples": ["...", "..."]}]} with 2 to 4 questions.'
+    ) + lang_note(profile)
+    user_text = f"The homeowner wants to: '{title}'. Ask your clarifying questions now as JSON."
+    data = await _llm_json(system, user_text, max_tokens=600)
+    qs = data.get("questions") if isinstance(data, dict) else None
+    return {"questions": qs[:4]} if isinstance(qs, list) else {"questions": []}
+
+
+async def brain_adapt(profile: dict, title: str, steps: List[dict], problem: str) -> dict:
+    step_lines = "\n".join(f"{s.get('index')}. {s.get('title')}: {s.get('instruction')}" for s in steps)
+    system = (
+        "You are Homie, a master contractor. The homeowner is in the MIDDLE of a project and just told "
+        "you a problem or change. Decide the MINIMAL edits to their existing step list to get them "
+        "unstuck — preserve their progress, only touch what's needed. You may REVISE existing steps and/or "
+        "INSERT new steps after a given step number. Respond ONLY with valid JSON (no markdown):\n"
+        '{"reply": "a short, warm, expert reply under 50 words telling them what you changed and why", '
+        '"updates": [{"index": <existing step number>, "title": "2-4 words", "instruction": "one clear sentence", '
+        '"visual_description": "literal image-gen prompt naming tools/parts"}], '
+        '"inserts": [{"after_index": <step number to insert after, 0 for start>, "title": "...", '
+        '"instruction": "...", "visual_description": "..."}]}\n'
+        "Use empty arrays when nothing needs changing. Never rewrite the whole list — be surgical."
+    ) + lang_note(profile)
+    user_text = (
+        f"Project: '{title}'.\nCurrent steps:\n{step_lines}\n\n"
+        f"The homeowner says: \"{problem}\"\n\nReturn the minimal JSON edits now."
+    )
+    data = await _llm_json(system, user_text, max_tokens=1200)
+    if not isinstance(data, dict):
+        data = {}
+    return {
+        "reply": data.get("reply") or "I've tweaked your plan to handle that.",
+        "updates": data.get("updates") or [],
+        "inserts": data.get("inserts") or [],
+    }
 
 
 async def fetch_weather(q: str) -> Optional[dict]:
@@ -584,8 +640,25 @@ async def patch_project(project_id: str, req: PatchProjectReq, user: dict = Depe
     return fresh
 
 
+class GuideReq(BaseModel):
+    context: Optional[dict] = None
+
+
+@api_router.post("/projects/{project_id}/intake")
+async def project_intake(project_id: str, user: dict = Depends(get_current_user)):
+    project = await db.projects.find_one({"id": project_id, "user_id": user["id"]}, {"_id": 0})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    try:
+        data = await brain_intake(user, project["title"])
+    except Exception as e:
+        logger.warning(f"intake error: {e}")
+        data = {"questions": []}
+    return data
+
+
 @api_router.post("/projects/{project_id}/guide")
-async def build_guide(project_id: str, user: dict = Depends(get_current_user)):
+async def build_guide(project_id: str, req: GuideReq = GuideReq(), user: dict = Depends(get_current_user)):
     project = await db.projects.find_one({"id": project_id, "user_id": user["id"]}, {"_id": 0})
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -596,10 +669,11 @@ async def build_guide(project_id: str, user: dict = Depends(get_current_user)):
     cost = 0 if prior_guides == 0 else 3
     if user.get("credits", 0) < cost:
         raise HTTPException(status_code=402, detail="Out of credits. Upgrade to continue.")
+    context = (req.context if req else None) or project.get("context") or {}
     loc_query = project.get("location") or user.get("location") or ""
     weather = await fetch_weather(loc_query)
     try:
-        data = await brain_generate_guide(user, project["title"], weather_context_str(weather))
+        data = await brain_generate_guide(user, project["title"], weather_context_str(weather), context)
     except Exception as e:
         logger.error(f"guide error: {e}")
         raise HTTPException(status_code=502, detail="Homie could not draft the plan. Try again.")
@@ -638,7 +712,7 @@ async def build_guide(project_id: str, user: dict = Depends(get_current_user)):
     }
     await db.projects.update_one(
         {"id": project_id},
-        {"$set": {"guide": guide, "steps": steps, "missing_supplies": missing_supplies, "last_viewed_at": now_iso()}},
+        {"$set": {"guide": guide, "steps": steps, "missing_supplies": missing_supplies, "context": context, "last_viewed_at": now_iso()}},
     )
     new_credits = user.get("credits", 0) - cost
     await db.users.update_one({"id": user["id"]}, {"$set": {"credits": new_credits}})
@@ -688,6 +762,81 @@ async def ask_homie(project_id: str, req: AskReq, user: dict = Depends(get_curre
     new_credits = user.get("credits", 0) - cost
     await db.users.update_one({"id": user["id"]}, {"$set": {"credits": new_credits}})
     return {"answer": answer, "credits": new_credits}
+
+
+class AdaptReq(BaseModel):
+    problem: str
+
+
+@api_router.post("/projects/{project_id}/adapt")
+async def adapt_guide(project_id: str, req: AdaptReq, user: dict = Depends(get_current_user)):
+    project = await db.projects.find_one({"id": project_id, "user_id": user["id"]}, {"_id": 0})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    if not project.get("steps"):
+        raise HTTPException(status_code=400, detail="Build a plan first.")
+    cost = 1
+    if user.get("credits", 0) < cost:
+        raise HTTPException(status_code=402, detail="Out of credits. Upgrade to continue.")
+    try:
+        result = await brain_adapt(user, project["title"], project["steps"], req.problem)
+    except Exception as e:
+        logger.error(f"adapt error: {e}")
+        raise HTTPException(status_code=502, detail="Homie couldn't adjust the plan. Try again.")
+
+    steps = [dict(s) for s in project["steps"]]
+    changed_ids = []
+
+    # 1) revise existing steps (match by current index)
+    for u in result.get("updates", []):
+        try:
+            idx = int(u.get("index"))
+        except (TypeError, ValueError):
+            continue
+        for s in steps:
+            if s.get("index") == idx:
+                if u.get("title"):
+                    s["title"] = u["title"]
+                if u.get("instruction"):
+                    s["instruction"] = u["instruction"]
+                if u.get("visual_description"):
+                    s["visual_description"] = u["visual_description"]
+                    s["image_base64"] = None  # regenerate visual for the new instruction
+                changed_ids.append(s["id"])
+                break
+
+    # 2) insert new steps after a given index
+    for ins in result.get("inserts", []):
+        try:
+            after = int(ins.get("after_index", 0))
+        except (TypeError, ValueError):
+            after = len(steps)
+        new_step = {
+            "id": new_id(),
+            "index": 0,
+            "title": ins.get("title", "New step"),
+            "instruction": ins.get("instruction", ""),
+            "visual_description": ins.get("visual_description", ""),
+            "image_base64": None,
+            "done": False,
+            "added": True,
+        }
+        pos = next((i + 1 for i, s in enumerate(steps) if s.get("index") == after), len(steps))
+        steps.insert(pos, new_step)
+        changed_ids.append(new_step["id"])
+
+    # renumber
+    for i, s in enumerate(steps):
+        s["index"] = i + 1
+
+    await db.projects.update_one(
+        {"id": project_id},
+        {"$set": {"steps": steps, "last_viewed_at": now_iso()}},
+    )
+    new_credits = user.get("credits", 0) - cost
+    await db.users.update_one({"id": user["id"]}, {"$set": {"credits": new_credits}})
+    fresh = await db.projects.find_one({"id": project_id}, {"_id": 0})
+    return {"reply": result.get("reply"), "project": fresh, "changed_ids": changed_ids, "credits": new_credits}
 
 
 @api_router.get("/projects/{project_id}")
