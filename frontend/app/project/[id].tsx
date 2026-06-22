@@ -13,6 +13,7 @@ import { colors, spacing, radius, font, type } from "@/src/theme";
 import { api } from "@/src/api";
 import { useAuth } from "@/src/auth";
 import { storage } from "@/src/utils/storage";
+import { AvatarThinking } from "@/src/components/AvatarThinking";
 
 type Step = { id: string; index: number; title: string; instruction: string; visual_description: string; image_base64: string | null; done: boolean };
 type Guide = {
@@ -148,11 +149,13 @@ export default function Workspace() {
       </View>
       <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${progress}%` }]} /></View>
 
-      {generating || !project ? (
+      {generating ? (
+        <View style={styles.center}>
+          <AvatarThinking />
+        </View>
+      ) : !project ? (
         <View style={styles.center}>
           <ActivityIndicator size="large" color={colors.brandPrimary} />
-          <Text style={styles.genTitle}>HOMIE IS DRAWING UP{"\n"}YOUR GAME PLAN</Text>
-          <Text style={styles.genSub}>Checking tools, materials, safety and your local codes…</Text>
         </View>
       ) : (
         <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + 90, gap: spacing.md }} showsVerticalScrollIndicator={false}>

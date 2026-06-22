@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import {
   View, Text, StyleSheet, Pressable, ScrollView, TextInput, ActivityIndicator,
-  Animated, Easing, KeyboardAvoidingView, Platform,
+  KeyboardAvoidingView, Platform,
 } from "react-native";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
@@ -11,6 +11,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 import { colors, spacing, radius, font, type } from "@/src/theme";
 import { Logo } from "@/src/components/Logo";
+import { AvatarThinking } from "@/src/components/AvatarThinking";
 import { api } from "@/src/api";
 import { useAuth } from "@/src/auth";
 
@@ -21,14 +22,6 @@ const SUGGESTIONS = [
   { label: "Unclog a slow drain", icon: "pipe-disconnected" },
   { label: "Replace a light fixture", icon: "ceiling-light" },
   { label: "Re-caulk a bathtub", icon: "format-paint" },
-];
-
-const LOADING_LINES = [
-  "Sizing up the job…",
-  "Checking your tool kit…",
-  "Pulling local code requirements…",
-  "Sequencing the steps…",
-  "Drafting your visual…",
 ];
 
 type Step = { id: string; index: number; title: string; instruction: string; visual_description: string };
@@ -48,25 +41,10 @@ export default function Demo() {
   const [phase, setPhase] = useState<"pick" | "loading" | "result">("pick");
   const [title, setTitle] = useState("");
   const [error, setError] = useState("");
-  const [loadingIdx, setLoadingIdx] = useState(0);
 
   const [guide, setGuide] = useState<Guide | null>(null);
   const [steps, setSteps] = useState<Step[]>([]);
   const [heroImg, setHeroImg] = useState<string | null>(null);
-
-  const spin = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    if (phase !== "loading") return;
-    const loop = Animated.loop(
-      Animated.timing(spin, { toValue: 1, duration: 1100, easing: Easing.linear, useNativeDriver: true })
-    );
-    loop.start();
-    const t = setInterval(() => setLoadingIdx((i) => (i + 1) % LOADING_LINES.length), 1400);
-    return () => { loop.stop(); clearInterval(t); };
-  }, [phase, spin]);
-
-  const rotate = spin.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "360deg"] });
 
   const generate = async (projectTitle: string) => {
     const t = projectTitle.trim();
@@ -154,12 +132,7 @@ export default function Demo() {
   if (phase === "loading") {
     return (
       <View style={[styles.root, styles.center]}>
-        <Animated.View style={{ transform: [{ rotate }] }}>
-          <MaterialCommunityIcons name="cog" size={56} color={colors.brandPrimary} />
-        </Animated.View>
-        <Text style={styles.loadingTitle}>HOMIE IS ON IT</Text>
-        <Text style={styles.loadingLine}>{LOADING_LINES[loadingIdx]}</Text>
-        <Text style={styles.loadingHint}>Building your first guide — this takes a few seconds.</Text>
+        <AvatarThinking />
       </View>
     );
   }

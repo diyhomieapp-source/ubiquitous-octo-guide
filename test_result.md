@@ -169,3 +169,10 @@ Survey expanded 5→8 steps with varied widgets (all navigate end-to-end, verifi
 - pain_point now has "None of the above" (clears others; others clear None).
 - Card type gained kind + subtitle; onSelect None-handling; footer Continue shows for value too.
 New answer keys saved to pending_survey/profile: goals[], confidence. Progress bar = 8 segments.
+
+## Iteration 8 — Universal Avatar communication layer (state machine)
+- src/avatar/avatarStates.ts: AvatarState union (UNDERSTANDING_PROJECT, ANALYZING_PROBLEM, PLANNING_SOLUTION, CHECKING_TOOLS, SAFETY_REVIEW, GENERATING_STEPS, READY, GUIDING_STEP, WAITING_FOR_USER, IMAGE_ANALYSIS, TROUBLESHOOTING, SIMPLIFYING, MISTAKE, COMPLETION) + randomized phrase pools + GENERATION_SEQUENCE + randomPhrase().
+- src/components/AvatarThinking.tsx: walks the sequence on a timer, rotates phrases w/ fade, shows animated Homie mascot + progress dots. Reusable; works for ANY project (scales without hardcoding).
+- Wired into demo.tsx loading and project/[id].tsx generating state (replaced old spinner). Verified live via screenshot ("Fix a loose doorknob" -> "DIAGNOSING THE PROBLEM." with dots advancing).
+- Removed now-unused spinner code/imports in demo.tsx. Lint clean.
+NOTE: generation is a single backend call, so stages are time-progressed (approximating streaming). States for step-execution/troubleshooting/image/simplify/mistake/completion are defined and ready to wire into ASK HOMIE, image upload and step flow next.
