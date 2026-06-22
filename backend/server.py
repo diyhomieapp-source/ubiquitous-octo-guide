@@ -218,10 +218,9 @@ def relevant_memories(profile: dict, title: str, context: dict = None) -> List[d
         return []
     blob = (title or "") + " " + " ".join(str(v) for v in (context or {}).values())
     room = detect_room(blob)
-    items = [m for m in mem if room and m.get("room") == room]
-    if not items:
-        items = mem[-4:]
-    return items[-8:]
+    if room:
+        return [m for m in mem if m.get("room") == room][-8:]
+    return mem[-4:]  # room unknown → use the most recent projects as light context
 
 
 def memory_note(profile: dict, title: str, context: dict = None) -> str:
