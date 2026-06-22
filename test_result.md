@@ -206,3 +206,8 @@ NOTE: generation is a single backend call, so stages are time-progressed (approx
 - Admin endpoints (require_admin): GET /admin/overview, GET/PATCH/DELETE /admin/feedback, GET/PATCH /admin/tickets, GET/PATCH/DELETE /admin/blog.
 - Frontend: /admin guarded by app/admin/_layout.tsx (redirect if !is_admin); app/admin/index.tsx workstation with left nav + modules Overview/Feedback/Support Tickets/Blog Curation (status pickers, publish toggle, delete). Responsive sidebar (wide=side, narrow=top). Admin link in AppMenu only when is_admin (testID menu-admin).
 - NOTE: bcrypt __about__ warning is harmless (trapped by passlib). require_admin was briefly dropped in a parallel edit and re-added.
+
+## Iteration 13 — Admin polish: notes, CSV export, MRR (main agent)
+- Backend (curl-verified): GET /admin/revenue (MRR/ARR from PLAN_TIERS amounts × tier counts; $89/mo, $1068/yr), GET /admin/feedback/export.csv & /admin/tickets/export.csv (PlainTextResponse text/csv, 403 without auth). FeedbackUpdate already supported note+priority.
+- Frontend admin/index.tsx: Overview now shows a revenue card (MRR big, ARR, per-tier breakdown). Feedback module → FeedbackCard with STATUS picker, PRIORITY chips (low/med/high), INTERNAL NOTE textarea + Save, and an Export CSV button. Tickets module has Export CSV too. CSV download via authed fetch→Blob→anchor (web).
+- testIDs: fb-export, tk-export, prio-<p>-<id>, fb-note-<id>, fb-note-save-<id>.

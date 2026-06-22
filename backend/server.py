@@ -1712,6 +1712,51 @@ async def admin_delete_blog(slug: str, admin: dict = Depends(require_admin)):
     return {"ok": True}
 
 
+@api_router.get("/admin/revenue")
+async def admin_revenue(admin: dict = Depends(require_admin)):
+    by_tier = []
+    mrr = 0
+    for tier, data in PLAN_TIERS.items():
+        count = await db.users.count_documents({"subscription_tier": tier})
+        subtotal = count * data["amount"]
+        mrr += subtotal
+        by_tier.append({
+            "tier": tier, "label": data.get("label", tier.title()),
+            "count": count, "price_cents": data["amount"], "subtotal_cents": subtotal,
+        })
+    free_users = await db.users.count_documents({"$or": [{"subscription_tier": "free"}, {"subscription_tier": None}, {"subscription_tier": {"$exists": False}}]})
+    return {"currency": "usd", "mrr_cents": mrr, "arr_cents": mrr * 12, "by_tier": by_tier, "free_users": free_users}
+
+
+def _csv_response(rows: list, header: list, filename: str) -> PlainTextResponse:
+    import csv, io
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(header)
+    for r in rows:
+        w.writerow(r)
+    return PlainTextResponse(buf.getvalue(), media_type="text/csv",
+                             headers={"Content-Disposition": f"attachment; filename={filename}"})
+
+
+@api_router.get("/admin/feedback/export.csv")
+async def export_feedback_csv(admin: dict = Depends(require_admin)):
+    items = await db.feedback.find({}, {"_id": 0, "screenshot": 0}).sort("created_at", -1).to_list(10000)
+    rows = [[f.get("created_at"), f.get("type"), f.get("status"), f.get("priority"),
+             f.get("user_email"), (f.get("message") or "").replace("\n", " "), (f.get("note") or "").replace("\n", " ")]
+            for f in items]
+    return _csv_response(rows, ["created_at", "type", "status", "priority", "user_email", "message", "note"], "feedback.csv")
+
+
+@api_router.get("/admin/tickets/export.csv")
+async def export_tickets_csv(admin: dict = Depends(require_admin)):
+    items = await db.support_tickets.find({}, {"_id": 0}).sort("created_at", -1).to_list(10000)
+    rows = [[t.get("created_at"), t.get("category"), t.get("status"), t.get("email"),
+             t.get("subject"), (t.get("message") or "").replace("\n", " ")]
+            for t in items]
+    return _csv_response(rows, ["created_at", "category", "status", "email", "subject", "message"], "tickets.csv")
+
+
 @api_router.get("/")
 async def root():
     return {"message": "DIYhomie API", "brain": "perplexity" if PERPLEXITY_API_KEY else "fallback-openai"}

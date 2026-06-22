@@ -1,10 +1,10 @@
 import { useCallback, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, useWindowDimensions } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, useWindowDimensions, TextInput } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 import { colors, spacing, radius, font, type } from "@/src/theme";
-import { api } from "@/src/api";
+import { api, getToken } from "@/src/api";
 
 type Mod = "overview" | "feedback" | "tickets" | "blog";
 const MODULES: { key: Mod; label: string; icon: string }[] = [
@@ -19,6 +19,25 @@ const TK_STATUS = ["open", "in_progress", "closed"];
 const STATUS_COLOR: Record<string, string> = {
   new: "#FF6A00", open: "#FF6A00", in_progress: "#2F80ED", planned: "#9B51E0", done: "#27AE60", closed: "#27AE60", declined: "#888",
 };
+const FB_PRIORITY = ["low", "medium", "high"];
+const PRIORITY_COLOR: Record<string, string> = { low: "#888", medium: "#2F80ED", high: "#EB5757" };
+
+const usd = (cents: number) => `$${Math.round((cents || 0) / 100).toLocaleString()}`;
+
+async function downloadCsv(path: string, filename: string) {
+  try {
+    const token = await getToken();
+    const res = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_URL}/api${path}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+    const text = await res.text();
+    if (typeof document !== "undefined") {
+      const blob = new Blob([text], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = filename; a.click();
+      URL.revokeObjectURL(url);
+    }
+  } catch {}
+}
 
 export default function AdminWorkstation() {
   const router = useRouter();
@@ -88,8 +107,12 @@ function StatusPicker({ value, options, onChange }: { value: string; options: st
 
 function Overview() {
   const [data, setData] = useState<any>(null);
+  const [rev, setRev] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const load = useCallback(async () => { setLoading(true); try { setData(await api("/admin/overview")); } catch {} finally { setLoading(false); } }, []);
+  const load = useCallback(async () => {
+    setLoading(true);
+    try { const [o, r] = await Promise.all([api("/admin/overview"), api("/admin/revenue")]); setData(o); setRev(r); } catch {} finally { setLoading(false); }
+  }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
   if (loading || !data) return <Center />;
   const c = data.counts || {};
@@ -104,6 +127,20 @@ function Overview() {
   return (
     <ScrollView contentContainerStyle={styles.content}>
       <ModuleHeader title="Overview" onRefresh={load} />
+      {rev && (
+        <View style={styles.revCard}>
+          <Text style={styles.revLabel}>MONTHLY RECURRING REVENUE</Text>
+          <Text style={styles.revMrr}>{usd(rev.mrr_cents)}<Text style={styles.revPer}> /mo</Text></Text>
+          <Text style={styles.revArr}>{usd(rev.arr_cents)} / yr projected · {rev.free_users} free users</Text>
+          {rev.by_tier.map((t: any) => (
+            <View key={t.tier} style={styles.revRow}>
+              <Text style={styles.revTier}>{t.label}</Text>
+              <Text style={styles.revCount}>{t.count} × {usd(t.price_cents)}</Text>
+              <Text style={styles.revSub}>{usd(t.subtotal_cents)}</Text>
+            </View>
+          ))}
+        </View>
+      )}
       <View style={styles.statGrid}>
         {stats.map((s) => (
           <View key={s.label} style={styles.statCard}>
@@ -131,11 +168,13 @@ function Feedback() {
     try { const r = await api<{ items: any[] }>(`/admin/feedback${filter ? `?status=${filter}` : ""}`); setItems(r.items); } catch {} finally { setLoading(false); }
   }, [filter]);
   useFocusEffect(useCallback(() => { load(); }, [load]));
-  const update = async (id: string, status: string) => { await api(`/admin/feedback/${id}`, { method: "PATCH", body: { status } }); load(); };
-  const remove = async (id: string) => { await api(`/admin/feedback/${id}`, { method: "DELETE" }); load(); };
   return (
     <ScrollView contentContainerStyle={styles.content}>
       <ModuleHeader title="Feedback & Suggestions" onRefresh={load} />
+      <Pressable testID="fb-export" style={styles.exportBtn} onPress={() => downloadCsv("/admin/feedback/export.csv", "feedback.csv")}>
+        <MaterialCommunityIcons name="download" size={16} color={colors.brandPrimary} />
+        <Text style={styles.exportText}>Export CSV</Text>
+      </Pressable>
       <View style={styles.filterRow}>
         {["all", ...FB_STATUS].map((s) => {
           const on = (s === "all" && !filter) || s === filter;
@@ -143,18 +182,38 @@ function Feedback() {
         })}
       </View>
       {loading ? <Center /> : items.length === 0 ? <Text style={styles.empty}>No feedback in this view.</Text> :
-        items.map((f) => (
-          <View key={f.id} style={styles.card} testID={`fb-${f.id}`}>
-            <View style={styles.cardTop}>
-              <Text style={[styles.typeBadge, { backgroundColor: f.type === "bug" ? "#EB5757" : f.type === "feature" ? "#2F80ED" : "#888" }]}>{f.type}</Text>
-              <Text style={styles.cardMeta}>{f.user_email || "anon"}</Text>
-              <Pressable testID={`fb-del-${f.id}`} onPress={() => remove(f.id)} hitSlop={8}><MaterialCommunityIcons name="trash-can-outline" size={18} color={colors.onSurfaceTertiary} /></Pressable>
-            </View>
-            <Text style={styles.cardBody}>{f.message}</Text>
-            <StatusPicker value={f.status} options={FB_STATUS} onChange={(s) => update(f.id, s)} />
-          </View>
-        ))}
+        items.map((f) => <FeedbackCard key={f.id} item={f} reload={load} />)}
     </ScrollView>
+  );
+}
+
+function FeedbackCard({ item, reload }: { item: any; reload: () => void }) {
+  const [note, setNote] = useState(item.note || "");
+  const [savedNote, setSavedNote] = useState(false);
+  const setField = async (body: any) => { try { await api(`/admin/feedback/${item.id}`, { method: "PATCH", body }); reload(); } catch {} };
+  const saveNote = async () => { try { await api(`/admin/feedback/${item.id}`, { method: "PATCH", body: { note } }); setSavedNote(true); setTimeout(() => setSavedNote(false), 1500); } catch {} };
+  const remove = async () => { try { await api(`/admin/feedback/${item.id}`, { method: "DELETE" }); reload(); } catch {} };
+  return (
+    <View style={styles.card} testID={`fb-${item.id}`}>
+      <View style={styles.cardTop}>
+        <Text style={[styles.typeBadge, { backgroundColor: item.type === "bug" ? "#EB5757" : item.type === "feature" ? "#2F80ED" : "#888" }]}>{item.type}</Text>
+        <Text style={styles.cardMeta}>{item.user_email || "anon"}</Text>
+        <Pressable testID={`fb-del-${item.id}`} onPress={remove} hitSlop={8}><MaterialCommunityIcons name="trash-can-outline" size={18} color={colors.onSurfaceTertiary} /></Pressable>
+      </View>
+      <Text style={styles.cardBody}>{item.message}</Text>
+      <Text style={styles.miniLabel}>STATUS</Text>
+      <StatusPicker value={item.status} options={FB_STATUS} onChange={(s) => setField({ status: s })} />
+      <Text style={styles.miniLabel}>PRIORITY</Text>
+      <View style={styles.statusRow}>
+        {FB_PRIORITY.map((p) => {
+          const on = p === (item.priority || "medium");
+          return <Pressable key={p} testID={`prio-${p}-${item.id}`} style={[styles.statusChip, on && { backgroundColor: PRIORITY_COLOR[p], borderColor: PRIORITY_COLOR[p] }]} onPress={() => setField({ priority: p })}><Text style={[styles.statusText, on && { color: "#fff" }]}>{p}</Text></Pressable>;
+        })}
+      </View>
+      <Text style={styles.miniLabel}>INTERNAL NOTE</Text>
+      <TextInput testID={`fb-note-${item.id}`} style={styles.noteInput} value={note} onChangeText={setNote} placeholder="Private note for your team…" placeholderTextColor={colors.onSurfaceTertiary} multiline />
+      <Pressable testID={`fb-note-save-${item.id}`} style={styles.noteSave} onPress={saveNote}><Text style={styles.noteSaveText}>{savedNote ? "Saved ✓" : "Save note"}</Text></Pressable>
+    </View>
   );
 }
 
@@ -167,6 +226,10 @@ function Tickets() {
   return (
     <ScrollView contentContainerStyle={styles.content}>
       <ModuleHeader title="Support Tickets" onRefresh={load} />
+      <Pressable testID="tk-export" style={styles.exportBtn} onPress={() => downloadCsv("/admin/tickets/export.csv", "tickets.csv")}>
+        <MaterialCommunityIcons name="download" size={16} color={colors.brandPrimary} />
+        <Text style={styles.exportText}>Export CSV</Text>
+      </Pressable>
       {loading ? <Center /> : items.length === 0 ? <Text style={styles.empty}>No tickets.</Text> :
         items.map((t) => (
           <View key={t.id} style={styles.card} testID={`tk-${t.id}`}>
@@ -256,4 +319,19 @@ const styles = StyleSheet.create({
   toggleBtn: { alignSelf: "flex-start", backgroundColor: colors.surface, borderColor: colors.brandPrimary, borderWidth: 1.5, borderRadius: radius.sm, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm },
   toggleText: { color: colors.brandPrimary, fontFamily: font.bold, fontSize: type.sm },
   center: { padding: 60, alignItems: "center" },
+  revCard: { backgroundColor: colors.surfaceSecondary, borderColor: colors.brandPrimary, borderWidth: 1.5, borderRadius: radius.md, padding: spacing.lg, marginBottom: spacing.xl },
+  revLabel: { color: colors.onSurfaceTertiary, fontFamily: font.bold, fontSize: 10, letterSpacing: 1.5 },
+  revMrr: { color: colors.onSurface, fontFamily: font.display, fontSize: 40, marginTop: spacing.xs },
+  revPer: { color: colors.onSurfaceTertiary, fontFamily: font.bold, fontSize: type.lg },
+  revArr: { color: colors.onSurfaceTertiary, fontFamily: font.medium, fontSize: type.sm, marginBottom: spacing.md },
+  revRow: { flexDirection: "row", alignItems: "center", paddingVertical: spacing.xs, borderTopColor: colors.border, borderTopWidth: 1 },
+  revTier: { flex: 1, color: colors.onSurface, fontFamily: font.bold, fontSize: type.base },
+  revCount: { color: colors.onSurfaceTertiary, fontFamily: font.regular, fontSize: type.sm, marginRight: spacing.md },
+  revSub: { color: colors.brandPrimary, fontFamily: font.bold, fontSize: type.base, width: 80, textAlign: "right" },
+  exportBtn: { flexDirection: "row", alignItems: "center", alignSelf: "flex-start", gap: spacing.xs, borderColor: colors.brandPrimary, borderWidth: 1.5, borderRadius: radius.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, marginBottom: spacing.md },
+  exportText: { color: colors.brandPrimary, fontFamily: font.bold, fontSize: type.sm },
+  miniLabel: { color: colors.onSurfaceTertiary, fontFamily: font.bold, fontSize: 9, letterSpacing: 1.2, marginTop: spacing.md, marginBottom: spacing.xs },
+  noteInput: { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: radius.sm, padding: spacing.md, minHeight: 56, textAlignVertical: "top", color: colors.onSurface, fontFamily: font.regular, fontSize: type.sm },
+  noteSave: { alignSelf: "flex-start", backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1.5, borderRadius: radius.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.xs, marginTop: spacing.xs },
+  noteSaveText: { color: colors.onSurfaceSecondary, fontFamily: font.bold, fontSize: type.sm },
 });
