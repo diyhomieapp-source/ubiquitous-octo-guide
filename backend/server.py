@@ -35,6 +35,8 @@ TOKEN_EXPIRE_MINUTES = int(os.environ.get('ACCESS_TOKEN_EXPIRE_MINUTES', '43200'
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 security = HTTPBearer(auto_error=True)
 
+STRIPE_API_KEY = os.environ.get('STRIPE_API_KEY', '')
+
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("diyhomie")
 
@@ -756,20 +758,99 @@ async def verify_reply(post_id: str, reply_id: str, user: dict = Depends(get_cur
     return {"ok": True, "rewarded_user": reply["author"]}
 
 
-# ---------------------------------------------------------------- billing (mock)
+# ---------------------------------------------------------------- billing (Stripe — one-time plan purchase)
+from emergentintegrations.payments.stripe.checkout import StripeCheckout, CheckoutSessionRequest
+
 class SubscribeReq(BaseModel):
     tier: str  # "pro" | "master"
 
 
-TIER_GRANTS = {
-    "pro": {"credits": 500, "voice_minutes": 60, "label": "Pro"},
-    "master": {"credits": 2000, "voice_minutes": 240, "label": "Master"},
+# Server-side fixed packages. NEVER trust an amount sent from the client.
+STRIPE_PACKAGES = {
+    "pro": {"amount": 12.0, "credits": 500, "voice_minutes": 60, "label": "Pro"},
+    "master": {"amount": 29.0, "credits": 2000, "voice_minutes": 240, "label": "Master"},
 }
+TIER_GRANTS = STRIPE_PACKAGES  # backward-compat alias
+
+
+class CheckoutReq(BaseModel):
+    tier: str            # "pro" | "master"
+    origin_url: str      # frontend origin, e.g. https://app.example.com
+
+
+@api_router.post("/billing/checkout")
+async def create_checkout(req: CheckoutReq, user: dict = Depends(get_current_user)):
+    pkg = STRIPE_PACKAGES.get(req.tier)
+    if not pkg:
+        raise HTTPException(status_code=400, detail="Invalid tier")
+    if not STRIPE_API_KEY:
+        raise HTTPException(status_code=500, detail="Payments not configured")
+
+    host = req.origin_url.rstrip("/")
+    success_url = f"{host}/billing/success?session_id={{CHECKOUT_SESSION_ID}}"
+    cancel_url = f"{host}/paywall"
+
+    stripe_checkout = StripeCheckout(api_key=STRIPE_API_KEY)
+    cs_req = CheckoutSessionRequest(
+        amount=pkg["amount"],
+        currency="usd",
+        success_url=success_url,
+        cancel_url=cancel_url,
+        metadata={"user_id": user["id"], "tier": req.tier},
+    )
+    try:
+        session = await stripe_checkout.create_checkout_session(cs_req)
+    except Exception as e:
+        logger.error(f"stripe checkout error: {e}")
+        raise HTTPException(status_code=502, detail="Could not start checkout. Try again.")
+
+    await db.payment_transactions.insert_one({
+        "session_id": session.session_id,
+        "user_id": user["id"],
+        "tier": req.tier,
+        "amount": pkg["amount"],
+        "currency": "usd",
+        "payment_status": "initiated",
+        "fulfilled": False,
+        "created_at": now_iso(),
+    })
+    return {"url": session.url, "session_id": session.session_id}
+
+
+@api_router.get("/billing/status/{session_id}")
+async def billing_status(session_id: str, user: dict = Depends(get_current_user)):
+    if not STRIPE_API_KEY:
+        raise HTTPException(status_code=500, detail="Payments not configured")
+    stripe_checkout = StripeCheckout(api_key=STRIPE_API_KEY)
+    try:
+        st = await stripe_checkout.get_checkout_status(session_id)
+    except Exception as e:
+        logger.error(f"stripe status error: {e}")
+        raise HTTPException(status_code=502, detail="Could not verify payment.")
+
+    tx = await db.payment_transactions.find_one({"session_id": session_id})
+    if tx and st.payment_status == "paid" and not tx.get("fulfilled"):
+        pkg = STRIPE_PACKAGES.get(tx["tier"], {})
+        await db.users.update_one(
+            {"id": tx["user_id"]},
+            {"$inc": {"credits": pkg.get("credits", 0), "voice_minutes": pkg.get("voice_minutes", 0)},
+             "$set": {"subscription_tier": tx["tier"], "onboarded": True}},
+        )
+        await db.payment_transactions.update_one(
+            {"session_id": session_id}, {"$set": {"fulfilled": True, "payment_status": "paid"}}
+        )
+    elif tx and st.payment_status != tx.get("payment_status"):
+        await db.payment_transactions.update_one(
+            {"session_id": session_id}, {"$set": {"payment_status": st.payment_status}}
+        )
+
+    fresh = await db.users.find_one({"id": user["id"]}, {"_id": 0})
+    return {"payment_status": st.payment_status, "status": st.status, "user": public_user(fresh)}
 
 
 @api_router.post("/billing/subscribe")
 async def subscribe(req: SubscribeReq, user: dict = Depends(get_current_user)):
-    grant = TIER_GRANTS.get(req.tier)
+    grant = STRIPE_PACKAGES.get(req.tier)
     if not grant:
         raise HTTPException(status_code=400, detail="Invalid tier")
     await db.users.update_one(

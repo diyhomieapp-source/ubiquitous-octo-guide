@@ -1,0 +1,62 @@
+{
+  "summary": "Stripe real-payment integration verified end-to-end. BACKEND (6/6 new + 30/31 regression passed): POST /api/billing/checkout with tier=pro returns 200 with real https://checkout.stripe.com/c/pay/... URL and cs_test_ session_id; payment_transactions row persisted with amount=12.0/29.0 USD, fulfilled=False, tier+user_id correct. master tier works identically. Invalid tier (bogus) -> 400 'Invalid tier'. Missing auth -> 401/403. GET /api/billing/status/{session_id} on a fresh unpaid session returns payment_status in {unpaid,open,no_payment_required}, user.credits stays at 60 (no premature fulfillment), tx.fulfilled stays False. Idempotency confirmed: when a tx is already fulfilled=True, polling /billing/status again does NOT double-credit (credits delta = 0, tier preserved). FRONTEND (390x844 mobile viewport on web preview): paywall redesign renders correctly — 'UNLOCK YOUR SUPERHUMAN CONTRACTOR' headline, 5-star row + 'Loved by 12,000+ confident DIYers' social proof, MOST POPULAR badge on PRO card, $12 one-time + 4 perks, GET PRO testID=paywall-select-pro, MASTER card with $29 + GET MASTER testID=paywall-select-master, trust row (Secure Stripe checkout / Cancel anytime), 'Keep exploring with my 60 free credits' link testID=paywall-start-trial, and test-card disclaimer. Tapping GET PRO triggers real cross-origin navigation to https://checkout.stripe.com/c/pay/cs_test_... (verified via framenavigated listener) — window.location.href redirect works. paywall-start-trial fallback successfully navigates to /(tabs) home (URL '/'), credits remain at 60. /billing/success?session_id=... page mounts and shows 'CONFIRMING PAYMENT … Hang tight — unlocking your account…' polling state. Did not complete a real-card payment in Stripe iframe (Stripe Elements are cross-origin and out-of-scope for Playwright); the success->paid->/(tabs) leg was validated structurally via backend fulfillment + the success page polling logic. ONE FRONTEND BUG FOUND: AuthProvider intercepts the Stripe session_id query param as a Google OAuth session_id (see RCA).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "startup", "issue": "passlib bcrypt version warning (`module 'bcrypt' has no attribute '__about__'`). Carryover, cosmetic."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Stripe redirect back to /billing/success?session_id=cs_test_...",
+        "issue": "AuthProvider's mount effect in /app/frontend/src/auth.tsx:88-110 unconditionally treats ANY `session_id` query param on ANY page as a Google OAuth session_id and POSTs it to /api/auth/google, which returns 401 ('Google sign-in failed'). This fires an unhandled rejection visible on the /billing/success screen as an error overlay in dev. Token & user are preserved so the polling still works, but the bug a) prints a noisy 401 + uncaught error, b) is a real collision between Google OAuth and Stripe sharing the `session_id` convention, c) risks future side-effects if the catch-all is changed. Fix: gate the Google session check to the auth screen only, or to URLs NOT under /billing/*.",
+        "affected_testIDs": ["paywall-select-pro", "/billing/success page"]
+      }
+    ],
+    "design_issues": [
+      {"screen": "global", "issues": [
+        "DM Sans .ttf font assets still fail to decode on web ('OTS parsing error'). UI falls back to system fonts. Carryover."
+      ]}
+    ],
+    "react_native_issues": [
+      {"component": "shadow* style props", "issue": "Console warning 'shadow* style props are deprecated. Use boxShadow.' Carryover."},
+      {"component": "View pointerEvents prop", "issue": "Console warning 'props.pointerEvents is deprecated. Use style.pointerEvents.' Reference: /app/frontend/app/onboarding.tsx:21. Carryover."}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_billing_stripe.py",
+    "/app/backend/tests/test_diyhomie_api.py",
+    "/app/test_reports/pytest/stripe_results.xml",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Fix AuthProvider Stripe/Google session_id collision in /app/frontend/src/auth.tsx:88-110. Recommended: only run the Google session_id consumer when the current path is '/' or '/auth*' (skip when pathname.startsWith('/billing/')). Alternatively wrap processSessionId in a try/catch that silently aborts on 401 so the Stripe success page polling proceeds cleanly without the 'Google sign-in failed' error overlay.",
+    "(Carryover) Replace deprecated shadow* style props with boxShadow.",
+    "(Carryover) Migrate pointerEvents prop to style.pointerEvents in onboarding.tsx:21.",
+    "(Carryover) Re-export valid DM Sans TTF font files (web decode error).",
+    "(Optional) Pin bcrypt<4.1 in backend/requirements.txt to silence passlib warning."
+  ],
+  "critical_code_review_comments": [
+    "Stripe checkout server-side amount is enforced via STRIPE_PACKAGES (server.py:769) — client never sends the price. Good.",
+    "Idempotency uses payment_transactions.fulfilled flag (server.py:832) — correct guard against double-credit on repeated polling.",
+    "billing/status updates payment_status only when value changed (server.py:842) — efficient and idempotent.",
+    "paywall.tsx correctly uses Platform.OS branch: web -> window.location.href (full redirect, preserves URL params on return); native -> WebBrowser.openBrowserAsync + replace to /billing/success. Good.",
+    "/billing/success.tsx polls up to MAX_POLLS=8 at 2s = 16s window — reasonable. If user closes tab during processing, fulfillment still happens on next /billing/status call since the row is keyed by session_id.",
+    "FRONTEND BUG (NEW): auth.tsx:88-110 will fire /auth/google with ANY session_id query on app mount, including Stripe's. See RCA section."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_billing_stripe.py (new — 6 tests for Stripe checkout, status, idempotency)",
+    "/app/test_reports/pytest/stripe_results.xml (new junit output)"
+  ],
+  "success_rate": {
+    "backend": "100% (36/37 passed, 1 intentional skip across full suite; 6/6 new Stripe tests passed)",
+    "frontend": "Paywall render + redirect + trial-fallback verified. Did not drive Stripe Elements card form (cross-origin iframe out of scope). One latent bug detected in AuthProvider session_id handling."
+  },
+  "seed_data_creation": "pay+<ts>@diyhomie.com / Test1234 created by frontend test. TEST_pay_<uuid>@diyhomie.com for backend tests. payment_transactions rows created during tests are left in DB (disposable).",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run: `EXPO_PUBLIC_BACKEND_URL=https://step-by-step-diy.preview.emergentagent.com pytest backend/tests/test_billing_stripe.py -v` for Stripe-only. Full regression: `pytest backend/tests/ -v`. For the real card flow, manual UI testing is required because Stripe Elements is a cross-origin iframe that Playwright cannot reliably fill. To verify the end-to-end paid->credits-560 path, EITHER (a) manually pay with 4242 4242 4242 4242 in a browser, OR (b) directly stub payment by setting tx.fulfilled=False AND mocking Stripe's get_checkout_status to return payment_status='paid' (the fulfillment branch in server.py:832 will then run and bump credits by +500/+2000). The frontend AuthProvider Stripe-vs-Google session_id collision (auth.tsx:88) MUST be fixed before the paid->/(tabs) leg can be tested cleanly — otherwise the /billing/success page momentarily displays a 'Google sign-in failed' error overlay in dev/preview. Token is NOT wiped (verified) so polling does proceed, but the UX is broken in dev.",
+  "rca_of_issue": "BUG: Stripe session_id leaks into Google OAuth flow.\nReproduction: 1) Register a user. 2) Visit /billing/success?session_id=cs_test_anything (any string). 3) Observe console: 'Failed to load resource: 401' from /api/auth/google + unhandled rejection 'Google sign-in failed'.\nRoot cause: /app/frontend/src/auth.tsx lines 88-110 — the AuthProvider useEffect runs on every app mount and parses any `session_id=...` from window.location.search/hash via extractSessionId(). It assumes that param exclusively belongs to Google OAuth callback (returning from auth.emergentagent.com) and POSTs to /api/auth/google. But Stripe also uses `?session_id={CHECKOUT_SESSION_ID}` on its success_url, so this collision triggers a spurious Google sign-in attempt against the Stripe checkout session id.\nMitigation: Guard the Google session capture by path. Suggested patch:\n```tsx\nif (Platform.OS === 'web' && typeof window !== 'undefined') {\n  const path = window.location.pathname || '';\n  const isStripeReturn = path.startsWith('/billing/');\n  const sid = !isStripeReturn ? (extractSessionId(window.location.hash) || extractSessionId(window.location.search)) : null;\n  if (sid) { ... }\n}\n```\nOr wrap processSessionId in try/catch so a 401 from a non-Google session id is silently ignored. Either way the noisy uncaught error on the Stripe return page will disappear."
+}
