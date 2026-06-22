@@ -12,6 +12,7 @@ import { colors, spacing, radius, font, type } from "@/src/theme";
 import { useAuth } from "@/src/auth";
 import { api } from "@/src/api";
 import { storage } from "@/src/utils/storage";
+import { BlueprintOverlay } from "@/src/components/BlueprintOverlay";
 
 type ProjectSummary = { id: string; title: string; status: string; progress: number; total_steps: number; done_steps: number; has_guide: boolean };
 
@@ -61,6 +62,7 @@ export default function Home() {
 
   return (
     <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <BlueprintOverlay />
       <ScrollView
         contentContainerStyle={{ paddingTop: insets.top + spacing.lg, paddingHorizontal: spacing.lg, paddingBottom: insets.bottom + spacing.xl }}
         keyboardShouldPersistTaps="handled"

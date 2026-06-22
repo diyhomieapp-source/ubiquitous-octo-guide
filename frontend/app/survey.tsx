@@ -54,7 +54,7 @@ const TOOL_KITS: ToolKit[] = [
     icon: "medal-outline",
     items: [
       { label: "Nail Gun", icon: "hammer" },
-      { label: "Table Saw", icon: "table-saw" },
+      { label: "Table Saw", icon: "saw-blade" },
       { label: "Angle Grinder", icon: "saw-blade" },
       { label: "Paint Sprayer", icon: "spray" },
       { label: "Tile Cutter", icon: "grid" },

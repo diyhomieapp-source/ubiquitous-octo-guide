@@ -1,4 +1,5 @@
-import { View, Text, StyleSheet } from "react-native";
+import { useEffect, useRef } from "react";
+import { View, Text, StyleSheet, Animated, Easing } from "react-native";
 import { Image } from "expo-image";
 import { colors, spacing, font } from "@/src/theme";
 
@@ -6,13 +7,50 @@ const LOGO = require("../../assets/logo-contractor.png");
 
 type Size = "sm" | "md" | "lg";
 
-export function Logo({ size = "md", showWordmark = true }: { size?: Size; showWordmark?: boolean }) {
+/** A single orange square outline that scales up + fades out — an electric pulse radiating from the logo. */
+function Ring({ dim, delay }: { dim: number; delay: number }) {
+  const v = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.delay(delay),
+        Animated.timing(v, { toValue: 1, duration: 2200, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [v, delay]);
+
+  const scale = v.interpolate({ inputRange: [0, 1], outputRange: [1, 1.7] });
+  const opacity = v.interpolate({ inputRange: [0, 0.12, 1], outputRange: [0, 0.75, 0] });
+
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={[
+        styles.ring,
+        { width: dim, height: dim, borderRadius: dim * 0.26, opacity, transform: [{ scale }] },
+      ]}
+    />
+  );
+}
+
+export function Logo({ size = "md", showWordmark = true, animated = true }: { size?: Size; showWordmark?: boolean; animated?: boolean }) {
   const dim = size === "lg" ? 92 : size === "sm" ? 44 : 60;
   const word = size === "lg" ? 40 : size === "sm" ? 22 : 32;
 
   return (
     <View style={styles.row}>
-      <Image source={LOGO} style={[styles.tile, { width: dim, height: dim, borderRadius: dim * 0.26 }]} contentFit="cover" />
+      <View style={[styles.mark, { width: dim, height: dim }]}>
+        {animated && (
+          <>
+            <Ring dim={dim} delay={0} />
+            <Ring dim={dim} delay={730} />
+            <Ring dim={dim} delay={1460} />
+          </>
+        )}
+        <Image source={LOGO} style={[styles.tile, { width: dim, height: dim, borderRadius: dim * 0.26 }]} contentFit="cover" />
+      </View>
       {showWordmark && (
         <Text style={[styles.word, { fontSize: word }]}>
           DIY<Text style={{ color: colors.brandPrimary }}>homie</Text>
@@ -24,6 +62,8 @@ export function Logo({ size = "md", showWordmark = true }: { size?: Size; showWo
 
 const styles = StyleSheet.create({
   row: { flexDirection: "row", alignItems: "center", gap: spacing.md },
+  mark: { alignItems: "center", justifyContent: "center" },
+  ring: { position: "absolute", borderWidth: 2, borderColor: colors.brandPrimary },
   tile: {
     backgroundColor: colors.brandPrimary,
     alignItems: "center",
@@ -34,6 +74,5 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     elevation: 8,
   },
-  bolt: { position: "absolute", backgroundColor: colors.surface, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: colors.onBrandPrimary },
   word: { color: colors.onSurface, fontFamily: font.bold, letterSpacing: -1 },
 });

@@ -238,7 +238,7 @@ export default function Demo() {
         <Pressable
           testID="demo-startfree-button"
           style={styles.secondary}
-          onPress={async () => { try { await updateProfile({ onboarded: true } as any); } catch {} router.replace("/(tabs)"); }}
+          onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.replace("/(tabs)"); updateProfile({ onboarded: true } as any).catch(() => {}); }}
         >
           <Text style={styles.secondaryText}>Start building with my free credits</Text>
         </Pressable>
