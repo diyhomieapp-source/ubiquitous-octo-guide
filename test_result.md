@@ -144,3 +144,11 @@ Switched from one-time (emergent proxy) to true recurring subscriptions using th
 - paywall.tsx: prices now "/month", disclaimer "Secure recurring billing via Stripe · cancel anytime".
 
 NOTE: LIVE mode — cannot validate full pay->activate with test card 4242 (live declines test cards). Verified mechanics via API. Webhook secret pending user setup post-deploy.
+
+## Iteration 5 — Conversion workflow buildout (main agent)
+- api.ts: ApiError with .status; project workspace already routes to /paywall on out-of-credits.
+- analysis.tsx: added "HOW HOMIE WORKS" 3-step educational strip before signup.
+- auth.tsx (register mode): value subtitle + benefit chips (First guide free / No credit card / Cancel anytime); uses DIYhomie Logo.
+- demo.tsx: added secondary CTA "Start building with my free credits" (testID demo-startfree-button) -> sets onboarded, goes to (tabs) (avoids forced paywall; usage-based conversion later).
+- (tabs)/index.tsx: home description now mentions guides are tailored to the user's exact fixture/model/material (specific toilet, faucet, paint).
+Funnel order unchanged: onboarding → survey → /analysis → register → /demo → /paywall(or free)→ (tabs).

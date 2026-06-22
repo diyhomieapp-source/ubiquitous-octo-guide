@@ -12,6 +12,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors, spacing, radius, font, type } from "@/src/theme";
 import { Logo } from "@/src/components/Logo";
 import { api } from "@/src/api";
+import { useAuth } from "@/src/auth";
 
 const SUGGESTIONS = [
   { label: "Fix a leaky faucet", icon: "water-pump" },
@@ -42,6 +43,7 @@ type Guide = {
 export default function Demo() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { updateProfile } = useAuth();
 
   const [phase, setPhase] = useState<"pick" | "loading" | "result">("pick");
   const [title, setTitle] = useState("");
@@ -233,6 +235,13 @@ export default function Demo() {
           <Text style={styles.ctaText}>UNLOCK FULL ACCESS</Text>
           <MaterialCommunityIcons name="arrow-right" size={20} color={colors.onBrandPrimary} />
         </Pressable>
+        <Pressable
+          testID="demo-startfree-button"
+          style={styles.secondary}
+          onPress={async () => { try { await updateProfile({ onboarded: true } as any); } catch {} router.replace("/(tabs)"); }}
+        >
+          <Text style={styles.secondaryText}>Start building with my free credits</Text>
+        </Pressable>
       </View>
     </View>
   );
@@ -306,4 +315,6 @@ const styles = StyleSheet.create({
   stepLocked: { color: colors.brandPrimary, fontFamily: font.medium, fontSize: type.sm },
   footer: { paddingHorizontal: spacing.xl, paddingTop: spacing.md, borderTopColor: colors.border, borderTopWidth: 1, backgroundColor: colors.surface },
   footerHint: { color: colors.onSurfaceTertiary, fontFamily: font.regular, fontSize: type.sm, textAlign: "center", marginBottom: spacing.md, lineHeight: 18 },
+  secondary: { alignItems: "center", paddingVertical: spacing.md, marginTop: spacing.xs },
+  secondaryText: { color: colors.onSurfaceSecondary, fontFamily: font.bold, fontSize: type.base, textDecorationLine: "underline" },
 });

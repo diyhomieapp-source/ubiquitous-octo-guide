@@ -82,10 +82,20 @@ export default function Auth() {
           <Logo size="sm" />
         </View>
 
-        <Text style={styles.title}>{mode === "register" ? "CREATE YOUR ACCOUNT" : "WELCOME BACK"}</Text>
+        <Text style={styles.title}>{mode === "register" ? "ALMOST THERE" : "WELCOME BACK"}</Text>
         <Text style={styles.subtitle}>
-          {mode === "register" ? "Save your profile and unlock Homie." : "Pick up where you left off."}
+          {mode === "register" ? "Create your free account to meet Homie — your first full guide is on the house." : "Pick up where you left off."}
         </Text>
+        {mode === "register" && (
+          <View style={styles.benefits}>
+            {["First guide free", "No credit card", "Cancel anytime"].map((b) => (
+              <View key={b} style={styles.benefit}>
+                <MaterialCommunityIcons name="check-circle" size={14} color={colors.success} />
+                <Text style={styles.benefitText}>{b}</Text>
+              </View>
+            ))}
+          </View>
+        )}
 
         <Pressable testID="auth-google-button" style={styles.googleBtn} onPress={googleSignIn}>
           <MaterialCommunityIcons name="google" size={20} color={colors.onSurface} />
@@ -165,7 +175,10 @@ const styles = StyleSheet.create({
   logoRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginBottom: spacing["2xl"] },
   logo: { color: colors.onSurface, fontFamily: font.display, fontSize: 28, letterSpacing: 2 },
   title: { color: colors.onSurface, fontFamily: font.display, fontSize: 40, lineHeight: 42 },
-  subtitle: { color: colors.onSurfaceTertiary, fontFamily: font.regular, fontSize: type.lg, marginTop: spacing.sm, marginBottom: spacing.xl },
+  subtitle: { color: colors.onSurfaceTertiary, fontFamily: font.regular, fontSize: type.lg, marginTop: spacing.sm, marginBottom: spacing.lg },
+  benefits: { flexDirection: "row", flexWrap: "wrap", gap: spacing.md, marginBottom: spacing.xl },
+  benefit: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
+  benefitText: { color: colors.onSurfaceSecondary, fontFamily: font.bold, fontSize: type.sm },
   input: {
     backgroundColor: colors.surfaceSecondary,
     borderColor: colors.border,

@@ -1,0 +1,78 @@
+{
+  "summary": "Full signup-funnel conversion flow validated end-to-end on the web preview (390x844 mobile viewport). Onboarding -> Survey (5 cards) -> Analysis -> Auth (register) -> Demo (free first guide) -> Home (tabs) all work. Backend free-first-guide check PASSED: fresh user starts with 60 credits, POST /projects/{id}/guide returns full guide+steps, credits remain exactly 60 after generation. SURVEY: All 5 cards render with testIDs; Card 2 (tools) shows the 3 new kit tiers (Essentials, Power Tools, Pro Gear) with testID survey-kit-essentials / survey-kit-power / survey-kit-pro; 'Add all' toggle works (label becomes 'Got it all' + check-all icon) and individually toggling tiles (Cordless Drill, Multimeter, etc.) works; Continue advances to next card. ANALYSIS: Verified 'WE GET YOU.' headline, 'SUPERHUMAN CONTRACTOR' card (NO percentage match anywhere — confirmed body.text scan), 'HOW HOMIE WORKS' 3-step strip; analysis-continue-button (MEET HOMIE) navigates to /auth?mode=register. AUTH REGISTER: 'First guide free', 'No credit card', 'Cancel anytime' benefit chips render; DIYhomie logo present; registration succeeds and routes to /demo. DEMO: suggestion chips auto-trigger generate; LLM-driven first guide generated in ~10-15s; result page shows STEP 1 VISUAL badge, steps list, both UNLOCK FULL ACCESS (demo-unlock-button) and 'Start building with my free credits' (demo-startfree-button); tapping demo-startfree-button DOES land on /(tabs) home — but with a ~10-second delay before the navigation visibly resolves (see UX bug below). HOME (tabs): description includes 'tailored to your exact fixture, model or material (your specific toilet, faucet or paint)' (all four keywords present), credit pill shows '60 cr', and all five tabs (HOMIE / PROJECTS / SUPPLIES / PRO-EARN / PROFILE) render in the bottom tab bar. PAYWALL REGRESSION: /paywall renders, paywall-select-pro + paywall-select-master both present; tapping GET PRO triggers cross-origin navigation to https://checkout.stripe.com/g/pay/cs_live_... (Stripe is now in LIVE mode — only verified the session creates + redirect starts; no card entered).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/auth/register + bcrypt", "issue": "Carryover: passlib bcrypt version warning (`module 'bcrypt' has no attribute '__about__'`) in backend.err.log. Cosmetic."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "demo.tsx demo-startfree-button",
+        "issue": "Tapping 'Start building with my free credits' provides no visible feedback for ~10 seconds before navigating to /(tabs). Root cause: the onPress is `await updateProfile({onboarded:true}); router.replace('/(tabs)')` — the PUT /api/profile call appears to be serialized behind the in-flight POST /projects/{id}/step/{id}/image (gpt-image-1, ~10-15s) that demo.tsx fires-and-forgets right after guide generation. With no loading state on the button, users will perceive the button as broken and may double-tap or leave. Reference: /app/frontend/app/demo.tsx:241",
+        "testID": "demo-startfree-button",
+        "priority": "MEDIUM"
+      },
+      {
+        "component": "survey.tsx tool icons",
+        "issue": "Console warning: `\"table-saw\" is not a valid icon name for family \"material-community\"`. Used in Pro Gear kit (Table Saw). Icon falls back to '?'. Reference: /app/frontend/app/survey.tsx:57",
+        "testID": "survey-kit-pro",
+        "priority": "LOW"
+      }
+    ],
+    "integration_issues": [
+      {
+        "flow": "Stripe success return (/billing/success?session_id=...) — CARRYOVER from iteration 4",
+        "issue": "AuthProvider in /app/frontend/src/auth.tsx:88-110 still intercepts any session_id query string as a Google OAuth session and POSTs to /api/auth/google, returning 401 'Google sign-in failed' when the param is actually a Stripe checkout session. Not retested this iteration (no real payment made) but unfixed per prior report.",
+        "affected_testIDs": ["paywall-select-pro", "/billing/success"]
+      }
+    ],
+    "design_issues": [
+      {"screen": "global", "issues": [
+        "(Carryover) DM Sans .ttf font assets fail to decode on web (OTS parsing error). UI falls back to system fonts.",
+        "(Carryover) shadow* style props deprecated console warnings on multiple screens.",
+        "(Carryover) View props.pointerEvents deprecated warning in onboarding.tsx:21."
+      ]}
+    ],
+    "react_native_issues": [
+      {"component": "shadow* style props", "issue": "Console warning 'shadow* style props are deprecated. Use boxShadow.' Carryover. Reference: theme/styles across multiple screens."},
+      {"component": "View pointerEvents prop", "issue": "Console warning 'props.pointerEvents is deprecated. Use style.pointerEvents.' Reference: /app/frontend/app/onboarding.tsx:21. Carryover."},
+      {"component": "MaterialCommunityIcons name='table-saw'", "issue": "Invalid icon name; falls back. Reference: /app/frontend/app/survey.tsx:57 (Pro Gear -> Table Saw item icon). Use 'table-furniture' or 'saw-blade' or a valid icon."},
+      {"component": "Animated useNativeDriver on web", "issue": "Console warning 'Animated: useNativeDriver is not supported... Falling back to JS-based animation.' Expected on web; informational only."}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_free_first_guide.py",
+    "/app/test_reports/pytest/free_first_guide.xml"
+  ],
+  "action_items": [
+    "Fix demo-startfree-button perceived 10s freeze (/app/frontend/app/demo.tsx:241). Recommended: (a) navigate immediately and fire updateProfile in background (no await), e.g. `router.replace('/(tabs)'); updateProfile({onboarded:true}).catch(()=>{});` — or (b) wrap with setBusy state + spinner so users see feedback. Option (a) is simpler and matches the optimistic UX.",
+    "Replace invalid MaterialCommunityIcons name 'table-saw' in /app/frontend/app/survey.tsx:57 with a valid icon (e.g. 'saw-blade' or 'table-furniture').",
+    "(Carryover from iteration 4) Fix AuthProvider Stripe/Google session_id collision in /app/frontend/src/auth.tsx:88-110.",
+    "(Carryover) Replace deprecated shadow* style props with boxShadow.",
+    "(Carryover) Migrate props.pointerEvents to style.pointerEvents in onboarding.tsx:21.",
+    "(Carryover) Re-export valid DM Sans TTF font files for web."
+  ],
+  "critical_code_review_comments": [
+    "demo.tsx fires the step-1 image generation as a background promise after guide gen — good pattern. But the subsequent demo-startfree-button awaits updateProfile, which appears to be queued behind the in-flight image call (HTTP/1.1 keep-alive serialization or backend single-worker). Either decouple via no-await navigation, or have the demo route navigate without touching profile (set onboarded server-side as part of first-guide POST).",
+    "survey.tsx CARDS array uses 5 cards as expected; multi-select cards (tools, pain_point) correctly require explicit Continue tap.",
+    "analysis.tsx headline 'WE GET YOU' + 'SUPERHUMAN CONTRACTOR' card with no percentage matched verified by body.innerText scan ('% match' / '%match' both absent).",
+    "auth.tsx benefit chips render only when mode==='register' — correct; verified all three present.",
+    "(tabs)/index.tsx subGreeting text confirmed mentions 'fixture, model or material' AND 'your specific toilet, faucet or paint' — matches PRD verbatim."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_free_first_guide.py (new — 1 test verifying first guide does not deduct credits)",
+    "/app/test_reports/pytest/free_first_guide.xml (new junit output)",
+    "/app/test_reports/iteration_5.json (new)"
+  ],
+  "success_rate": {
+    "backend": "100% (1/1 free-first-guide test passed; user credits 60 -> 60 across guide gen)",
+    "frontend": "100% functional pass on all funnel checkpoints. 1 medium-severity UX delay on demo-startfree-button, 1 minor invalid-icon warning. Stripe LIVE redirect verified (no card entered)."
+  },
+  "seed_data_creation": "Two disposable users created: funnel+1782091356@diyhomie.com / Test1234 and funnel2+1782091501@diyhomie.com / Test1234. One TEST_funnel_<ts>@diyhomie.com from backend test. All left in DB; harmless.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "All funnel screens have testIDs (survey-option-*, survey-kit-*, survey-continue-button, analysis-continue-button, auth-*-input, auth-submit-button, demo-suggestion-*, demo-generate-button, demo-unlock-button, demo-startfree-button, paywall-select-pro, paywall-select-master). For full re-runs: register a unique funnel+<ts>@diyhomie.com user; the survey 'tools' and 'pain_point' cards are multi-select and need survey-continue-button; the other 3 advance on selection. Demo guide gen takes 10-30s. The demo-startfree-button currently has a ~10s perceived delay before /(tabs) loads — bake at least 12s of polling into the wait OR fix per action_items. Stripe is LIVE; only verify checkout session redirect via framenavigated, never enter card details. Backend test: pytest backend/tests/test_free_first_guide.py.",
+  "rca_of_issue": "BUG (NEW, MEDIUM): demo-startfree-button perceived ~10s freeze.\nReproduction: 1) Register fresh user -> /demo. 2) Tap any suggestion chip; wait for guide. 3) Tap 'Start building with my free credits'. 4) Observe URL stays at /demo for ~10 seconds, then jumps to /(tabs).\nRoot cause: /app/frontend/app/demo.tsx:241 onPress handler is `async () => { try { await updateProfile({onboarded:true}); } catch {} router.replace('/(tabs)'); }`. Immediately after guide generation, demo.tsx (line 88) fires `api(/projects/{id}/step/{id}/image, POST)` as a non-awaited background promise — this OpenAI gpt-image-1 call takes 10-15s. The browser's fetch queue (HTTP/1.1 keep-alive or backend worker) appears to serialize the subsequent PUT /api/profile behind that in-flight image POST, so the `await updateProfile` blocks the entire 10-15s. router.replace doesn't fire until then, with NO visual feedback on the button.\nMitigation: Either (a) navigate first then update profile: `router.replace('/(tabs)'); updateProfile({onboarded:true}).catch(()=>{});` — clean & instant. Or (b) add setBusy state + ActivityIndicator on the button. Recommended: (a)."
+}

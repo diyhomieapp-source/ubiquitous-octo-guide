@@ -78,7 +78,7 @@ export default function Home() {
         </View>
 
         <Text style={styles.greeting}>HEY{user?.name ? ` ${user.name.toUpperCase()}` : ""},{"\n"}WHAT ARE WE FIXING?</Text>
-        <Text style={styles.subGreeting}>Tell me the job and I’ll build your complete game plan — tools, materials, safety and step-by-step photos.</Text>
+        <Text style={styles.subGreeting}>Tell me the job and I’ll build a complete game plan — tailored to your exact fixture, model or material (your specific toilet, faucet or paint) with tools, safety and step-by-step photos.</Text>
 
         <View style={styles.inputCard}>
           <TextInput

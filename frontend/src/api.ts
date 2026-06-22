@@ -20,6 +20,15 @@ type Options = {
   timeout?: number;
 };
 
+export class ApiError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
 export async function api<T = any>(path: string, opts: Options = {}): Promise<T> {
   const { method = "GET", body, auth = true, timeout = 90000 } = opts;
   const headers: Record<string, string> = { "Content-Type": "application/json" };
@@ -39,7 +48,7 @@ export async function api<T = any>(path: string, opts: Options = {}): Promise<T>
     const text = await res.text();
     const data = text ? JSON.parse(text) : {};
     if (!res.ok) {
-      throw new Error(data?.detail || `Request failed (${res.status})`);
+      throw new ApiError(data?.detail || `Request failed (${res.status})`, res.status);
     }
     return data as T;
   } finally {

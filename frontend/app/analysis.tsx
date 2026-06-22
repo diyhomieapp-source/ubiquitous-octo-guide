@@ -31,6 +31,12 @@ type Survey = {
   expectation?: string;
 };
 
+const HOW_STEPS: { icon: any; text: string }[] = [
+  { icon: "message-text-outline", text: "Tell Homie the job in plain words" },
+  { icon: "clipboard-check-outline", text: "Get a complete, code-aware game plan" },
+  { icon: "image-multiple-outline", text: "Follow exact step-by-step photos" },
+];
+
 function Reveal({ delay, children }: { delay: number; children: React.ReactNode }) {
   const opacity = useRef(new Animated.Value(0)).current;
   const translate = useRef(new Animated.Value(16)).current;
@@ -151,6 +157,19 @@ export default function Analysis() {
           );
         })}
 
+        <Reveal delay={650 + pains.length * 150}>
+          <Text style={styles.howLabel}>HOW HOMIE WORKS</Text>
+          <View style={styles.howCard}>
+            {HOW_STEPS.map((s, i) => (
+              <View key={s.text} style={[styles.howRow, i < HOW_STEPS.length - 1 && styles.howBorder]}>
+                <View style={styles.howNum}><Text style={styles.howNumText}>{i + 1}</Text></View>
+                <MaterialCommunityIcons name={s.icon} size={20} color={colors.brandPrimary} />
+                <Text style={styles.howText}>{s.text}</Text>
+              </View>
+            ))}
+          </View>
+        </Reveal>
+
         <Reveal delay={650 + pains.length * 150 + 150}>
           <View style={styles.proofCard}>
             <MaterialCommunityIcons name="account-hard-hat" size={26} color={colors.brandPrimary} />
@@ -205,6 +224,13 @@ const styles = StyleSheet.create({
   },
   proofText: { flex: 1, color: colors.onSurfaceSecondary, fontFamily: font.medium, fontSize: type.base, lineHeight: 21 },
   proofFree: { color: colors.brandPrimary, fontFamily: font.bold },
+  howLabel: { color: colors.onSurfaceTertiary, fontFamily: font.bold, fontSize: 11, letterSpacing: 1.5, marginTop: spacing.lg, marginBottom: spacing.sm },
+  howCard: { backgroundColor: colors.surfaceSecondary, borderColor: colors.border, borderWidth: 1.5, borderRadius: radius.md, paddingHorizontal: spacing.lg },
+  howRow: { flexDirection: "row", alignItems: "center", gap: spacing.md, paddingVertical: spacing.lg },
+  howBorder: { borderBottomColor: colors.border, borderBottomWidth: 1 },
+  howNum: { width: 24, height: 24, borderRadius: 12, backgroundColor: colors.brandTertiary, alignItems: "center", justifyContent: "center" },
+  howNumText: { color: colors.brandPrimary, fontFamily: font.display, fontSize: 14 },
+  howText: { flex: 1, color: colors.onSurfaceSecondary, fontFamily: font.medium, fontSize: type.base },
   footer: { paddingHorizontal: spacing.xl, paddingTop: spacing.md, borderTopColor: colors.border, borderTopWidth: 1, backgroundColor: colors.surface },
   cta: {
     flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm,
