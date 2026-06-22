@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, useWindowDimensions, TextInput } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, useWindowDimensions } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
@@ -45,12 +45,10 @@ export default function AdminWorkstation() {
             );
           })}
         </ScrollView>
-        {wide && (
-          <Pressable testID="admin-exit" style={styles.exit} onPress={() => router.replace("/(tabs)")}>
-            <MaterialCommunityIcons name="logout-variant" size={18} color={colors.onSurfaceTertiary} />
-            <Text style={styles.navText}>Back to app</Text>
-          </Pressable>
-        )}
+        <Pressable testID="admin-exit" style={[styles.exit, !wide && styles.exitNarrow]} onPress={() => router.replace("/(tabs)")}>
+          <MaterialCommunityIcons name="logout-variant" size={18} color={colors.onSurfaceTertiary} />
+          {wide && <Text style={styles.navText}>Back to app</Text>}
+        </Pressable>
       </View>
 
       {/* Content */}
@@ -228,6 +226,7 @@ const styles = StyleSheet.create({
   navItemOn: { backgroundColor: colors.surface, borderLeftColor: colors.brandPrimary, borderLeftWidth: 3 },
   navText: { color: colors.onSurfaceTertiary, fontFamily: font.bold, fontSize: type.base },
   exit: { flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingHorizontal: spacing.lg, paddingVertical: spacing.md, marginTop: "auto" },
+  exitNarrow: { marginTop: 0, position: "absolute", top: 50, right: spacing.md },
   content: { padding: spacing.lg, paddingBottom: spacing["3xl"], maxWidth: 900, width: "100%", alignSelf: "center" },
   modHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.lg },
   modTitle: { color: colors.onSurface, fontFamily: font.display, fontSize: 28, letterSpacing: 0.5 },
