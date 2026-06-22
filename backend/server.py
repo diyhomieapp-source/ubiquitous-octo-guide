@@ -857,6 +857,29 @@ async def verify_reply(post_id: str, reply_id: str, user: dict = Depends(get_cur
     return {"ok": True, "rewarded_user": reply["author"]}
 
 
+# ---------------------------------------------------------------- support tickets
+class TicketReq(BaseModel):
+    category: str
+    subject: str
+    message: str
+
+
+@api_router.post("/support/ticket")
+async def create_ticket(req: TicketReq, user: dict = Depends(get_current_user)):
+    doc = {
+        "id": str(uuid.uuid4()),
+        "user_id": user["id"],
+        "email": user.get("email"),
+        "category": req.category,
+        "subject": req.subject[:200],
+        "message": req.message[:4000],
+        "status": "open",
+        "created_at": now_iso(),
+    }
+    await db.support_tickets.insert_one({k: v for k, v in doc.items()})
+    return {"id": doc["id"], "status": "open"}
+
+
 # ---------------------------------------------------------------- weather (WeatherAPI.com)
 @api_router.get("/weather")
 async def get_weather(q: Optional[str] = None, user: dict = Depends(get_current_user)):
