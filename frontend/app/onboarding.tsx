@@ -19,10 +19,10 @@ export default function Onboarding() {
     <View style={styles.root}>
       <View style={styles.bg}>
         <View style={styles.topImageWrap} pointerEvents="none">
-          <Image source={HERO} style={[StyleSheet.absoluteFill, { opacity: 0.55 }]} contentFit="cover" />
+          <Image source={HERO} style={[StyleSheet.absoluteFill, { opacity: 0.85 }]} contentFit="cover" />
           <LinearGradient
-            colors={["rgba(18,18,18,0.15)", "rgba(18,18,18,0.7)", "rgba(18,18,18,1)"]}
-            locations={[0, 0.55, 1]}
+            colors={["rgba(18,18,18,0)", "rgba(18,18,18,0.45)", "rgba(18,18,18,1)"]}
+            locations={[0, 0.62, 1]}
             style={StyleSheet.absoluteFill}
           />
         </View>
