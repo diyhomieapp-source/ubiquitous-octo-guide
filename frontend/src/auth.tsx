@@ -89,15 +89,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     (async () => {
       try {
         if (Platform.OS === "web" && typeof window !== "undefined") {
+          const path = window.location.pathname || "";
           const sid = extractSessionId(window.location.hash) || extractSessionId(window.location.search);
-          if (sid) {
+          // Stripe checkout returns ?session_id=cs_... on /billing/* — never a Google session.
+          const isStripe = !!sid && (sid.startsWith("cs_") || path.startsWith("/billing"));
+          if (sid && !isStripe) {
             await processSessionId(sid);
             window.history.replaceState(null, "", window.location.pathname);
             return;
           }
         } else if (Platform.OS !== "web") {
           const sid = extractSessionId(await Linking.getInitialURL());
-          if (sid) {
+          if (sid && !sid.startsWith("cs_")) {
             await processSessionId(sid);
             return;
           }
