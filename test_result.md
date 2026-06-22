@@ -160,3 +160,12 @@ Funnel order unchanged: onboarding → survey → /analysis → register → /de
 - Frontend: src/components/WeatherBanner.tsx (GPS via expo-location w/ permission handling + Settings fallback, else profile ZIP/city). Added to Home below the project launcher. Verified UI: "AUSTIN · 79°F Overcast" + humidity advisory.
 - app.json: added iOS NSLocationWhenInUseUsageDescription + Android ACCESS_FINE/COARSE_LOCATION.
 - Pending (user said "more later"): Perplexity-driven local codes/construction practices deep-dive.
+
+## Iteration 7 — Engaging multi-widget survey (MadMuscles-style)
+Survey expanded 5→8 steps with varied widgets (all navigate end-to-end, verified via screenshot):
+- NEW "goals" multi-select (Repairs/Upgrades/Paint/Outdoor/Furniture/Save money).
+- NEW "confidence" emoji-rating step (Anxious→Pumped) — kind:"rating".
+- NEW "value" interstitial — kind:"value": "3x faster" banner + Going-it-alone vs DIYhomie compare + rising confidence bar chart + "I'M IN — CONTINUE".
+- pain_point now has "None of the above" (clears others; others clear None).
+- Card type gained kind + subtitle; onSelect None-handling; footer Continue shows for value too.
+New answer keys saved to pending_survey/profile: goals[], confidence. Progress bar = 8 segments.

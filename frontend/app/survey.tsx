@@ -14,6 +14,8 @@ type Card = {
   key: string;
   question: string;
   multi?: boolean;
+  kind?: "rating" | "value";
+  subtitle?: string;
   options: { label: string; value: string; icon?: any; bg?: string }[];
 };
 
@@ -63,6 +65,14 @@ const TOOL_KITS: ToolKit[] = [
   },
 ];
 
+const CONFIDENCE = [
+  { value: "Anxious", icon: "emoticon-sad-outline", label: "Anxious" },
+  { value: "Unsure", icon: "emoticon-confused-outline", label: "Unsure" },
+  { value: "Neutral", icon: "emoticon-neutral-outline", label: "Okay" },
+  { value: "Capable", icon: "emoticon-happy-outline", label: "Capable" },
+  { value: "Confident", icon: "emoticon-excited-outline", label: "Pumped" },
+];
+
 const CARDS: Card[] = [
   {
     key: "experience",
@@ -75,10 +85,31 @@ const CARDS: Card[] = [
     ],
   },
   {
+    key: "goals",
+    question: "What are you itching to tackle?",
+    subtitle: "Homie will tune every guide to what you care about.",
+    multi: true,
+    options: [
+      { label: "Repairs & fixes", value: "Repairs", icon: "wrench-outline" },
+      { label: "Upgrades & installs", value: "Upgrades", icon: "tools" },
+      { label: "Paint & décor", value: "Paint & Decor", icon: "format-paint" },
+      { label: "Outdoor & yard", value: "Outdoor", icon: "tree-outline" },
+      { label: "Furniture & assembly", value: "Furniture", icon: "sofa-outline" },
+      { label: "Save money vs hiring", value: "Save Money", icon: "cash-multiple" },
+    ],
+  },
+  {
     key: "tools",
     question: "What's in your tool kit?",
     multi: true,
     options: [],
+  },
+  {
+    key: "confidence",
+    question: "How do home projects make you feel right now?",
+    subtitle: "Be honest — Homie meets you exactly where you are.",
+    kind: "rating",
+    options: CONFIDENCE,
   },
   {
     key: "budget",
@@ -98,7 +129,14 @@ const CARDS: Card[] = [
       { label: "Missing steps", value: "Missing steps", icon: "format-list-checks" },
       { label: "Unexpected problems", value: "Unexpected problems", icon: "alert-octagon-outline" },
       { label: "Fear of breaking codes", value: "Fear of breaking codes", icon: "gavel" },
+      { label: "None of the above", value: "None", icon: "close-circle-outline" },
     ],
+  },
+  {
+    key: "value",
+    question: "Here's why DIYhomie just clicks",
+    kind: "value",
+    options: [],
   },
   {
     key: "expectation",
@@ -136,8 +174,13 @@ export default function Survey() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (card.multi) {
       const current: string[] = answers[card.key] || [];
-      const exists = current.includes(value);
-      const updated = exists ? current.filter((v) => v !== value) : [...current, value];
+      let updated: string[];
+      if (value === "None") {
+        updated = current.includes("None") ? [] : ["None"];
+      } else {
+        const base = current.filter((v) => v !== "None");
+        updated = base.includes(value) ? base.filter((v) => v !== value) : [...base, value];
+      }
       setAnswers({ ...answers, [card.key]: updated });
     } else {
       const next = { ...answers, [card.key]: value };
@@ -185,7 +228,11 @@ export default function Survey() {
       </View>
 
       <Text style={styles.question} testID="survey-question">{card.question}</Text>
-      {card.multi && <Text style={styles.multiHint}>Select all that apply</Text>}
+      {card.subtitle ? (
+        <Text style={styles.subtitle}>{card.subtitle}</Text>
+      ) : (
+        card.multi && <Text style={styles.multiHint}>Select all that apply</Text>
+      )}
 
       <ScrollView
         style={{ flex: 1 }}
@@ -259,7 +306,68 @@ export default function Survey() {
             </Text>
           </View>
         )}
-        {card.key !== "tools" && card.options.map((opt) => {
+        {card.kind === "rating" && (
+          <View style={styles.ratingRow}>
+            {card.options.map((opt) => {
+              const on = answers[card.key] === opt.value;
+              return (
+                <Pressable
+                  key={opt.value}
+                  testID={`survey-option-${opt.value}`}
+                  onPress={() => onSelect(opt.value)}
+                  style={[styles.emojiTile, on && styles.emojiTileOn]}
+                >
+                  <MaterialCommunityIcons name={opt.icon} size={32} color={on ? colors.brandPrimary : colors.onSurfaceSecondary} />
+                  <Text style={[styles.emojiLabel, on && { color: colors.onSurface }]}>{opt.label}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        )}
+
+        {card.kind === "value" && (
+          <View style={{ gap: spacing.md }}>
+            <View style={styles.valueBanner}>
+              <MaterialCommunityIcons name="trending-up" size={22} color={colors.brandPrimary} />
+              <Text style={styles.valueBannerText}>
+                DIYers who plan first finish <Text style={styles.valueBold}>3x faster</Text> and dodge the costly do-overs.
+              </Text>
+            </View>
+            <View style={styles.compareRow}>
+              <View style={[styles.compareCol, styles.compareBad]}>
+                <Text style={styles.compareHead}>GOING IT ALONE</Text>
+                {["Hours lost in YouTube", "Guesswork & do-overs", "Surprise code issues", "Wasted material $$"].map((t) => (
+                  <View key={t} style={styles.compareItem}>
+                    <MaterialCommunityIcons name="close-circle" size={15} color={colors.error} />
+                    <Text style={styles.compareText}>{t}</Text>
+                  </View>
+                ))}
+              </View>
+              <View style={[styles.compareCol, styles.compareGood]}>
+                <Text style={[styles.compareHead, { color: colors.brandPrimary }]}>WITH DIYHOMIE</Text>
+                {["Clear plan in seconds", "Built around your tools", "Code & weather aware", "Photos for every step"].map((t) => (
+                  <View key={t} style={styles.compareItem}>
+                    <MaterialCommunityIcons name="check-circle" size={15} color={colors.success} />
+                    <Text style={styles.compareText}>{t}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+            <View style={styles.chartCard}>
+              <Text style={styles.chartTitle}>YOUR CONFIDENCE WITH HOMIE</Text>
+              <View style={styles.chartBars}>
+                {[28, 52, 76, 100].map((h, i) => (
+                  <View key={i} style={styles.barCol}>
+                    <View style={[styles.bar, { height: Math.max(8, (90 * h) / 100) }]} />
+                    <Text style={styles.barLabel}>{["Now", "Wk 1", "Wk 2", "Wk 3"][i]}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          </View>
+        )}
+
+        {card.key !== "tools" && !card.kind && card.options.map((opt) => {
           const selected = card.multi
             ? (answers[card.key] || []).includes(opt.value)
             : answers[card.key] === opt.value;
@@ -309,13 +417,13 @@ export default function Survey() {
         })}
       </ScrollView>
 
-      {card.multi && (
+      {(card.multi || card.kind === "value") && (
         <Pressable
           testID="survey-continue-button"
           style={[styles.continueBtn, { marginBottom: insets.bottom + spacing.md }]}
           onPress={continueMulti}
         >
-          <Text style={styles.continueText}>CONTINUE</Text>
+          <Text style={styles.continueText}>{card.kind === "value" ? "I'M IN — CONTINUE" : "CONTINUE"}</Text>
         </Pressable>
       )}
     </View>
@@ -360,6 +468,27 @@ const styles = StyleSheet.create({
   },
   continueText: { color: colors.onBrandPrimary, fontFamily: font.bold, fontSize: type.lg, letterSpacing: 1 },
   multiHint: { color: colors.brandPrimary, fontFamily: font.bold, fontSize: type.sm, letterSpacing: 0.5, marginTop: -spacing.md, marginBottom: spacing.lg },
+  subtitle: { color: colors.onSurfaceTertiary, fontFamily: font.regular, fontSize: type.base, lineHeight: 20, marginTop: -spacing.sm, marginBottom: spacing.lg },
+  ratingRow: { flexDirection: "row", justifyContent: "space-between", gap: spacing.xs, marginTop: spacing.sm },
+  emojiTile: { flex: 1, alignItems: "center", gap: spacing.xs, paddingVertical: spacing.lg, backgroundColor: colors.surfaceSecondary, borderColor: colors.border, borderWidth: 1.5, borderRadius: radius.md },
+  emojiTileOn: { backgroundColor: colors.brandTertiary, borderColor: colors.brandPrimary },
+  emojiLabel: { color: colors.onSurfaceTertiary, fontFamily: font.bold, fontSize: 11 },
+  valueBanner: { flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: colors.brandTertiary, borderColor: colors.brandPrimary, borderWidth: 1.5, borderRadius: radius.md, padding: spacing.lg },
+  valueBannerText: { flex: 1, color: colors.onSurface, fontFamily: font.medium, fontSize: type.base, lineHeight: 20 },
+  valueBold: { color: colors.brandPrimary, fontFamily: font.bold },
+  compareRow: { flexDirection: "row", gap: spacing.md },
+  compareCol: { flex: 1, borderRadius: radius.md, borderWidth: 1.5, padding: spacing.md, gap: spacing.sm },
+  compareBad: { backgroundColor: colors.surfaceSecondary, borderColor: colors.border },
+  compareGood: { backgroundColor: colors.surfaceSecondary, borderColor: colors.brandPrimary },
+  compareHead: { color: colors.onSurfaceTertiary, fontFamily: font.bold, fontSize: 10, letterSpacing: 1, marginBottom: spacing.xs },
+  compareItem: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
+  compareText: { flex: 1, color: colors.onSurfaceSecondary, fontFamily: font.medium, fontSize: type.sm },
+  chartCard: { backgroundColor: colors.surfaceSecondary, borderColor: colors.border, borderWidth: 1.5, borderRadius: radius.md, padding: spacing.lg },
+  chartTitle: { color: colors.onSurfaceTertiary, fontFamily: font.bold, fontSize: 10, letterSpacing: 1, marginBottom: spacing.md },
+  chartBars: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-around", height: 110 },
+  barCol: { alignItems: "center", gap: spacing.xs, flex: 1 },
+  bar: { width: 26, borderTopLeftRadius: 6, borderTopRightRadius: 6, backgroundColor: colors.brandPrimary },
+  barLabel: { color: colors.onSurfaceTertiary, fontFamily: font.bold, fontSize: 10 },
   kitCard: { backgroundColor: colors.surfaceSecondary, borderColor: colors.border, borderWidth: 1.5, borderRadius: radius.lg, padding: spacing.lg },
   kitHead: { flexDirection: "row", alignItems: "center", gap: spacing.md, marginBottom: spacing.lg },
   kitIcon: { width: 40, height: 40, borderRadius: radius.sm, backgroundColor: colors.surfaceTertiary, alignItems: "center", justifyContent: "center" },
