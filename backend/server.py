@@ -19,6 +19,8 @@ import httpx
 import asyncio
 import stripe
 from fastapi import Request
+from fastapi.responses import HTMLResponse, PlainTextResponse
+from urllib.parse import quote
 from passlib.context import CryptContext
 
 ROOT_DIR = Path(__file__).parent
@@ -770,6 +772,10 @@ async def build_guide(project_id: str, req: GuideReq = GuideReq(), user: dict = 
     ctx_txt = "; ".join(f"{k}: {v}" for k, v in (context or {}).items() if v)
     await push_memory(user["id"], user.get("home_memory"), room,
                       f"{project['title']}" + (f" — {ctx_txt}" if ctx_txt else ""))
+    try:
+        await maybe_create_blog_post(project, guide, steps, context)
+    except Exception as e:
+        logger.warning(f"blog auto-gen skipped: {e}")
     new_credits = user.get("credits", 0) - cost
     await db.users.update_one({"id": user["id"]}, {"$set": {"credits": new_credits}})
     fresh = await db.projects.find_one({"id": project_id}, {"_id": 0})
@@ -1315,6 +1321,242 @@ async def subscribe(req: SubscribeReq, user: dict = Depends(get_current_user)):
     )
     fresh = await db.users.find_one({"id": user["id"]}, {"_id": 0})
     return public_user(fresh)
+
+
+# ---------------------------------------------------------------- SEO blog (viral growth loop)
+STOP_WORDS = {"a", "an", "the", "to", "of", "in", "on", "my", "your", "and", "or", "for", "with", "how"}
+
+
+def slugify(text: str) -> str:
+    s = re.sub(r"[^a-z0-9]+", "-", (text or "").lower()).strip("-")
+    return s[:80] or "guide"
+
+
+def _product_from_context(context: dict) -> str:
+    if not context:
+        return ""
+    for k, v in context.items():
+        if v and any(t in k.lower() for t in ("model", "brand", "product", "make")):
+            return str(v).strip()
+    return ""
+
+
+def public_blog(p: dict) -> dict:
+    return {k: v for k, v in p.items() if k != "_id"}
+
+
+async def maybe_create_blog_post(project: dict, guide: dict, steps: list, context: dict):
+    """Auto-repurpose a finished guide into an anonymized, SEO-optimized blog post.
+    First guide for a given task+product becomes the canonical post (no duplicate content)."""
+    task = (project.get("title") or "").strip().rstrip(".")
+    if not task or not steps:
+        return
+    product = _product_from_context(context)
+    slug = slugify(task + ("-" + product if product else ""))
+    if await db.blog_posts.find_one({"slug": slug}, {"_id": 1}):
+        return  # canonical post already exists
+    room = detect_room(task + " " + product)
+    category = (room or "home-repair").replace("_", " ").title()
+    overview = (guide.get("overview") or "").strip()
+    title_words = [w for w in re.findall(r"[a-zA-Z0-9]+", task.lower()) if w not in STOP_WORDS]
+    keywords = list(dict.fromkeys(title_words + (product.lower().split() if product else []) +
+                                  ["diy", "how to", "guide", "step by step", "repair", "install", "replace"]))
+    h1 = f"How to {task[0].upper() + task[1:]}" if not task.lower().startswith("how ") else task
+    if product and product.lower() not in h1.lower():
+        h1 = f"{h1} ({product})"
+    seo_title = f"{h1} — Step-by-Step DIY Guide | DIYhomie"
+    meta = (overview or f"A clear, step-by-step DIY guide to {task.lower()}.")[:155]
+    post = {
+        "id": new_id(),
+        "slug": slug,
+        "seo_title": seo_title,
+        "h1": h1,
+        "title": h1,
+        "product": product,
+        "category": category,
+        "tags": [t for t in [category, product, "DIY"] if t],
+        "keywords": keywords[:14],
+        "excerpt": (overview or meta)[:220],
+        "meta_description": meta,
+        "overview": overview,
+        "tools": (guide.get("tools") or [])[:14],
+        "materials": (guide.get("materials") or [])[:14],
+        "safety": (guide.get("safety_warnings") or [])[:8],
+        "steps": [{"title": s.get("title", ""), "instruction": s.get("instruction", "")} for s in steps],
+        "common_mistakes": (guide.get("common_mistakes") or [])[:8],
+        "published": True,
+        "views": 0,
+        "source_project_id": project.get("id"),
+        "created_at": now_iso(),
+        "updated_at": now_iso(),
+    }
+    await db.blog_posts.insert_one(post)
+    logger.info(f"blog post created: {slug}")
+
+
+@api_router.get("/blog")
+async def list_blog(limit: int = 24, category: Optional[str] = None, q: Optional[str] = None):
+    query: dict = {"published": True}
+    if category:
+        query["category"] = category
+    if q:
+        query["$or"] = [{"title": {"$regex": q, "$options": "i"}},
+                        {"keywords": {"$regex": q, "$options": "i"}},
+                        {"product": {"$regex": q, "$options": "i"}}]
+    cur = db.blog_posts.find(query, {"_id": 0, "overview": 0, "steps": 0}).sort("created_at", -1).limit(min(limit, 100))
+    posts = await cur.to_list(length=min(limit, 100))
+    cats = await db.blog_posts.distinct("category", {"published": True})
+    return {"posts": posts, "categories": sorted(cats)}
+
+
+@api_router.get("/blog/{slug}")
+async def get_blog(slug: str):
+    post = await db.blog_posts.find_one({"slug": slug, "published": True}, {"_id": 0})
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+    await db.blog_posts.update_one({"slug": slug}, {"$inc": {"views": 1}})
+    return post
+
+
+def _build_post_html(post: dict, base: str, canonical: str) -> str:
+    app_link = f"{base}?ref=blog&utm_source=blog&utm_medium=guide&project={quote(post.get('title',''))}"
+    esc = lambda t: (t or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    steps = post.get("steps", [])
+    tools = post.get("tools", []) + post.get("materials", [])
+
+    howto = {
+        "@context": "https://schema.org", "@type": "HowTo", "name": post.get("h1"),
+        "description": post.get("meta_description"),
+        "totalTime": "PT1H",
+        "tool": [{"@type": "HowToTool", "name": t} for t in post.get("tools", [])],
+        "supply": [{"@type": "HowToSupply", "name": m} for m in post.get("materials", [])],
+        "step": [{"@type": "HowToStep", "position": i + 1, "name": s.get("title"),
+                  "text": s.get("instruction")} for i, s in enumerate(steps)],
+    }
+    article = {
+        "@context": "https://schema.org", "@type": "Article", "headline": post.get("h1"),
+        "description": post.get("meta_description"), "author": {"@type": "Organization", "name": "DIYhomie"},
+        "publisher": {"@type": "Organization", "name": "DIYhomie"},
+        "datePublished": post.get("created_at"), "mainEntityOfPage": canonical,
+    }
+
+    css = """
+*{box-sizing:border-box;margin:0;padding:0}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1a1a1a;background:#fff;line-height:1.6}
+.wrap{max-width:740px;margin:0 auto;padding:24px 20px 64px}
+header{display:flex;align-items:center;gap:10px;padding:14px 20px;border-bottom:1px solid #eee;position:sticky;top:0;background:#fff;z-index:5}
+.logo{width:30px;height:30px;border-radius:7px;background:#FF6A00;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800}
+.brand{font-weight:800;font-size:18px}.brand span{color:#FF6A00}
+.badges{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0}
+.badge{background:#FFF1E6;color:#C75300;font-weight:700;font-size:12px;padding:5px 11px;border-radius:99px}
+h1{font-size:30px;line-height:1.2;margin:8px 0 14px}
+.lede{font-size:18px;color:#444;margin-bottom:8px}
+h2{font-size:21px;margin:30px 0 12px;border-left:4px solid #FF6A00;padding-left:10px}
+ul{padding-left:22px;margin:8px 0}li{margin:6px 0}
+.step{display:flex;gap:14px;padding:14px 0;border-bottom:1px solid #f0f0f0}
+.snum{flex:0 0 32px;height:32px;border-radius:99px;background:#FF6A00;color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center}
+.stitle{font-weight:700;margin-bottom:3px}
+.cta{margin:34px 0;padding:24px;border:2px solid #FF6A00;border-radius:16px;background:#FFF8F2;text-align:center}
+.cta h3{font-size:22px;margin-bottom:8px}.cta p{color:#555;margin-bottom:16px}
+.btn{display:inline-block;background:#FF6A00;color:#fff;font-weight:800;padding:15px 28px;border-radius:12px;text-decoration:none;font-size:17px}
+.share{display:flex;gap:10px;flex-wrap:wrap;margin:24px 0}
+.share a,.share button{cursor:pointer;border:1px solid #ddd;background:#fff;border-radius:10px;padding:10px 14px;font-weight:700;font-size:14px;color:#333;text-decoration:none}
+.safety{background:#FFF4F4;border:1px solid #FFD7D7;border-radius:12px;padding:14px 16px}
+footer{margin-top:40px;padding-top:18px;border-top:1px solid #eee;color:#888;font-size:13px}
+"""
+
+    def ul(items):
+        return "<ul>" + "".join(f"<li>{esc(x)}</li>" for x in items if x) + "</ul>" if items else ""
+
+    steps_html = "".join(
+        f'<div class="step"><div class="snum">{i+1}</div><div><div class="stitle">{esc(s.get("title"))}</div>'
+        f'<div>{esc(s.get("instruction"))}</div></div></div>' for i, s in enumerate(steps)
+    )
+    badges = "".join(f'<span class="badge">{esc(b)}</span>' for b in ([post.get("category")] + ([post.get("product")] if post.get("product") else [])))
+    share_text = quote(f"{post.get('title')} — free step-by-step DIY guide")
+    cta_html = (
+        '<div class="cta"><h3>Want this guide built for YOUR exact setup?</h3>'
+        '<p>Get it personalized with step-by-step photos, your tools, local code tips, and Homie — your AI master contractor — answering questions live as you work. Free to start.</p>'
+        f'<a class="btn" href="{app_link}">Get my personalized guide →</a></div>'
+    )
+    share_html = (
+        '<div class="share">'
+        f'<a href="https://twitter.com/intent/tweet?text={share_text}&url={quote(canonical)}" target="_blank" rel="noopener">𝕏 Share</a>'
+        f'<a href="https://www.facebook.com/sharer/sharer.php?u={quote(canonical)}" target="_blank" rel="noopener">Facebook</a>'
+        f'<a href="https://wa.me/?text={share_text}%20{quote(canonical)}" target="_blank" rel="noopener">WhatsApp</a>'
+        f'<a href="https://www.reddit.com/submit?url={quote(canonical)}&title={share_text}" target="_blank" rel="noopener">Reddit</a>'
+        f'<a href="mailto:?subject={share_text}&body={quote(canonical)}">Email</a>'
+        '<button onclick="navigator.clipboard.writeText(location.href);this.textContent=\'Copied!\'">Copy link</button>'
+        '</div>'
+    )
+
+    body = (
+        f'<header><div class="logo">D</div><div class="brand">DIY<span>homie</span></div></header>'
+        f'<div class="wrap"><div class="badges">{badges}</div><h1>{esc(post.get("h1"))}</h1>'
+        f'<p class="lede">{esc(post.get("overview"))}</p>'
+        f'{share_html}'
+        + (f'<h2>What you\'ll need</h2>{ul(tools)}' if tools else '')
+        + (f'<h2>Step-by-step</h2>{steps_html}' if steps_html else '')
+        + (f'<h2>Stay safe</h2><div class="safety">{ul(post.get("safety"))}</div>' if post.get("safety") else '')
+        + (f'<h2>Common mistakes to avoid</h2>{ul(post.get("common_mistakes"))}' if post.get("common_mistakes") else '')
+        + cta_html + share_html
+        + '<footer>DIYhomie provides AI-generated DIY guidance for informational purposes and is not a licensed contractor. Always follow local codes and consult a professional for gas, major electrical, or structural work.</footer></div>'
+    )
+
+    return (
+        '<!doctype html><html lang="en"><head><meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width,initial-scale=1">'
+        f'<title>{esc(post.get("seo_title"))}</title>'
+        f'<meta name="description" content="{esc(post.get("meta_description"))}">'
+        f'<meta name="keywords" content="{esc(", ".join(post.get("keywords", [])))}">'
+        f'<link rel="canonical" href="{canonical}">'
+        '<meta property="og:type" content="article">'
+        f'<meta property="og:title" content="{esc(post.get("h1"))}">'
+        f'<meta property="og:description" content="{esc(post.get("meta_description"))}">'
+        f'<meta property="og:url" content="{canonical}">'
+        '<meta property="og:site_name" content="DIYhomie">'
+        '<meta name="twitter:card" content="summary_large_image">'
+        f'<meta name="twitter:title" content="{esc(post.get("h1"))}">'
+        f'<meta name="twitter:description" content="{esc(post.get("meta_description"))}">'
+        f'<script type="application/ld+json">{json.dumps(howto)}</script>'
+        f'<script type="application/ld+json">{json.dumps(article)}</script>'
+        f'<style>{css}</style></head><body>{body}</body></html>'
+    )
+
+
+def public_base(request: Request) -> str:
+    # Behind the ingress/TLS proxy: prefer the forwarded public host and force https
+    host = request.headers.get("x-forwarded-host") or request.headers.get("host") or request.url.hostname
+    return f"https://{host}/"
+
+
+@api_router.get("/blog/{slug}/html", response_class=HTMLResponse)
+async def blog_html(slug: str, request: Request):
+    post = await db.blog_posts.find_one({"slug": slug, "published": True}, {"_id": 0})
+    if not post:
+        return HTMLResponse("<h1>Guide not found</h1>", status_code=404)
+    await db.blog_posts.update_one({"slug": slug}, {"$inc": {"views": 1}})
+    base = public_base(request)
+    canonical = f"{base}api/blog/{slug}/html"
+    return HTMLResponse(_build_post_html(post, base, canonical))
+
+
+@api_router.get("/sitemap.xml", response_class=PlainTextResponse)
+async def sitemap(request: Request):
+    base = public_base(request)
+    slugs = await db.blog_posts.find({"published": True}, {"_id": 0, "slug": 1, "updated_at": 1}).sort("created_at", -1).to_list(length=5000)
+    urls = "".join(
+        f"<url><loc>{base}api/blog/{s['slug']}/html</loc><lastmod>{(s.get('updated_at') or '')[:10]}</lastmod>"
+        f"<changefreq>weekly</changefreq><priority>0.8</priority></url>" for s in slugs
+    )
+    xml = ('<?xml version="1.0" encoding="UTF-8"?>'
+           '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' + urls + '</urlset>')
+    return PlainTextResponse(xml, media_type="application/xml")
+
+
+@api_router.get("/robots.txt", response_class=PlainTextResponse)
+async def robots(request: Request):
+    base = str(request.base_url)
+    return PlainTextResponse(f"User-agent: *\nAllow: /\nSitemap: {base}api/sitemap.xml\n")
 
 
 @api_router.get("/")

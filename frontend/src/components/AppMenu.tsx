@@ -42,6 +42,11 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
 
           <ScrollView contentContainerStyle={{ paddingBottom: spacing.xl }} showsVerticalScrollIndicator={false}>
             <Text style={styles.section}>{t("menu.language").toUpperCase()}</Text>
+            <Pressable testID="menu-blog" style={styles.item} onPress={() => go("/blog")}>
+              <MaterialCommunityIcons name="book-open-page-variant" size={20} color={colors.brandPrimary} />
+              <Text style={styles.itemText}>DIY Guide Library</Text>
+              <MaterialCommunityIcons name="chevron-right" size={20} color={colors.onSurfaceTertiary} />
+            </Pressable>
             <Pressable testID="menu-language" style={styles.item} onPress={() => go("/settings/language")}>
               <MaterialCommunityIcons name="translate" size={20} color={colors.brandPrimary} />
               <Text style={styles.itemText}>{metaFor(i18n.language).native}</Text>

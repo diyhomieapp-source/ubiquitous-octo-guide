@@ -192,3 +192,10 @@ NOTE: generation is a single backend call, so stages are time-progressed (approx
 - relevant_memories()/memory_note() inject only room-matching (or 4 most-recent) snippets into brain_intake / brain_generate_guide / brain_adapt system prompts so Homie stays consistent with past work (e.g. rerouted plumbing).
 - POST /api/projects/{id}/intake now also returns `remembers` (bool). Intake screen shows a "🧠 Homie remembers your past work in this space" banner (testID intake-remembers) when true.
 - Verify: do 2 projects in same room (e.g. "Replace toilet" then "Fix sink plumbing" → both bathroom). 2nd project's intake returns remembers=true and the guide should reference prior work.
+
+## Iteration 11 — SEO Blog Platform + Social Share + Funnel (main agent)
+- Every guide build auto-creates an anonymized, SEO post in `blog_posts` (canonical-per-task+product; dupes skipped). No extra LLM call (derived from guide data). Verified via curl: "Replace a kitchen faucet (Moen Adler 87233)" → slug replace-a-kitchen-faucet-moen-adler-87233, category Kitchen, 9 steps.
+- Backend (all public, no auth): GET /api/blog (list+categories, search q, filter category), GET /api/blog/{slug} (JSON, +view), GET /api/blog/{slug}/html (SEO HTML: title/meta/keywords, canonical https, OG+Twitter, JSON-LD HowTo+Article, share buttons X/FB/WhatsApp/Reddit/Email/Copy, strong CTA → app root with ?ref=blog&project=), GET /api/sitemap.xml, GET /api/robots.txt. public_base() forces https + x-forwarded-host.
+- Frontend in-app: /blog (feed: search, category chips, cards) and /blog/[slug] (reader: sections, Share via RN Share/navigator.share, CTA "Start this with Homie" → creates project → /project/[id]?new=1). Menu entry "DIY Guide Library" (testID menu-blog). ScreenHeader gained optional `right` slot.
+- NOTE: SEO HTML lives under /api/blog/{slug}/html because the ingress only routes /api/* to backend; on deploy a prettier /blog redirect can be added.
+- testIDs: blog-search, blog-cat-*, blog-post-*, blog-share, blog-share-btn, blog-start-project.

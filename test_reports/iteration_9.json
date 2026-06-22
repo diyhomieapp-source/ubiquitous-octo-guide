@@ -1,0 +1,42 @@
+{
+  "summary": "SEO Blog Platform feature end-to-end verified — backend + mobile web frontend at 390x844. Backend pytest /app/backend/tests/test_blog_seo.py: 6/6 PASSED in ~43s (public /api/blog feed; category+q filters; auto-gen of canonical post on guide build; /api/blog/{slug} returns all enriched fields with no _id; /api/blog/{slug}/html returns SEO HTML with og:title + HowTo JSON-LD + share + ref=blog CTA; guide build still returns 200 — blog auto-gen properly try/except wrapped). Frontend: (1) /blog feed renders cards (testID blog-post-<slug>) with category, title, excerpt, product, views; category chips (blog-cat-All / blog-cat-Home-Repair / blog-cat-Kitchen) filter correctly (Kitchen chip → 1 post); search box (testID blog-search) filters on Enter (\"drywall\" → 1 post). (2) Tapping a card opens /blog/[slug] reader showing 'KITCHEN · Moen Adler 87233', H1 'How to Replace a kitchen faucet (Moen Adler 87233)', overview, 'What you'll need' (tools + materials), 9 numbered steps, 'Stay safe' block, 'Common mistakes to avoid', and orange CTA card. (3) Both share testIDs (blog-share in header, blog-share-btn primary) — on web with navigator.share absent, they fall back to navigator.clipboard.writeText + 'Link copied!' alert; URL copied is the SEO HTML /api/blog/<slug>/html; no crash, reader stays mounted. (4) Conversion CTA testID blog-start-project — when logged out, falls back to /onboarding (no crash); when logged in (TEST_blogui_<ts> with injected token), it POSTs /api/projects (200) and navigates to /project/<id>?new=1 with the workspace showing the inherited title 'Replace a kitchen faucet (Moen Adler 87233)' and the intake auto-starts ('Drafting plan… Getting a few details so your plan is exact…'). (5) Hamburger menu testID home-menu opens the menu modal; testID menu-blog 'DIY Guide Library' navigates to /blog and the feed mounts. (6) Regression: a second user's first guide build (Patch a small drywall hole) returns 200 — blog auto-gen does not break the guide endpoint. Deprecated styles detected: 'shadow*' deprecation + 'props.pointerEvents' (carryover, see iterations 7-8).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": [
+      {"component": "BlogPost / shared style props (carryover)", "issue": "Console warnings: 'shadow*' style props are deprecated. Use 'boxShadow'; 'props.pointerEvents is deprecated. Use style.pointerEvents'. Not introduced by this feature — seen since iteration 7. Reference: console output on every page load."}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_blog_seo.py",
+    "/app/test_reports/pytest/blog_seo_results.xml"
+  ],
+  "action_items": [
+    "No blog-feature issues to fix. Optional carryover from iteration 8: cross-room memory bleed in relevant_memories() (server.py ~line 221) is still open and unrelated to blog.",
+    "Optional carryover from iteration 7/8: migrate deprecated 'shadow*' RN style props to 'boxShadow' and 'props.pointerEvents' to 'style.pointerEvents' to silence dev warnings."
+  ],
+  "critical_code_review_comments": [
+    "maybe_create_blog_post() correctly de-dups by slug (canonical post per task+product) and is wrapped in try/except at server.py:776 — guide build is fully insulated.",
+    "public_blog/list_blog/get_blog/blog_html all exclude MongoDB _id via projection {'_id': 0}. Verified post detail JSON has no _id.",
+    "HTML route /api/blog/{slug}/html is a true HTMLResponse with og:title and HowTo JSON-LD — share targets are crawlable.",
+    "Blog endpoints are PUBLIC (no get_current_user dependency) — confirmed by passing requests with no Authorization header.",
+    "BlogPost.onShare correctly platform-branches: web tries navigator.share, falls back to navigator.clipboard with alert; native uses Share.share. No throw on missing navigator.share (try/catch around the entire branch).",
+    "BlogPost.startProject correctly redirects to /onboarding on auth failure (catch block). When auth ok, POST /projects returns {id} and router.push(/project/<id>?new=1) lands on the workspace which auto-runs intake."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_blog_seo.py (new — 6 tests across 3 classes)",
+    "/app/test_reports/pytest/blog_seo_results.xml (new junit)",
+    "/app/test_reports/iteration_9.json (new)"
+  ],
+  "success_rate": {"backend": "100% (6/6)", "frontend": "100% (feed, filters, search, reader, share web fallback, CTA auth + unauth, menu-blog)"},
+  "seed_data_creation": "Registered TEST_blog_<ts>, TEST_blogui_<ts>, TEST_blogmenu_<ts> via /api/auth/register (all prefixed for cleanup). Two canonical blog posts already exist in DB and were exercised by the tests: 'replace-a-kitchen-faucet-moen-adler-87233' and 'patch-a-small-drywall-hole'.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Blog feature is fully working. /api/blog endpoints are PUBLIC. AsyncStorage on web is backed by localStorage with no prefix — to skip onboarding, register via /api/auth/register, take access_token, then `localStorage.setItem('diyhomie_token', JSON.stringify(JSON.stringify(token)))` (storage wrapper double-JSON-stringifies because secureSet → setItem<string>). Note: secureSet passes value through JSON.stringify once, so the actual stored value is JSON.stringify(rawToken). To run only blog tests: EXPO_PUBLIC_BACKEND_URL=$(grep EXPO_PUBLIC_BACKEND_URL /app/frontend/.env | cut -d= -f2) pytest /app/backend/tests/test_blog_seo.py -v -s. One guide build is ~30s; auth register uses access_token (NOT 'token') key.",
+  "rca_of_issue": "No bugs detected in the blog feature."
+}

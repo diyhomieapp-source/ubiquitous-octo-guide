@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors, spacing, font, type } from "@/src/theme";
 
-export function ScreenHeader({ title }: { title: string }) {
+export function ScreenHeader({ title, right }: { title: string; right?: React.ReactNode }) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   return (
@@ -13,7 +13,7 @@ export function ScreenHeader({ title }: { title: string }) {
         <MaterialCommunityIcons name="chevron-left" size={26} color={colors.onSurface} />
       </Pressable>
       <Text style={styles.title} numberOfLines={1}>{title}</Text>
-      <View style={styles.back} />
+      <View style={styles.back}>{right}</View>
     </View>
   );
 }
