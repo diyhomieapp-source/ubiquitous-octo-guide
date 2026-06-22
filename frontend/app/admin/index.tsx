@@ -5,10 +5,14 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 import { colors, spacing, radius, font, type } from "@/src/theme";
 import { api, getToken } from "@/src/api";
+import { CrmModule } from "@/src/components/admin/CrmModule";
+import { VendorsModule } from "@/src/components/admin/VendorsModule";
 
-type Mod = "overview" | "feedback" | "tickets" | "blog";
+type Mod = "overview" | "crm" | "vendors" | "feedback" | "tickets" | "blog";
 const MODULES: { key: Mod; label: string; icon: string }[] = [
   { key: "overview", label: "Overview", icon: "view-dashboard-outline" },
+  { key: "crm", label: "CRM / Contacts", icon: "account-multiple-outline" },
+  { key: "vendors", label: "Vendors", icon: "domain" },
   { key: "feedback", label: "Feedback", icon: "message-alert-outline" },
   { key: "tickets", label: "Support Tickets", icon: "ticket-outline" },
   { key: "blog", label: "Blog Curation", icon: "book-edit-outline" },
@@ -73,6 +77,8 @@ export default function AdminWorkstation() {
       {/* Content */}
       <View style={{ flex: 1 }}>
         {mod === "overview" && <Overview />}
+        {mod === "crm" && <CrmModule />}
+        {mod === "vendors" && <VendorsModule />}
         {mod === "feedback" && <Feedback />}
         {mod === "tickets" && <Tickets />}
         {mod === "blog" && <Blog />}

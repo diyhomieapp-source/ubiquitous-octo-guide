@@ -1,0 +1,45 @@
+{
+  "summary": "Tested DIYhomie iter 12 — Admin CRM + Vendor/Subscription DB. Backend: 23/23 pytest passing on /app/backend/tests/test_admin_crm_vendors.py covering (1) admin-auth gating: all /api/admin/crm/* and /api/admin/vendors* return 401 with no token and 403 when called by non-admin demo user; (2) /api/admin/crm/stats returns total_users, new_today, active_7d, trial_users, paying_users, revenue_cents, projects_created, community_contributors and a segments[] array (every entry has name+count); (3) /api/admin/crm/contacts list returns contacts[] + total, has plan/membership_status/ltv_cents/segments, no _id leakage; search=diyhomie filters; sort=name returns alphabetical; (4) GET /api/admin/crm/contacts/{id} returns timeline[] + notes[]; 404 on unknown id; (5) PUT contact persists phone/country/state (verified via re-GET); (6) POST /tags dedupes+strips whitespace and clears via empty []; (7) POST + DELETE /notes round-trip works and the note disappears from detail; (8) Vendors: all 7 seeded vendors present (Perplexity AI, OpenAI, Anthropic, Stripe, MongoDB, WeatherAPI.com, Emergent), stats has total/monthly_spend_cents/annual_spend_cents/critical(>=5)/categories/upcoming_renewals, category=AI Platforms filter narrows to 3+, full CRUD flow (create TEST_VendorCo → list → update monthly_cost+importance → 404 on bad id → delete → gone); (9) last-login tracking: login bumps users.last_login and CRM exposes it. Frontend (desktop 1366x900, /admin): admin login via auth-email/password works; AdminLayout passes is_admin; sidebar shows admin-nav-{overview,crm,vendors,feedback,tickets,blog}. CRM module: stat cards load, segments chip row + seg-all, sort chips (recent/ltv), 50 contact rows render, search 'diyhomie' triggers request, contact-{id} opens drawer with drawer-tab-profile/timeline/notes; edit-phone/country/state/tags + save-profile persists; note-add then note-del-{id} round-trips; drawer-close works. Vendors module: 4 stat cards (Vendors=7, Monthly, Annual, Critical=5), category chips render (All / AI Platforms·3 / Databases·1 / Hosting·1 / Maps·1 / Payment Systems·1), all 7 seeded vendor names visible, vendor-add opens drawer, created UI_TEST_Vendor → searched → found → opened → vendor-delete cleanup successful. No pageerrors during the entire flow. Only console warnings are RN web deprecation notes ('shadow*' / pointerEvents) from underlying lib, not from this iteration's code.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/admin Vendors editor drawer", "issues": ["Monthly/Annual cost TextInputs and Company name TextInput inside VendorEditor have no testID — they are reachable only via placeholder selectors. Add testID=\"vendor-company\", \"vendor-monthly\", \"vendor-annual\" for stable automation."]}
+    ],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_admin_crm_vendors.py",
+    "/app/test_reports/pytest/admin_crm_vendors_results.xml"
+  ],
+  "action_items": [
+    "(Optional) Add testID to VendorEditor TextInputs (company, monthly_cost, annual_cost, plan_type, website, dashboard_url, etc.) so playwright can target them without placeholder selectors.",
+    "(Optional, low priority) Vendor list rows use testID=`vendor-{id}` which prefix-collides with vendor-add / vendor-search / vendor-save / vendor-close / vendor-delete. Test scripts must filter; consider renaming row testID to `vendor-row-{id}` to avoid ambiguity.",
+    "(Optional, low priority) /api/admin/crm/contacts search 'diyhomie' returns up to the page limit (frontend uses limit=50). Since every seeded user has 'diyhomie' in email, this isn't truly filtering anything in dev. Not a bug — flagging only because it surprised the human eye. Consider also searching by username, or excluding the implied common-domain match.",
+    "(Already flagged previous iters) server.py is now 2572 lines — well past the 700-line soft cap. Strongly consider splitting CRM + Vendors into their own routers."
+  ],
+  "critical_code_review_comments": [
+    "All admin endpoints correctly depend on require_admin(get_current_user) → 401 without token / 403 for non-admin. Verified by parametrized tests.",
+    "_id is consistently excluded via {'_id': 0} projections in CRM and Vendor reads — no MongoDB ObjectId leakage observed in any response.",
+    "seed_vendors() uses $setOnInsert with upsert=True keyed on seed_key — idempotent across restarts, won't overwrite admin edits to seeded rows. Good.",
+    "CRM list pulls all users into memory then filters in Python (line 2298 to_list(10000)). Fine at current scale; will need pagination/indexing at >10k users — already noted in problem statement.",
+    "Update endpoint PUT /admin/crm/contacts/{id} silently returns {ok:true} when patch is empty; consider returning 400 to surface caller bugs. Minor.",
+    "VendorReq.monthly_cost_cents is typed Optional[int] but the React form sends a string (e.g. '15') for unedited fields when v.monthly_cost_cents was loaded from server as int and Field's String() coerces it; client converts before send. Works, but the type round-trip is fragile — consider parsing inside Field via keyboardType + onBlur.",
+    "Last-login tracking is wired into /auth/login, /auth/register, /auth/google and surfaced in CRM timeline + contact card. Good.",
+    "Note: server.py at 2572 lines exceeds the 700-line soft-cap from code review guidelines — split into routers (auth, projects, community, referrals, billing, admin/crm, admin/vendors)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_admin_crm_vendors.py (new)",
+    "/app/test_reports/pytest/admin_crm_vendors_results.xml (new pytest junit output)"
+  ],
+  "success_rate": {"backend": "100% (23/23)", "frontend": "100% (sidebar + CRM full flow + Vendors full CRUD all working, 0 pageerrors)"},
+  "seed_data_creation": "Backend test suite created/cleaned-up: TEST_VendorCo (created+deleted in same test). Persistent test artefacts on demo_home@diyhomie.com: phone='+15551112233', country='US', state='CA' (set by test_update_phone_country_state_persists). Tags reset to [] after the tags test. Notes added during test were deleted. UI test set demo user phone='+15558889999', country='US', state='TX', tags='UI_TEST_TAG,VIP' — these remain on the demo profile (not destructive, but main agent may wish to clear).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Login: tap onboarding-login-link → fill auth-email-input/auth-password-input → tap auth-submit-button. Admin gate: AdminLayout redirects non-admins; ONLY users with is_admin=true (seeded Diyhomieapp@gmail.com / diyhomie1122) reach /admin. Desktop width >=760 renders the wide sidebar; <760 the sidebar collapses to a horizontal scroller. Admin testIDs: admin-nav-{overview|crm|vendors|feedback|tickets|blog}, admin-exit. CRM testIDs: crm-refresh, crm-search, seg-all, seg-{SegmentName} (with spaces), sort-{recent|ltv|active|name}, contact-{id}, drawer-close, drawer-tab-{profile|timeline|notes}, edit-phone, edit-country, edit-state, edit-tags, save-profile, note-input, note-add, note-del-{noteId}. Vendor testIDs: vendor-add, vendor-search, vendor-{id}, vendor-close, vendor-save, vendor-delete. VendorEditor fields have NO testID — use placeholder selectors ('Vendor name', '0' for monthly cost) for now. Backend admin auth uses Bearer JWT from /api/auth/login; 401 without token, 403 with non-admin token. Demo user (demo_home@diyhomie.com / Test1234) is NOT admin and was used to verify 403 path.",
+  "rca_of_issue": "n/a — review request was validation only; both the new CRM/Vendor backend endpoints and the /admin web UI for CRM + Vendors pass end-to-end without any errors."
+}

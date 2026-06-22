@@ -550,6 +550,8 @@ async def register(req: RegisterReq):
         "subscription_tier": "free",
         "onboarded": False,
         "referral_code": new_id().replace("-", "")[:6].upper(),
+        "signup_source": "email",
+        "last_login": now_iso(),
         "created_at": now_iso(),
     }
     await db.users.insert_one(user)
@@ -563,6 +565,7 @@ async def login(req: LoginReq):
     user = await db.users.find_one({"email": req.email.lower()})
     if not user or not pwd_context.verify(req.password, user["hashed_password"]):
         raise HTTPException(status_code=400, detail="Incorrect email or password")
+    await db.users.update_one({"id": user["id"]}, {"$set": {"last_login": now_iso()}})
     token = create_token(user["id"])
     return {"access_token": token, "token_type": "bearer", "user": public_user(user)}
 
@@ -612,9 +615,13 @@ async def google_auth(req: GoogleAuthReq):
             "voice_minutes": 3,
             "subscription_tier": "free",
             "onboarded": False,
+            "signup_source": "google",
+            "last_login": now_iso(),
             "created_at": now_iso(),
         }
         await db.users.insert_one(user)
+    else:
+        await db.users.update_one({"id": user["id"]}, {"$set": {"last_login": now_iso()}})
     token = create_token(user["id"])
     return {"access_token": token, "token_type": "bearer", "user": public_user(user)}
 
@@ -2055,6 +2062,430 @@ async def root():
     return {"message": "DIYhomie API", "brain": "perplexity" if PERPLEXITY_API_KEY else "fallback-openai"}
 
 
+
+# ---------------------------------------------------------------- Internal CRM
+VENDOR_SEED_PATH = ROOT_DIR / "vendor_seed.json"
+
+CRM_CATEGORY_KEYWORDS = {
+    "Plumbing": ["toilet", "faucet", "sink", "drain", "pipe", "water heater", "disposal", "shower", "valve", "leak", "supply line"],
+    "HVAC": ["hvac", "furnace", "air condition", " ac ", "thermostat", "filter", "vent", "heat pump", "ductless"],
+    "Electrical": ["light", "outlet", "switch", "wiring", "breaker", "ceiling fan", "fixture", "doorbell", "electrical"],
+    "Appliance": ["dishwasher", "washer", "dryer", "refrigerator", "fridge", "oven", "microwave", "appliance", "garbage disposal"],
+    "Deck & Outdoor": ["deck", "fence", "patio", "outdoor", "stain", "paver", "gutter", "lawn", "shed"],
+    "Bathroom": ["bathroom", "vanity", "tile", "tub", "bath", "grout"],
+    "Painting": ["paint", "drywall", "primer", "wall"],
+}
+
+
+class CrmNoteReq(BaseModel):
+    body: str
+
+
+class CrmTagsReq(BaseModel):
+    tags: List[str]
+
+
+class CrmContactUpdate(BaseModel):
+    phone: Optional[str] = None
+    country: Optional[str] = None
+    state: Optional[str] = None
+    signup_source: Optional[str] = None
+
+
+class VendorReq(BaseModel):
+    company: str
+    category: Optional[str] = "Other"
+    importance: Optional[str] = "medium"
+    website: Optional[str] = ""
+    login_url: Optional[str] = ""
+    dashboard_url: Optional[str] = ""
+    support_url: Optional[str] = ""
+    docs_url: Optional[str] = ""
+    api_docs_url: Optional[str] = ""
+    billing_url: Optional[str] = ""
+    monthly_cost_cents: Optional[int] = 0
+    annual_cost_cents: Optional[int] = 0
+    renewal_date: Optional[str] = ""
+    plan_type: Optional[str] = ""
+    account_owner: Optional[str] = ""
+    email_used: Optional[str] = ""
+    support_email: Optional[str] = ""
+    phone: Optional[str] = ""
+    affiliate_link: Optional[str] = ""
+    notes: Optional[str] = ""
+    feature_description: Optional[str] = ""
+    importance_note: Optional[str] = ""
+    doc: Optional[dict] = None
+
+
+def _days_since(iso: Optional[str]) -> Optional[float]:
+    if not iso:
+        return None
+    try:
+        dt = datetime.fromisoformat(iso)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return (datetime.now(timezone.utc) - dt).total_seconds() / 86400.0
+    except Exception:
+        return None
+
+
+def _crm_contact(u: dict, proj: dict, ltv_cents: int, comm: int, notes_count: int) -> dict:
+    tier = u.get("subscription_tier") or "free"
+    sub_status = u.get("subscription_status") or ("trial" if tier == "free" else "active")
+    if sub_status == "canceled":
+        membership = "canceled"
+        billing = "canceled"
+    elif tier == "free":
+        membership = "trial"
+        billing = "none"
+    else:
+        membership = "active"
+        billing = "active"
+    last_login = u.get("last_login")
+    last_activity = max([x for x in [last_login, proj.get("last"), u.get("created_at")] if x] or [None]) if (last_login or proj.get("last") or u.get("created_at")) else None
+    titles = " ".join(proj.get("titles", []))
+    categories = [cat for cat, kws in CRM_CATEGORY_KEYWORDS.items() if any(k in titles for k in kws)]
+    return {
+        "id": u["id"],
+        "email": u["email"],
+        "name": u.get("name") or "",
+        "username": (u["email"].split("@")[0]),
+        "phone": u.get("phone") or "",
+        "picture": u.get("picture") or "",
+        "signup_source": u.get("signup_source") or ("google" if u.get("auth_provider") == "google" else "email"),
+        "signup_date": u.get("created_at"),
+        "country": u.get("country") or "",
+        "state": u.get("state") or "",
+        "location": u.get("location") or "",
+        "plan": tier,
+        "subscription_status": sub_status,
+        "membership_status": membership,
+        "billing_status": billing,
+        "ltv_cents": ltv_cents,
+        "projects_created": proj.get("count", 0),
+        "projects_completed": proj.get("completed", 0),
+        "community_contributions": comm,
+        "last_login": last_login,
+        "last_activity": last_activity,
+        "notes_count": notes_count,
+        "tags": u.get("crm_tags") or [],
+        "categories": categories,
+        "credits": u.get("credits", 0),
+        "is_admin": u.get("is_admin", False),
+    }
+
+
+def _crm_segments(c: dict) -> List[str]:
+    segs = []
+    age = _days_since(c.get("signup_date"))
+    inactive = _days_since(c.get("last_activity"))
+    if age is not None and age <= 7:
+        segs.append("New Users")
+    if c["plan"] == "free" and c["membership_status"] == "trial":
+        segs.append("Trial Users")
+    if c["membership_status"] == "active" and c["plan"] in ("pro", "master"):
+        segs.append("Monthly Members")
+    if c.get("plan_interval") == "annual":
+        segs.append("Annual Members")
+    if c["membership_status"] == "canceled":
+        segs.append("Canceled Users")
+        segs.append("Expired Members")
+    if inactive is not None:
+        if inactive >= 90:
+            segs.append("Inactive 90d+")
+        elif inactive >= 60:
+            segs.append("Inactive 60d+")
+        elif inactive >= 30:
+            segs.append("Inactive 30d+")
+    if inactive is not None and inactive <= 3 and c["projects_created"] >= 2:
+        segs.append("Highly Active")
+    if c["community_contributions"] >= 1:
+        segs.append("Community Contributors")
+    if c["ltv_cents"] >= 2000:
+        segs.append("High Value")
+    if c["projects_created"] >= 5:
+        segs.append("Power Users")
+    for cat in c.get("categories", []):
+        segs.append(f"{cat} Users")
+    return segs
+
+
+async def _crm_enrich(users: List[dict]) -> List[dict]:
+    ids = [u["id"] for u in users]
+    proj_map: dict = {}
+    async for p in db.projects.find({"user_id": {"$in": ids}}, {"_id": 0, "user_id": 1, "title": 1, "status": 1, "updated_at": 1, "created_at": 1}):
+        m = proj_map.setdefault(p["user_id"], {"count": 0, "completed": 0, "titles": [], "last": None})
+        m["count"] += 1
+        if p.get("status") == "completed":
+            m["completed"] += 1
+        if p.get("title"):
+            m["titles"].append(p["title"].lower())
+        upd = p.get("updated_at") or p.get("created_at")
+        if upd and (m["last"] is None or upd > m["last"]):
+            m["last"] = upd
+    pay_map: dict = {}
+    async for t in db.payment_transactions.find({"user_id": {"$in": ids}, "fulfilled": True}, {"_id": 0, "user_id": 1, "amount": 1}):
+        pay_map[t["user_id"]] = pay_map.get(t["user_id"], 0) + (t.get("amount") or 0)
+    comm_map: dict = {}
+    async for e in db.community_experiences.find({"user_id": {"$in": ids}}, {"_id": 0, "user_id": 1}):
+        if e.get("user_id"):
+            comm_map[e["user_id"]] = comm_map.get(e["user_id"], 0) + 1
+    async for th in db.community_threads.find({"user_id": {"$in": ids}}, {"_id": 0, "user_id": 1}):
+        if th.get("user_id"):
+            comm_map[th["user_id"]] = comm_map.get(th["user_id"], 0) + 1
+    note_map: dict = {}
+    async for n in db.crm_notes.find({"user_id": {"$in": ids}}, {"_id": 0, "user_id": 1}):
+        note_map[n["user_id"]] = note_map.get(n["user_id"], 0) + 1
+    out = []
+    for u in users:
+        c = _crm_contact(u, proj_map.get(u["id"], {}), pay_map.get(u["id"], 0), comm_map.get(u["id"], 0), note_map.get(u["id"], 0))
+        c["segments"] = _crm_segments(c)
+        out.append(c)
+    return out
+
+
+CRM_SEGMENT_ORDER = [
+    "New Users", "Trial Users", "Monthly Members", "Annual Members", "Expired Members",
+    "Canceled Users", "Highly Active", "Inactive 30d+", "Inactive 60d+", "Inactive 90d+",
+    "Community Contributors", "High Value", "Power Users",
+    "Plumbing Users", "HVAC Users", "Electrical Users", "Appliance Users",
+    "Bathroom Users", "Deck & Outdoor Users", "Painting Users",
+]
+
+
+@api_router.get("/admin/crm/stats")
+async def crm_stats(admin: dict = Depends(require_admin)):
+    users = await db.users.find({}, {"_id": 0, "hashed_password": 0}).to_list(10000)
+    contacts = await _crm_enrich(users)
+    total = len(contacts)
+    new_today = sum(1 for c in contacts if (_days_since(c.get("signup_date")) or 999) < 1)
+    active7 = sum(1 for c in contacts if (_days_since(c.get("last_activity")) if c.get("last_activity") else 999) is not None and (_days_since(c.get("last_activity")) or 999) <= 7)
+    trial = sum(1 for c in contacts if c["membership_status"] == "trial")
+    monthly = sum(1 for c in contacts if "Monthly Members" in c["segments"])
+    annual = sum(1 for c in contacts if "Annual Members" in c["segments"])
+    canceled = sum(1 for c in contacts if c["membership_status"] == "canceled")
+    revenue = sum(c["ltv_cents"] for c in contacts)
+    paying = sum(1 for c in contacts if c["membership_status"] == "active")
+    projects_created = sum(c["projects_created"] for c in contacts)
+    projects_completed = sum(c["projects_completed"] for c in contacts)
+    contributors = sum(1 for c in contacts if c["community_contributions"] >= 1)
+    seg_counts = {s: 0 for s in CRM_SEGMENT_ORDER}
+    for c in contacts:
+        for s in c["segments"]:
+            seg_counts[s] = seg_counts.get(s, 0) + 1
+    return {
+        "total_users": total, "new_today": new_today, "active_7d": active7,
+        "trial_users": trial, "monthly_subscribers": monthly, "annual_subscribers": annual,
+        "canceled_users": canceled, "paying_users": paying,
+        "revenue_cents": revenue, "avg_ltv_cents": (revenue // total) if total else 0,
+        "projects_created": projects_created, "projects_completed": projects_completed,
+        "community_contributors": contributors,
+        "segments": [{"name": s, "count": seg_counts.get(s, 0)} for s in CRM_SEGMENT_ORDER],
+    }
+
+
+@api_router.get("/admin/crm/contacts")
+async def crm_contacts(
+    search: Optional[str] = None, segment: Optional[str] = None, tag: Optional[str] = None,
+    plan: Optional[str] = None, status: Optional[str] = None, sort: str = "recent",
+    page: int = 1, limit: int = 25, admin: dict = Depends(require_admin),
+):
+    q: dict = {}
+    if search:
+        rx = {"$regex": re.escape(search), "$options": "i"}
+        q["$or"] = [{"email": rx}, {"name": rx}, {"phone": rx}]
+    users = await db.users.find(q, {"_id": 0, "hashed_password": 0}).to_list(10000)
+    contacts = await _crm_enrich(users)
+    if segment:
+        contacts = [c for c in contacts if segment in c["segments"]]
+    if tag:
+        contacts = [c for c in contacts if tag in (c.get("tags") or [])]
+    if plan:
+        contacts = [c for c in contacts if c["plan"] == plan]
+    if status:
+        contacts = [c for c in contacts if c["membership_status"] == status]
+    if sort == "ltv":
+        contacts.sort(key=lambda c: c["ltv_cents"], reverse=True)
+    elif sort == "active":
+        contacts.sort(key=lambda c: c.get("last_activity") or "", reverse=True)
+    elif sort == "name":
+        contacts.sort(key=lambda c: (c.get("name") or c["email"]).lower())
+    else:
+        contacts.sort(key=lambda c: c.get("signup_date") or "", reverse=True)
+    total = len(contacts)
+    start = max(0, (page - 1) * limit)
+    return {"total": total, "page": page, "limit": limit, "contacts": contacts[start:start + limit]}
+
+
+@api_router.get("/admin/crm/contacts/{user_id}")
+async def crm_contact_detail(user_id: str, admin: dict = Depends(require_admin)):
+    u = await db.users.find_one({"id": user_id}, {"_id": 0, "hashed_password": 0})
+    if not u:
+        raise HTTPException(status_code=404, detail="Contact not found")
+    enriched = (await _crm_enrich([u]))[0]
+    # timeline
+    events = []
+    if u.get("created_at"):
+        events.append({"icon": "account-plus", "label": f"Signed up ({enriched['signup_source']})", "at": u["created_at"]})
+    async for p in db.projects.find({"user_id": user_id}, {"_id": 0, "title": 1, "status": 1, "created_at": 1, "completed_at": 1}):
+        if p.get("created_at"):
+            events.append({"icon": "clipboard-text-outline", "label": f"Started project: {p.get('title', 'Project')}", "at": p["created_at"]})
+        if p.get("status") == "completed" and p.get("completed_at"):
+            events.append({"icon": "check-decagram", "label": f"Completed: {p.get('title', 'Project')}", "at": p["completed_at"]})
+    async for e in db.community_experiences.find({"user_id": user_id}, {"_id": 0, "title": 1, "created_at": 1}):
+        events.append({"icon": "account-group", "label": f"Posted experience: {e.get('title', '')}", "at": e.get("created_at")})
+    async for t in db.payment_transactions.find({"user_id": user_id, "fulfilled": True}, {"_id": 0, "amount": 1, "tier": 1, "created_at": 1}):
+        events.append({"icon": "cash", "label": f"Paid ${(t.get('amount', 0) or 0) // 100} ({t.get('tier', '')})", "at": t.get("created_at")})
+    async for f in db.feedback.find({"user_email": u["email"]}, {"_id": 0, "message": 1, "created_at": 1}):
+        events.append({"icon": "message-alert-outline", "label": "Submitted feedback", "at": f.get("created_at")})
+    if u.get("last_login"):
+        events.append({"icon": "login", "label": "Last login", "at": u["last_login"]})
+    events = [e for e in events if e.get("at")]
+    events.sort(key=lambda e: e["at"], reverse=True)
+    notes = await db.crm_notes.find({"user_id": user_id}, {"_id": 0}).sort("created_at", -1).to_list(200)
+    enriched["timeline"] = events
+    enriched["notes"] = notes
+    return enriched
+
+
+@api_router.put("/admin/crm/contacts/{user_id}")
+async def crm_update_contact(user_id: str, req: CrmContactUpdate, admin: dict = Depends(require_admin)):
+    patch = {k: v for k, v in req.dict().items() if v is not None}
+    if not patch:
+        return {"ok": True}
+    res = await db.users.update_one({"id": user_id}, {"$set": patch})
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Contact not found")
+    return {"ok": True, "updated": patch}
+
+
+@api_router.post("/admin/crm/contacts/{user_id}/tags")
+async def crm_set_tags(user_id: str, req: CrmTagsReq, admin: dict = Depends(require_admin)):
+    tags = sorted({t.strip() for t in req.tags if t.strip()})
+    res = await db.users.update_one({"id": user_id}, {"$set": {"crm_tags": tags}})
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Contact not found")
+    return {"tags": tags}
+
+
+@api_router.post("/admin/crm/contacts/{user_id}/notes")
+async def crm_add_note(user_id: str, req: CrmNoteReq, admin: dict = Depends(require_admin)):
+    if not await db.users.find_one({"id": user_id}):
+        raise HTTPException(status_code=404, detail="Contact not found")
+    note = {
+        "id": new_id(), "user_id": user_id, "body": req.body.strip()[:2000],
+        "author": admin.get("name") or admin.get("email"), "created_at": now_iso(),
+    }
+    await db.crm_notes.insert_one(note)
+    note.pop("_id", None)
+    return note
+
+
+@api_router.delete("/admin/crm/notes/{note_id}")
+async def crm_delete_note(note_id: str, admin: dict = Depends(require_admin)):
+    await db.crm_notes.delete_one({"id": note_id})
+    return {"ok": True}
+
+
+# ---------------------------------------------------------------- Vendor / Subscription DB
+async def seed_vendors():
+    try:
+        if not VENDOR_SEED_PATH.exists():
+            return
+        data = json.loads(VENDOR_SEED_PATH.read_text())
+        for v in data.get("vendors", []):
+            key = v.get("seed_key")
+            await db.vendors.update_one(
+                {"seed_key": key},
+                {"$setOnInsert": {
+                    "id": new_id(), "seed_key": key,
+                    "company": v["company"], "category": v.get("category", "Other"),
+                    "importance": v.get("importance", "medium"),
+                    "website": v.get("website", ""), "login_url": v.get("login_url", ""),
+                    "dashboard_url": v.get("dashboard_url", ""), "support_url": v.get("support_url", ""),
+                    "docs_url": v.get("docs_url", ""), "api_docs_url": v.get("api_docs_url", ""),
+                    "billing_url": v.get("billing_url", ""),
+                    "monthly_cost_cents": v.get("monthly_cost_cents", 0), "annual_cost_cents": v.get("annual_cost_cents", 0),
+                    "renewal_date": v.get("renewal_date", ""), "plan_type": v.get("plan_type", ""),
+                    "account_owner": v.get("account_owner", ""), "email_used": v.get("email_used", ""),
+                    "support_email": v.get("support_email", ""), "phone": v.get("phone", ""),
+                    "affiliate_link": v.get("affiliate_link", ""), "notes": v.get("notes", ""),
+                    "feature_description": v.get("feature_description", ""), "importance_note": v.get("importance_note", ""),
+                    "doc": v.get("doc", {}), "active": True, "created_at": now_iso(),
+                }},
+                upsert=True,
+            )
+        logger.info("vendors seeded")
+    except Exception as e:
+        logger.error(f"vendor seed failed: {e}")
+
+
+@api_router.get("/admin/vendors")
+async def list_vendors(search: Optional[str] = None, category: Optional[str] = None, admin: dict = Depends(require_admin)):
+    q: dict = {}
+    if category:
+        q["category"] = category
+    if search:
+        rx = {"$regex": re.escape(search), "$options": "i"}
+        q["$or"] = [{"company": rx}, {"category": rx}, {"feature_description": rx}, {"notes": rx}]
+    vendors = await db.vendors.find(q, {"_id": 0}).sort("company", 1).to_list(500)
+    return vendors
+
+
+@api_router.get("/admin/vendors/stats")
+async def vendor_stats(admin: dict = Depends(require_admin)):
+    vendors = await db.vendors.find({}, {"_id": 0}).to_list(500)
+    monthly = sum(v.get("monthly_cost_cents", 0) or 0 for v in vendors)
+    annual_from_monthly = monthly * 12
+    annual_direct = sum(v.get("annual_cost_cents", 0) or 0 for v in vendors)
+    critical = sum(1 for v in vendors if v.get("importance") == "critical")
+    cats: dict = {}
+    for v in vendors:
+        cats[v.get("category", "Other")] = cats.get(v.get("category", "Other"), 0) + 1
+    upcoming = []
+    for v in vendors:
+        d = _days_since(v.get("renewal_date"))
+        if d is not None and -1 <= -d <= 30:  # renewal within next 30 days
+            upcoming.append({"company": v["company"], "renewal_date": v.get("renewal_date")})
+    return {
+        "total": len(vendors), "monthly_spend_cents": monthly,
+        "annual_spend_cents": annual_direct + annual_from_monthly,
+        "critical": critical,
+        "categories": [{"name": k, "count": v} for k, v in sorted(cats.items())],
+        "upcoming_renewals": upcoming,
+    }
+
+
+@api_router.post("/admin/vendors")
+async def create_vendor(req: VendorReq, admin: dict = Depends(require_admin)):
+    v = req.dict()
+    v["id"] = new_id()
+    v["active"] = True
+    v["created_at"] = now_iso()
+    v["doc"] = v.get("doc") or {}
+    await db.vendors.insert_one(dict(v))
+    v.pop("_id", None)
+    return v
+
+
+@api_router.put("/admin/vendors/{vendor_id}")
+async def update_vendor(vendor_id: str, req: VendorReq, admin: dict = Depends(require_admin)):
+    patch = req.dict()
+    patch["doc"] = patch.get("doc") or {}
+    res = await db.vendors.update_one({"id": vendor_id}, {"$set": patch})
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+    v = await db.vendors.find_one({"id": vendor_id}, {"_id": 0})
+    return v
+
+
+@api_router.delete("/admin/vendors/{vendor_id}")
+async def delete_vendor(vendor_id: str, admin: dict = Depends(require_admin)):
+    await db.vendors.delete_one({"id": vendor_id})
+    return {"ok": True}
+
+
 app.include_router(api_router)
 
 app.add_middleware(
@@ -2093,6 +2524,10 @@ async def _ensure_indexes():
         await db.community_experiences.create_index("user_id")
         await db.community_threads.create_index([("project_slug", 1), ("created_at", -1)])
         await db.community_threads.create_index("id")
+        await db.crm_notes.create_index([("user_id", 1), ("created_at", -1)])
+        await db.users.create_index("crm_tags")
+        await db.vendors.create_index("id")
+        await db.vendors.create_index("category")
         logger.info("indexes ensured")
     except Exception as e:
         logger.warning(f"index ensure: {e}")
@@ -2101,6 +2536,7 @@ async def _ensure_indexes():
 @app.on_event("startup")
 async def _startup_seed_community():
     await seed_community()
+    await seed_vendors()
 
 
 @app.on_event("startup")

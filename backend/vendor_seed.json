@@ -1,0 +1,137 @@
+{
+  "vendors": [
+    {
+      "seed_key": "perplexity",
+      "company": "Perplexity AI",
+      "category": "AI Platforms",
+      "importance": "critical",
+      "website": "https://www.perplexity.ai",
+      "dashboard_url": "https://www.perplexity.ai/settings/api",
+      "api_docs_url": "https://docs.perplexity.ai",
+      "plan_type": "API (pay-as-you-go)",
+      "feature_description": "Sonar Pro model powers DIYhomie AI guides and SEO blog generation with live web grounding.",
+      "importance_note": "Core AI guide + blog engine. Outage = no new guides.",
+      "doc": {
+        "purpose": "Real-time, grounded answers for step-by-step DIY guides and blog posts.",
+        "api_keys_location": "backend/.env -> PERPLEXITY_API_KEY",
+        "internal_notes": "Model: sonar-pro. Used in guide/blog generation paths.",
+        "warnings": "Token usage scales with guide length — monitor spend.",
+        "dependencies": "Used by guide builder and blog auto-writer."
+      }
+    },
+    {
+      "seed_key": "openai",
+      "company": "OpenAI",
+      "category": "AI Platforms",
+      "importance": "critical",
+      "website": "https://openai.com",
+      "dashboard_url": "https://platform.openai.com",
+      "api_docs_url": "https://platform.openai.com/docs",
+      "plan_type": "Via Emergent Universal Key",
+      "feature_description": "GPT-4o for intake/adaptation reasoning and GPT Image 1 (DALL·E) for step illustrations.",
+      "importance_note": "Drives Core Magic intake, dynamic adaptation, and step images.",
+      "doc": {
+        "purpose": "Conversational intake, guide adaptation, and image generation.",
+        "api_keys_location": "backend/.env -> EMERGENT_LLM_KEY (universal key)",
+        "internal_notes": "Accessed through emergentintegrations wrapper, model gpt-4o-mini.",
+        "warnings": "Image generation is the most expensive call — gate behind credits.",
+        "dependencies": "emergentintegrations library."
+      }
+    },
+    {
+      "seed_key": "anthropic",
+      "company": "Anthropic",
+      "category": "AI Platforms",
+      "importance": "medium",
+      "website": "https://www.anthropic.com",
+      "dashboard_url": "https://console.anthropic.com",
+      "api_docs_url": "https://docs.anthropic.com",
+      "plan_type": "Via Emergent Universal Key",
+      "feature_description": "Claude models available via the universal key for text generation fallbacks.",
+      "importance_note": "Optional alternate text model.",
+      "doc": {
+        "purpose": "Alternate LLM provider for text generation.",
+        "api_keys_location": "backend/.env -> EMERGENT_LLM_KEY",
+        "internal_notes": "Not currently in the hot path.",
+        "warnings": "",
+        "dependencies": "emergentintegrations library."
+      }
+    },
+    {
+      "seed_key": "stripe",
+      "company": "Stripe",
+      "category": "Payment Systems",
+      "importance": "critical",
+      "website": "https://stripe.com",
+      "dashboard_url": "https://dashboard.stripe.com",
+      "billing_url": "https://dashboard.stripe.com/billing",
+      "api_docs_url": "https://docs.stripe.com/api",
+      "plan_type": "Pay-as-you-go (% per transaction)",
+      "feature_description": "Recurring subscriptions (Pro/Master), checkout, webhooks, and referral Customer Credit Balances.",
+      "importance_note": "All revenue flows through Stripe. LIVE keys in use.",
+      "doc": {
+        "purpose": "Subscriptions, checkout, webhooks, and $5 referral credits.",
+        "api_keys_location": "backend/.env -> STRIPE_SECRET_KEY / STRIPE_WEBHOOK_SECRET",
+        "internal_notes": "Price lookup keys: diyhomie_pro_monthly, diyhomie_master_monthly. Referral credit via Customer.create_balance_transaction.",
+        "warnings": "LIVE keys — never trigger test charges against production customers.",
+        "dependencies": "Billing, referrals, admin revenue/MRR."
+      }
+    },
+    {
+      "seed_key": "mongodb",
+      "company": "MongoDB",
+      "category": "Databases",
+      "importance": "critical",
+      "website": "https://www.mongodb.com",
+      "dashboard_url": "https://cloud.mongodb.com",
+      "api_docs_url": "https://www.mongodb.com/docs",
+      "plan_type": "Cluster (managed)",
+      "feature_description": "Primary datastore for users, projects, community, blog, referrals, CRM, and vendors.",
+      "importance_note": "Single source of truth. Backup strategy required pre-launch.",
+      "doc": {
+        "purpose": "Application database (Motor async driver).",
+        "api_keys_location": "backend/.env -> MONGO_URL / DB_NAME",
+        "internal_notes": "Images stored as base64 today — migrate to object storage before scale.",
+        "warnings": "Base64 image storage will bloat the DB at scale.",
+        "dependencies": "Everything."
+      }
+    },
+    {
+      "seed_key": "weatherapi",
+      "company": "WeatherAPI.com",
+      "category": "Maps",
+      "importance": "medium",
+      "website": "https://www.weatherapi.com",
+      "dashboard_url": "https://www.weatherapi.com/my",
+      "api_docs_url": "https://www.weatherapi.com/docs",
+      "plan_type": "Free / paid tiers",
+      "feature_description": "Local weather banner to advise on outdoor project timing (e.g., deck staining).",
+      "importance_note": "Nice-to-have contextual feature.",
+      "doc": {
+        "purpose": "Localized weather for outdoor project guidance.",
+        "api_keys_location": "backend/.env -> WEATHER_API_KEY",
+        "internal_notes": "Used by WeatherBanner via GET /api/weather.",
+        "warnings": "Rate limits on free tier.",
+        "dependencies": "Home weather banner."
+      }
+    },
+    {
+      "seed_key": "emergent",
+      "company": "Emergent",
+      "category": "Hosting",
+      "importance": "critical",
+      "website": "https://emergent.sh",
+      "dashboard_url": "https://app.emergent.sh",
+      "plan_type": "Platform subscription",
+      "feature_description": "App hosting/preview, build & deploy, Universal LLM key, and managed Google Auth.",
+      "importance_note": "Hosts the app and brokers LLM + auth.",
+      "doc": {
+        "purpose": "Hosting, builds, universal LLM key, Google social login.",
+        "api_keys_location": "backend/.env -> EMERGENT_LLM_KEY; Google auth managed by Emergent",
+        "internal_notes": "Publish button generates iOS/Android builds and deploys.",
+        "warnings": "Top up Universal Key balance to avoid AI outages.",
+        "dependencies": "AI features, Google auth, deployment."
+      }
+    }
+  ]
+}
