@@ -11,14 +11,16 @@ type Size = "sm" | "md" | "lg";
 function Ring({ dim, delay }: { dim: number; delay: number }) {
   const v = useRef(new Animated.Value(0)).current;
   useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.delay(delay),
-        Animated.timing(v, { toValue: 1, duration: 2200, easing: Easing.out(Easing.quad), useNativeDriver: true }),
-      ])
-    );
-    loop.start();
-    return () => loop.stop();
+    // Apply the stagger delay once, then loop the pulse forever so all rings
+    // keep a steady, evenly-spaced continuous radiating cadence.
+    const anim = Animated.sequence([
+      Animated.delay(delay),
+      Animated.loop(
+        Animated.timing(v, { toValue: 1, duration: 2200, easing: Easing.out(Easing.quad), useNativeDriver: true })
+      ),
+    ]);
+    anim.start();
+    return () => anim.stop();
   }, [v, delay]);
 
   const scale = v.interpolate({ inputRange: [0, 1], outputRange: [1, 1.7] });

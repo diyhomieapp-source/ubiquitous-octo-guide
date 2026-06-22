@@ -120,6 +120,7 @@ class RegisterReq(BaseModel):
     email: EmailStr
     password: str
     name: str = ""
+    ref: Optional[str] = None
 
 
 class LoginReq(BaseModel):
@@ -548,9 +549,11 @@ async def register(req: RegisterReq):
         "voice_minutes": 3,
         "subscription_tier": "free",
         "onboarded": False,
+        "referral_code": new_id().replace("-", "")[:6].upper(),
         "created_at": now_iso(),
     }
     await db.users.insert_one(user)
+    await link_referral(req.ref, user["id"])
     token = create_token(user["id"])
     return {"access_token": token, "token_type": "bearer", "user": public_user(user)}
 
@@ -1248,6 +1251,13 @@ async def _activate_subscription(user_id: str, tier: str, subscription_id: Optio
             "onboarded": True,
         }},
     )
+    # Referral payouts: reward the person who referred THIS user, and flush any
+    # rewards THIS user earned (now that they have a Stripe customer to credit).
+    try:
+        await grant_referral_reward(user_id)
+        await flush_referrer_pending(user_id)
+    except Exception as e:
+        logger.error(f"referral payout error: {e}")
 
 
 @api_router.get("/billing/status/{session_id}")
@@ -1330,7 +1340,93 @@ async def subscribe(req: SubscribeReq, user: dict = Depends(get_current_user)):
     return public_user(fresh)
 
 
-# ---------------------------------------------------------------- SEO blog (viral growth loop)
+# ---------------------------------------------------------------- Share & Earn (referrals)
+REFERRAL_REWARD_CENTS = 500  # $5.00 account credit per converted referral
+
+
+async def link_referral(code: Optional[str], new_user_id: str):
+    if not code:
+        return
+    referrer = await db.users.find_one({"referral_code": code.strip().upper()})
+    if not referrer or referrer["id"] == new_user_id:
+        return
+    await db.referrals.insert_one({
+        "id": new_id(),
+        "referrer_id": referrer["id"],
+        "referred_id": new_user_id,
+        "code": code.strip().upper(),
+        "status": "pending",       # pending -> converted (when referred subscribes)
+        "reward_granted": False,    # True once $5 actually posted to Stripe
+        "created_at": now_iso(),
+    })
+    await db.users.update_one({"id": new_user_id}, {"$set": {"referred_by": referrer["id"]}})
+
+
+async def _post_stripe_credit(customer_id: str, referrer_id: str, referred_id: str) -> bool:
+    try:
+        await asyncio.to_thread(lambda: stripe.Customer.create_balance_transaction(
+            customer_id, amount=-REFERRAL_REWARD_CENTS, currency="usd",
+            description="DIYhomie referral reward",
+            idempotency_key=f"ref_{referrer_id}_{referred_id}",
+        ))
+        return True
+    except Exception as e:
+        logger.error(f"stripe referral credit failed: {e}")
+        return False
+
+
+async def grant_referral_reward(referred_user_id: str):
+    """Called when `referred_user_id` subscribes — credit whoever referred them."""
+    rec = await db.referrals.find_one({"referred_id": referred_user_id, "reward_granted": {"$ne": True}})
+    if not rec:
+        return
+    referrer = await db.users.find_one({"id": rec["referrer_id"]})
+    granted = False
+    if referrer and referrer.get("stripe_customer_id") and STRIPE_SECRET_KEY:
+        granted = await _post_stripe_credit(referrer["stripe_customer_id"], rec["referrer_id"], referred_user_id)
+    await db.referrals.update_one({"id": rec["id"]}, {"$set": {
+        "status": "converted", "reward_granted": granted,
+        "reward_pending": not granted, "converted_at": now_iso(),
+    }})
+
+
+async def flush_referrer_pending(referrer_user_id: str):
+    """Called when `referrer_user_id` subscribes — pay out rewards they already earned."""
+    referrer = await db.users.find_one({"id": referrer_user_id})
+    cust = referrer.get("stripe_customer_id") if referrer else None
+    if not cust or not STRIPE_SECRET_KEY:
+        return
+    pend = await db.referrals.find({"referrer_id": referrer_user_id, "status": "converted",
+                                    "reward_granted": {"$ne": True}}).to_list(200)
+    for rec in pend:
+        if await _post_stripe_credit(cust, referrer_user_id, rec["referred_id"]):
+            await db.referrals.update_one({"id": rec["id"]}, {"$set": {"reward_granted": True, "reward_pending": False}})
+
+
+@api_router.get("/referrals/me")
+async def my_referrals(user: dict = Depends(get_current_user)):
+    code = user.get("referral_code")
+    if not code:
+        code = new_id().replace("-", "")[:6].upper()
+        await db.users.update_one({"id": user["id"]}, {"$set": {"referral_code": code}})
+    recs = await db.referrals.find({"referrer_id": user["id"]}, {"_id": 0}).sort("created_at", -1).to_list(500)
+    converted = [r for r in recs if r.get("status") == "converted"]
+    credit_cents = 0
+    if user.get("stripe_customer_id") and STRIPE_SECRET_KEY:
+        try:
+            cust = await asyncio.to_thread(lambda: stripe.Customer.retrieve(user["stripe_customer_id"]))
+            credit_cents = max(0, -(cust.get("balance") or 0))
+        except Exception as e:
+            logger.warning(f"referral balance fetch: {e}")
+    return {
+        "code": code,
+        "invited": len(recs),
+        "converted": len(converted),
+        "earned_cents": len(converted) * REFERRAL_REWARD_CENTS,
+        "credit_cents": credit_cents,
+        "reward_cents": REFERRAL_REWARD_CENTS,
+        "is_paid": (user.get("subscription_tier") or "free") != "free",
+    }
 STOP_WORDS = {"a", "an", "the", "to", "of", "in", "on", "my", "your", "and", "or", "for", "with", "how"}
 
 
@@ -1402,7 +1498,7 @@ async def maybe_create_blog_post(project: dict, guide: dict, steps: list, contex
 
 
 @api_router.get("/blog")
-async def list_blog(limit: int = 24, category: Optional[str] = None, q: Optional[str] = None):
+async def list_blog(limit: int = 24, offset: int = 0, category: Optional[str] = None, q: Optional[str] = None):
     query: dict = {"published": True}
     if category:
         query["category"] = category
@@ -1410,7 +1506,7 @@ async def list_blog(limit: int = 24, category: Optional[str] = None, q: Optional
         query["$or"] = [{"title": {"$regex": q, "$options": "i"}},
                         {"keywords": {"$regex": q, "$options": "i"}},
                         {"product": {"$regex": q, "$options": "i"}}]
-    cur = db.blog_posts.find(query, {"_id": 0, "overview": 0, "steps": 0}).sort("created_at", -1).limit(min(limit, 100))
+    cur = db.blog_posts.find(query, {"_id": 0, "overview": 0, "steps": 0}).sort("created_at", -1).skip(max(offset, 0)).limit(min(limit, 100))
     posts = await cur.to_list(length=min(limit, 100))
     cats = await db.blog_posts.distinct("category", {"published": True})
     return {"posts": posts, "categories": sorted(cats)}
@@ -1779,6 +1875,24 @@ async def _startup_stripe_prices():
         await ensure_stripe_prices()
     except Exception as e:
         logger.error(f"startup stripe price init failed: {e}")
+
+
+@app.on_event("startup")
+async def _ensure_indexes():
+    try:
+        await db.users.create_index("email")
+        await db.users.create_index("id")
+        await db.projects.create_index([("user_id", 1), ("updated_at", -1)])
+        await db.projects.create_index("id")
+        await db.blog_posts.create_index([("published", 1), ("created_at", -1)])
+        await db.blog_posts.create_index("slug")
+        await db.feedback.create_index([("status", 1), ("created_at", -1)])
+        await db.support_tickets.create_index([("status", 1), ("created_at", -1)])
+        await db.referrals.create_index("referrer_id")
+        await db.referrals.create_index("code")
+        logger.info("indexes ensured")
+    except Exception as e:
+        logger.warning(f"index ensure: {e}")
 
 
 @app.on_event("startup")
