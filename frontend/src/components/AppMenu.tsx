@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 
 import { colors, spacing, radius, font, type } from "@/src/theme";
 import { CONTACT, DISCLAIMER_SHORT } from "@/src/content/appContent";
+import { useAuth } from "@/src/auth";
 import i18n from "@/src/i18n";
 import { metaFor } from "@/src/i18n/languages";
 
@@ -13,6 +14,7 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
+  const { user } = useAuth();
 
   const HELP = [
     { label: t("menu.faq"), icon: "frequently-asked-questions", route: "/support/faq" },
@@ -41,6 +43,13 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
           </View>
 
           <ScrollView contentContainerStyle={{ paddingBottom: spacing.xl }} showsVerticalScrollIndicator={false}>
+            {user?.is_admin && (
+              <Pressable testID="menu-admin" style={[styles.item, { borderColor: colors.brandPrimary, borderWidth: 1.5, borderRadius: radius.sm, paddingHorizontal: spacing.md, marginBottom: spacing.sm }]} onPress={() => go("/admin")}>
+                <MaterialCommunityIcons name="shield-crown-outline" size={20} color={colors.brandPrimary} />
+                <Text style={[styles.itemText, { color: colors.brandPrimary }]}>Admin Workstation</Text>
+                <MaterialCommunityIcons name="chevron-right" size={20} color={colors.brandPrimary} />
+              </Pressable>
+            )}
             <Text style={styles.section}>{t("menu.language").toUpperCase()}</Text>
             <Pressable testID="menu-blog" style={styles.item} onPress={() => go("/blog")}>
               <MaterialCommunityIcons name="book-open-page-variant" size={20} color={colors.brandPrimary} />

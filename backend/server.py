@@ -82,6 +82,7 @@ def public_user(u: dict) -> dict:
         "voice_minutes": u.get("voice_minutes", 0),
         "subscription_tier": u.get("subscription_tier", "free"),
         "onboarded": u.get("onboarded", False),
+        "is_admin": u.get("is_admin", False),
     }
 
 
@@ -105,6 +106,12 @@ async def get_current_user(creds: HTTPAuthorizationCredentials = Depends(securit
     user = await db.users.find_one({"id": user_id}, {"_id": 0})
     if not user:
         raise cred_exc
+    return user
+
+
+async def require_admin(user: dict = Depends(get_current_user)) -> dict:
+    if not user.get("is_admin"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
     return user
 
 
@@ -1559,6 +1566,152 @@ async def robots(request: Request):
     return PlainTextResponse(f"User-agent: *\nAllow: /\nSitemap: {base}api/sitemap.xml\n")
 
 
+class FeedbackReq(BaseModel):
+    type: str = "feature"  # bug | feature | other
+    message: str
+    email: Optional[str] = None
+    screenshot: Optional[str] = None  # base64 data url (optional)
+    platform: Optional[str] = None
+
+
+@api_router.post("/feedback")
+async def submit_feedback(req: FeedbackReq, user: dict = Depends(get_current_user)):
+    if not req.message.strip():
+        raise HTTPException(status_code=400, detail="Message is required")
+    ftype = req.type if req.type in ("bug", "feature", "other") else "other"
+    doc = {
+        "id": new_id(),
+        "user_id": user["id"],
+        "user_email": req.email or user.get("email"),
+        "user_name": user.get("name"),
+        "type": ftype,
+        "message": req.message.strip()[:4000],
+        "screenshot": (req.screenshot or "")[:2_000_000] or None,
+        "platform": (req.platform or "")[:60],
+        "status": "new",       # new | in_progress | planned | done | declined
+        "priority": "medium",  # low | medium | high
+        "note": "",
+        "created_at": now_iso(),
+    }
+    await db.feedback.insert_one(dict(doc))
+    return {"id": doc["id"], "ok": True}
+
+
+# ---------------------------------------------------------------- admin workstation
+@api_router.get("/admin/overview")
+async def admin_overview(admin: dict = Depends(require_admin)):
+    async def by_status(coll):
+        out = {}
+        async for row in db[coll].aggregate([{"$group": {"_id": "$status", "n": {"$sum": 1}}}]):
+            out[row["_id"] or "unknown"] = row["n"]
+        return out
+    tiers = {}
+    async for row in db.users.aggregate([{"$group": {"_id": "$subscription_tier", "n": {"$sum": 1}}}]):
+        tiers[row["_id"] or "free"] = row["n"]
+    paid = sum(v for k, v in tiers.items() if k and k != "free")
+    return {
+        "counts": {
+            "users": await db.users.count_documents({}),
+            "projects": await db.projects.count_documents({}),
+            "guides": await db.projects.count_documents({"guide": {"$ne": None}}),
+            "blog_posts": await db.blog_posts.count_documents({"published": True}),
+            "blog_drafts": await db.blog_posts.count_documents({"published": False}),
+            "paid_subscribers": paid,
+        },
+        "tickets": await by_status("support_tickets"),
+        "feedback": await by_status("feedback"),
+        "tiers": tiers,
+        "recent_feedback": await db.feedback.find({}, {"_id": 0, "screenshot": 0}).sort("created_at", -1).limit(5).to_list(5),
+        "recent_tickets": await db.support_tickets.find({}, {"_id": 0}).sort("created_at", -1).limit(5).to_list(5),
+    }
+
+
+@api_router.get("/admin/feedback")
+async def admin_feedback(status: Optional[str] = None, type: Optional[str] = None, admin: dict = Depends(require_admin)):
+    q: dict = {}
+    if status:
+        q["status"] = status
+    if type:
+        q["type"] = type
+    items = await db.feedback.find(q, {"_id": 0, "screenshot": 0}).sort("created_at", -1).limit(300).to_list(300)
+    return {"items": items}
+
+
+class FeedbackUpdate(BaseModel):
+    status: Optional[str] = None
+    priority: Optional[str] = None
+    note: Optional[str] = None
+
+
+@api_router.patch("/admin/feedback/{fid}")
+async def admin_update_feedback(fid: str, req: FeedbackUpdate, admin: dict = Depends(require_admin)):
+    upd = {k: v for k, v in req.dict().items() if v is not None}
+    if not upd:
+        raise HTTPException(status_code=400, detail="Nothing to update")
+    res = await db.feedback.update_one({"id": fid}, {"$set": upd})
+    if not res.matched_count:
+        raise HTTPException(status_code=404, detail="Not found")
+    return {"ok": True}
+
+
+@api_router.delete("/admin/feedback/{fid}")
+async def admin_delete_feedback(fid: str, admin: dict = Depends(require_admin)):
+    await db.feedback.delete_one({"id": fid})
+    return {"ok": True}
+
+
+@api_router.get("/admin/tickets")
+async def admin_tickets(status: Optional[str] = None, admin: dict = Depends(require_admin)):
+    q = {"status": status} if status else {}
+    items = await db.support_tickets.find(q, {"_id": 0}).sort("created_at", -1).limit(300).to_list(300)
+    return {"items": items}
+
+
+class TicketUpdate(BaseModel):
+    status: Optional[str] = None
+
+
+@api_router.patch("/admin/tickets/{tid}")
+async def admin_update_ticket(tid: str, req: TicketUpdate, admin: dict = Depends(require_admin)):
+    if not req.status:
+        raise HTTPException(status_code=400, detail="status required")
+    res = await db.support_tickets.update_one({"id": tid}, {"$set": {"status": req.status}})
+    if not res.matched_count:
+        raise HTTPException(status_code=404, detail="Not found")
+    return {"ok": True}
+
+
+@api_router.get("/admin/blog")
+async def admin_blog(published: Optional[bool] = None, admin: dict = Depends(require_admin)):
+    q = {} if published is None else {"published": published}
+    items = await db.blog_posts.find(q, {"_id": 0, "steps": 0}).sort("created_at", -1).limit(300).to_list(300)
+    return {"items": items}
+
+
+class BlogUpdate(BaseModel):
+    published: Optional[bool] = None
+    title: Optional[str] = None
+    excerpt: Optional[str] = None
+
+
+@api_router.patch("/admin/blog/{slug}")
+async def admin_update_blog(slug: str, req: BlogUpdate, admin: dict = Depends(require_admin)):
+    upd = {k: v for k, v in req.dict().items() if v is not None}
+    if not upd:
+        raise HTTPException(status_code=400, detail="Nothing to update")
+    upd["updated_at"] = now_iso()
+    res = await db.blog_posts.update_one({"slug": slug}, {"$set": upd})
+    if not res.matched_count:
+        raise HTTPException(status_code=404, detail="Not found")
+    return {"ok": True}
+
+
+@api_router.delete("/admin/blog/{slug}")
+async def admin_delete_blog(slug: str, admin: dict = Depends(require_admin)):
+    await db.blog_posts.delete_one({"slug": slug})
+    return {"ok": True}
+
+
 @api_router.get("/")
 async def root():
     return {"message": "DIYhomie API", "brain": "perplexity" if PERPLEXITY_API_KEY else "fallback-openai"}
@@ -1581,6 +1734,33 @@ async def _startup_stripe_prices():
         await ensure_stripe_prices()
     except Exception as e:
         logger.error(f"startup stripe price init failed: {e}")
+
+
+@app.on_event("startup")
+async def _seed_admin():
+    """Idempotently ensure the owner account exists and has admin rights."""
+    email = (os.environ.get("ADMIN_EMAIL") or "").lower().strip()
+    pwd = os.environ.get("ADMIN_PASSWORD") or ""
+    if not email or not pwd:
+        return
+    try:
+        existing = await db.users.find_one({"email": email})
+        if existing:
+            if not existing.get("is_admin"):
+                await db.users.update_one({"email": email}, {"$set": {"is_admin": True}})
+                logger.info(f"admin rights granted to existing user {email}")
+        else:
+            await db.users.insert_one({
+                "id": new_id(), "email": email, "name": "Admin",
+                "hashed_password": pwd_context.hash(pwd),
+                "experience": None, "tools": [], "budget": None, "pain_point": None,
+                "expectation": None, "location": "", "credits": 9999, "voice_minutes": 9999,
+                "subscription_tier": "master", "onboarded": True, "is_admin": True,
+                "created_at": now_iso(),
+            })
+            logger.info(f"admin account seeded: {email}")
+    except Exception as e:
+        logger.error(f"admin seed failed: {e}")
 
 
 @app.on_event("shutdown")

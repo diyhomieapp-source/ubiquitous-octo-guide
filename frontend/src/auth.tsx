@@ -25,6 +25,7 @@ export type User = {
   voice_minutes: number;
   subscription_tier: string;
   onboarded: boolean;
+  is_admin?: boolean;
 };
 
 type AuthCtx = {

@@ -199,3 +199,10 @@ NOTE: generation is a single backend call, so stages are time-progressed (approx
 - Frontend in-app: /blog (feed: search, category chips, cards) and /blog/[slug] (reader: sections, Share via RN Share/navigator.share, CTA "Start this with Homie" → creates project → /project/[id]?new=1). Menu entry "DIY Guide Library" (testID menu-blog). ScreenHeader gained optional `right` slot.
 - NOTE: SEO HTML lives under /api/blog/{slug}/html because the ingress only routes /api/* to backend; on deploy a prettier /blog redirect can be added.
 - testIDs: blog-search, blog-cat-*, blog-post-*, blog-share, blog-share-btn, blog-start-project.
+
+## Iteration 12 — Admin Workstation + Feedback widget + RBAC (main agent)
+- Admin role: is_admin on user + public_user; idempotent admin seed on startup from backend/.env ADMIN_EMAIL/ADMIN_PASSWORD (Diyhomieapp@gmail.com). require_admin dependency (403 for non-admin). Verified via curl: admin login is_admin=true, /api/admin/overview 200 (real counts), non-admin 403.
+- Feedback: POST /api/feedback (auth) {type bug|feature|other, message, platform}. FeedbackFab floating button mounted across (tabs) → modal submit → thank-you. testIDs: feedback-fab, feedback-type-*, feedback-input, feedback-submit, feedback-done.
+- Admin endpoints (require_admin): GET /admin/overview, GET/PATCH/DELETE /admin/feedback, GET/PATCH /admin/tickets, GET/PATCH/DELETE /admin/blog.
+- Frontend: /admin guarded by app/admin/_layout.tsx (redirect if !is_admin); app/admin/index.tsx workstation with left nav + modules Overview/Feedback/Support Tickets/Blog Curation (status pickers, publish toggle, delete). Responsive sidebar (wide=side, narrow=top). Admin link in AppMenu only when is_admin (testID menu-admin).
+- NOTE: bcrypt __about__ warning is harmless (trapped by passlib). require_admin was briefly dropped in a parallel edit and re-added.
