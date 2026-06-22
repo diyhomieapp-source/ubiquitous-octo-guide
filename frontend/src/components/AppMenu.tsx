@@ -2,24 +2,29 @@ import { Modal, View, Text, StyleSheet, Pressable, ScrollView, Linking } from "r
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
+
 import { colors, spacing, radius, font, type } from "@/src/theme";
 import { CONTACT, DISCLAIMER_SHORT } from "@/src/content/appContent";
-
-const HELP = [
-  { label: "FAQ", icon: "frequently-asked-questions", route: "/support/faq" },
-  { label: "Knowledge Base", icon: "book-open-variant", route: "/support/knowledge-base" },
-  { label: "Contact Us", icon: "email-outline", route: "/support/contact" },
-  { label: "Submit a Support Ticket", icon: "ticket-outline", route: "/support/ticket" },
-];
-const LEGAL = [
-  { label: "Terms of Service", icon: "file-document-outline", route: "/legal/terms" },
-  { label: "Privacy Policy", icon: "shield-lock-outline", route: "/legal/privacy" },
-  { label: "Disclaimer", icon: "alert-outline", route: "/legal/disclaimer" },
-];
+import i18n from "@/src/i18n";
+import { metaFor } from "@/src/i18n/languages";
 
 export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
+
+  const HELP = [
+    { label: t("menu.faq"), icon: "frequently-asked-questions", route: "/support/faq" },
+    { label: t("menu.knowledgeBase"), icon: "book-open-variant", route: "/support/knowledge-base" },
+    { label: t("menu.contactUs"), icon: "email-outline", route: "/support/contact" },
+    { label: t("menu.supportTicket"), icon: "ticket-outline", route: "/support/ticket" },
+  ];
+  const LEGAL = [
+    { label: t("menu.terms"), icon: "file-document-outline", route: "/legal/terms" },
+    { label: t("menu.privacy"), icon: "shield-lock-outline", route: "/legal/privacy" },
+    { label: t("menu.disclaimer"), icon: "alert-outline", route: "/legal/disclaimer" },
+  ];
 
   const go = (route: string) => { onClose(); setTimeout(() => router.push(route as any), 120); };
 
@@ -29,34 +34,40 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
         <Pressable style={styles.scrim} onPress={onClose} />
         <View style={[styles.sheet, { paddingTop: insets.top + spacing.md }]}>
           <View style={styles.topRow}>
-            <Text style={styles.brand}>MENU</Text>
+            <Text style={styles.brand}>{t("menu.title")}</Text>
             <Pressable testID="menu-close" onPress={onClose} hitSlop={10}>
               <MaterialCommunityIcons name="close" size={26} color={colors.onSurface} />
             </Pressable>
           </View>
 
           <ScrollView contentContainerStyle={{ paddingBottom: spacing.xl }} showsVerticalScrollIndicator={false}>
-            <Text style={styles.section}>HELP & SUPPORT</Text>
+            <Text style={styles.section}>{t("menu.language").toUpperCase()}</Text>
+            <Pressable testID="menu-language" style={styles.item} onPress={() => go("/settings/language")}>
+              <MaterialCommunityIcons name="translate" size={20} color={colors.brandPrimary} />
+              <Text style={styles.itemText}>{metaFor(i18n.language).native}</Text>
+              <MaterialCommunityIcons name="chevron-right" size={20} color={colors.onSurfaceTertiary} />
+            </Pressable>
+
+            <Text style={styles.section}>{t("menu.helpSupport")}</Text>
             {HELP.map((it) => (
-              <Pressable key={it.label} testID={`menu-${it.route}`} style={styles.item} onPress={() => go(it.route)}>
+              <Pressable key={it.route} testID={`menu-${it.route}`} style={styles.item} onPress={() => go(it.route)}>
                 <MaterialCommunityIcons name={it.icon as any} size={20} color={colors.brandPrimary} />
                 <Text style={styles.itemText}>{it.label}</Text>
                 <MaterialCommunityIcons name="chevron-right" size={20} color={colors.onSurfaceTertiary} />
               </Pressable>
             ))}
 
-            <Text style={styles.section}>LEGAL</Text>
+            <Text style={styles.section}>{t("menu.legal")}</Text>
             {LEGAL.map((it) => (
-              <Pressable key={it.label} testID={`menu-${it.route}`} style={styles.item} onPress={() => go(it.route)}>
+              <Pressable key={it.route} testID={`menu-${it.route}`} style={styles.item} onPress={() => go(it.route)}>
                 <MaterialCommunityIcons name={it.icon as any} size={20} color={colors.brandPrimary} />
                 <Text style={styles.itemText}>{it.label}</Text>
                 <MaterialCommunityIcons name="chevron-right" size={20} color={colors.onSurfaceTertiary} />
               </Pressable>
             ))}
 
-            {/* Footer */}
             <View style={styles.footer}>
-              <Text style={styles.followLabel}>FOLLOW DIYHOMIE</Text>
+              <Text style={styles.followLabel}>{t("menu.follow")}</Text>
               <View style={styles.socials}>
                 {CONTACT.socials.map((s) => (
                   <Pressable key={s.label} testID={`social-${s.label}`} style={styles.social} onPress={() => Linking.openURL(s.url)}>

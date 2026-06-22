@@ -1,0 +1,77 @@
+{
+  "common": {
+    "credits": "kredyty",
+    "seeAll": "Zobacz wszystkie",
+    "done": "Gotowe",
+    "send": "Wyślij",
+    "cancel": "Anuluj",
+    "save": "Zapisz",
+    "retry": "Spróbuj ponownie",
+    "loading": "Ładowanie…",
+    "back": "Wstecz"
+  },
+  "tabs": {
+    "home": "HOMIE",
+    "projects": "PROJEKTY",
+    "supplies": "ZAPASY",
+    "proearn": "PRO-ZARABIAJ",
+    "profile": "PROFIL"
+  },
+  "home": {
+    "greeting": "CZEŚĆ,",
+    "greetingNamed": "CZEŚĆ {{name}},",
+    "question": "CO SKŁADAMY?",
+    "subtitle": "Powiedz mi, co robimy, a ja zbuduję kompletny plan działania — dopasowany do twojej dokładnej armatury, modelu lub materiału z uwzględnieniem narzędzi, bezpieczeństwa i zdjęć krok po kroku.",
+    "inputPlaceholder": "np. Wymień kran w łazience",
+    "buildPlan": "ZBUDUJ MÓJ PLAN",
+    "popularProjects": "POPULARNE PROJEKTY",
+    "continue": "KONTYNUUJ"
+  },
+  "suggestions": {
+    "s1": "Wymień kran w kuchni",
+    "s2": "Zaplanuj dziurę w płycie gipsowo-kartonowej",
+    "s3": "Odblokuj zlew w łazience",
+    "s4": "Zabezpiecz drzwi przed przeciągiem",
+    "s5": "Zainstaluj inteligentny termostat",
+    "s6": "Napraw cieknącą toaletę"
+  },
+  "menu": {
+    "title": "MENU",
+    "helpSupport": "POMOC I WSPARCIE",
+    "faq": "FAQ",
+    "knowledgeBase": "Baza wiedzy",
+    "contactUs": "Skontaktuj się z nami",
+    "supportTicket": "Prześlij zgłoszenie do pomocy technicznej",
+    "legal": "PRAWNE",
+    "terms": "Regulamin",
+    "privacy": "Polityka prywatności",
+    "disclaimer": "Zastrzeżenie",
+    "language": "Język",
+    "follow": "ŚLEDŹ DIYHOMIE"
+  },
+  "language": {
+    "title": "Język",
+    "subtitle": "Wybierz, jak DIYhomie ma do Ciebie mówić. Twoje przewodniki i odpowiedzi będą również napisane w tym języku.",
+    "auto": "Użyj języka urządzenia",
+    "autoHint": "Automatycznie dopasuj do telefonu lub przeglądarki",
+    "all": "WSZYSTKIE JĘZYKI"
+  },
+  "notifications": {
+    "title": "Powiadomienia",
+    "caughtUp": "WSZYSTKO ZROBIONE",
+    "caughtUpSub": "Przypomnienia o projektach, alerty pogodowe dla twoich zadań na świeżym powietrzu i aktualizacje od Homie będą tutaj wyświetlane."
+  },
+  "ticket": {
+    "title": "Zgłoszenie pomocy",
+    "about": "O CZYM TO JEST?",
+    "subject": "TEMAT",
+    "subjectPlaceholder": "Krótki opis",
+    "message": "WIADOMOŚĆ",
+    "messagePlaceholder": "Powiedz nam, co się stało…",
+    "send": "WYŚLIJ ZGŁOSZENIE",
+    "sentTitle": "ZGŁOSZENIE WYSŁANE",
+    "sentSub": "Otrzymaliśmy to — numer referencyjny #{{ref}}. Odpowiemy e-mailem w ciągu 1 dnia roboczego.",
+    "validation": "Dodaj temat i wiadomość, abyśmy mogli pomóc.",
+    "error": "Nie udało się wysłać zgłoszenia. Spróbuj ponownie."
+  }
+}

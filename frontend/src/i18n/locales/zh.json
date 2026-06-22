@@ -1,0 +1,77 @@
+{
+  "common": {
+    "credits": "积分",
+    "seeAll": "查看全部",
+    "done": "完成",
+    "send": "发送",
+    "cancel": "取消",
+    "save": "保存",
+    "retry": "重试",
+    "loading": "加载中…",
+    "back": "返回"
+  },
+  "tabs": {
+    "home": "主页",
+    "projects": "项目",
+    "supplies": "用品",
+    "proearn": "专业赚取",
+    "profile": "个人资料"
+  },
+  "home": {
+    "greeting": "嗨，",
+    "greetingNamed": "嗨 {{name}}，",
+    "question": "我们要修什么？",
+    "subtitle": "告诉我任务，我会为您制定完整的计划——根据您确切的固定装置、型号或材料，包含工具、安全提示和分步照片。",
+    "inputPlaceholder": "例如：更换浴室水龙头",
+    "buildPlan": "创建我的计划",
+    "popularProjects": "热门项目",
+    "continue": "继续"
+  },
+  "suggestions": {
+    "s1": "更换厨房水龙头",
+    "s2": "修补干墙上的洞",
+    "s3": "疏通浴室水槽",
+    "s4": "给漏风的门做防风处理",
+    "s5": "安装智能恒温器",
+    "s6": "修理水流不停的厕所"
+  },
+  "menu": {
+    "title": "菜单",
+    "helpSupport": "帮助和支持",
+    "faq": "常问问题",
+    "knowledgeBase": "知识库",
+    "contactUs": "联系我们",
+    "supportTicket": "提交支持票",
+    "legal": "法律",
+    "terms": "服务条款",
+    "privacy": "隐私政策",
+    "disclaimer": "免责声明",
+    "language": "语言",
+    "follow": "关注DIYhomie"
+  },
+  "language": {
+    "title": "语言",
+    "subtitle": "选择DIYhomie与您交流的语言。您的指南和答案也将以此语言编写。",
+    "auto": "使用设备语言",
+    "autoHint": "自动匹配您的手机或浏览器",
+    "all": "所有语言"
+  },
+  "notifications": {
+    "title": "通知",
+    "caughtUp": "一切准备就绪",
+    "caughtUpSub": "项目提醒、户外工作的天气预警和Homie的更新将显示在这里。"
+  },
+  "ticket": {
+    "title": "支持票",
+    "about": "关于什么？",
+    "subject": "主题",
+    "subjectPlaceholder": "简要概述",
+    "message": "信息",
+    "messagePlaceholder": "告诉我们发生了什么…",
+    "send": "发送票",
+    "sentTitle": "票已发送",
+    "sentSub": "我们已收到——参考编号#{{ref}}。我们将在1个工作日内通过电子邮件回复。",
+    "validation": "请添加主题和信息以便我们提供帮助。",
+    "error": "无法发送您的票。请重试。"
+  }
+}

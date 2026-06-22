@@ -1,0 +1,77 @@
+{
+  "common": {
+    "credits": "cr",
+    "seeAll": "Voir tout",
+    "done": "Terminé",
+    "send": "Envoyer",
+    "cancel": "Annuler",
+    "save": "Enregistrer",
+    "retry": "Réessayer",
+    "loading": "Chargement…",
+    "back": "Retour"
+  },
+  "tabs": {
+    "home": "HOMIE",
+    "projects": "PROJETS",
+    "supplies": "FOURNITURES",
+    "proearn": "PRO-GAGNE",
+    "profile": "PROFIL"
+  },
+  "home": {
+    "greeting": "SALUT,",
+    "greetingNamed": "SALUT {{name}},",
+    "question": "QU'EST-CE QU'ON RÉPARE?",
+    "subtitle": "Dites-moi le travail et je construirai un plan de jeu complet — adapté à votre appareil, modèle ou matériau exact avec des outils, la sécurité et des photos étape par étape.",
+    "inputPlaceholder": "par ex. Remplacer un robinet de salle de bain",
+    "buildPlan": "CRÉER MON PLAN",
+    "popularProjects": "PROJETS POPULAIRES",
+    "continue": "CONTINUER"
+  },
+  "suggestions": {
+    "s1": "Remplacer un robinet de cuisine",
+    "s2": "Réparer un trou dans le mur",
+    "s3": "Déboucher un évier de salle de bain",
+    "s4": "Calfeutrer une porte mal isolée",
+    "s5": "Installer un thermostat intelligent",
+    "s6": "Réparer une chasse d'eau qui fuit"
+  },
+  "menu": {
+    "title": "MENU",
+    "helpSupport": "AIDE & SUPPORT",
+    "faq": "FAQ",
+    "knowledgeBase": "Base de connaissances",
+    "contactUs": "Nous contacter",
+    "supportTicket": "Envoyer une demande de support",
+    "legal": "LÉGAL",
+    "terms": "Conditions d'utilisation",
+    "privacy": "Politique de confidentialité",
+    "disclaimer": "Avertissement",
+    "language": "Langue",
+    "follow": "SUIVRE DIYHOMIE"
+  },
+  "language": {
+    "title": "Langue",
+    "subtitle": "Choisissez la langue dans laquelle DIYhomie vous parle. Vos guides et réponses seront également écrits dans cette langue.",
+    "auto": "Utiliser la langue de l'appareil",
+    "autoHint": "Correspondre automatiquement à votre téléphone ou navigateur",
+    "all": "TOUTES LES LANGUES"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "caughtUp": "VOUS ÊTES À JOUR",
+    "caughtUpSub": "Les rappels de projet, les alertes météo pour vos travaux extérieurs et les mises à jour de Homie apparaîtront ici."
+  },
+  "ticket": {
+    "title": "Demande de support",
+    "about": "QUEL EST LE SUJET?",
+    "subject": "SUJET",
+    "subjectPlaceholder": "Résumé bref",
+    "message": "MESSAGE",
+    "messagePlaceholder": "Dites-nous ce qui s'est passé…",
+    "send": "ENVOYER LA DEMANDE",
+    "sentTitle": "DEMANDE ENVOYÉE",
+    "sentSub": "Nous l'avons reçue — référence #{{ref}}. Nous répondrons par email sous 1 jour ouvrable.",
+    "validation": "Ajoutez un sujet et un message pour que nous puissions vous aider.",
+    "error": "Impossible d'envoyer votre demande. Réessayez."
+  }
+}

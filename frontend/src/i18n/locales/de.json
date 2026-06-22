@@ -1,0 +1,77 @@
+{
+  "common": {
+    "credits": "cr",
+    "seeAll": "Alle anzeigen",
+    "done": "Fertig",
+    "send": "Senden",
+    "cancel": "Abbrechen",
+    "save": "Speichern",
+    "retry": "Erneut versuchen",
+    "loading": "Wird geladen…",
+    "back": "Zurück"
+  },
+  "tabs": {
+    "home": "HOMIE",
+    "projects": "PROJEKTE",
+    "supplies": "MATERIALIEN",
+    "proearn": "PRO-VERDIENEN",
+    "profile": "PROFIL"
+  },
+  "home": {
+    "greeting": "HEY,",
+    "greetingNamed": "HEY {{name}},",
+    "question": "WAS REPARIEREN WIR?",
+    "subtitle": "Nenne mir die Aufgabe und ich erstelle einen kompletten Plan — abgestimmt auf dein spezielles Gerät, Modell oder Material mit Werkzeugen, Sicherheitshinweisen und Schritt-für-Schritt-Fotos.",
+    "inputPlaceholder": "z.B. Badezimmerarmatur austauschen",
+    "buildPlan": "ERSTELLE MEINEN PLAN",
+    "popularProjects": "BELIEBTE PROJEKTE",
+    "continue": "FORTFAHREN"
+  },
+  "suggestions": {
+    "s1": "Küchenarmatur austauschen",
+    "s2": "Loch in Trockenbauwand flicken",
+    "s3": "Waschbecken im Bad entstopfen",
+    "s4": "Zugige Tür abdichten",
+    "s5": "Smartes Thermostat installieren",
+    "s6": "Laufende Toilette reparieren"
+  },
+  "menu": {
+    "title": "MENÜ",
+    "helpSupport": "HILFE & SUPPORT",
+    "faq": "FAQ",
+    "knowledgeBase": "Wissensdatenbank",
+    "contactUs": "Kontaktiere uns",
+    "supportTicket": "Support-Ticket einreichen",
+    "legal": "RECHTLICHES",
+    "terms": "Nutzungsbedingungen",
+    "privacy": "Datenschutzrichtlinie",
+    "disclaimer": "Haftungsausschluss",
+    "language": "Sprache",
+    "follow": "FOLGE DIYHOMIE"
+  },
+  "language": {
+    "title": "Sprache",
+    "subtitle": "Wähle aus, wie DIYhomie mit dir spricht. Deine Anleitungen und Antworten werden ebenfalls in dieser Sprache verfasst.",
+    "auto": "Gerätesprache verwenden",
+    "autoHint": "Automatische Anpassung an dein Telefon oder Browser",
+    "all": "ALLE SPRACHEN"
+  },
+  "notifications": {
+    "title": "Benachrichtigungen",
+    "caughtUp": "DU BIST AUF DEM LAUFENDEN",
+    "caughtUpSub": "Projekt-Erinnerungen, Wetterwarnungen für deine Außenarbeiten und Updates von Homie erscheinen hier."
+  },
+  "ticket": {
+    "title": "Support-Ticket",
+    "about": "WORUM GEHT ES?",
+    "subject": "BETREFF",
+    "subjectPlaceholder": "Kurze Zusammenfassung",
+    "message": "NACHRICHT",
+    "messagePlaceholder": "Erzähle uns, was passiert ist…",
+    "send": "TICKET SENDEN",
+    "sentTitle": "TICKET GESENDET",
+    "sentSub": "Wir haben es erhalten — Referenz #{{ref}}. Wir antworten per E-Mail innerhalb eines Werktags.",
+    "validation": "Füge einen Betreff und eine Nachricht hinzu, damit wir helfen können.",
+    "error": "Dein Ticket konnte nicht gesendet werden. Erneut versuchen."
+  }
+}

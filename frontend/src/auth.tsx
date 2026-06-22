@@ -20,6 +20,7 @@ export type User = {
   pain_point: string | null;
   expectation: string | null;
   location: string;
+  language?: string | null;
   credits: number;
   voice_minutes: number;
   subscription_tier: string;

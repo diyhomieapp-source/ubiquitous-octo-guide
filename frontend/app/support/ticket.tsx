@@ -2,6 +2,7 @@ import { useState } from "react";
 import { View, Text, StyleSheet, ScrollView, TextInput, Pressable, ActivityIndicator, KeyboardAvoidingView, Platform } from "react-native";
 import { useRouter } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
 import * as Haptics from "expo-haptics";
 import { colors, spacing, radius, font, type } from "@/src/theme";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
@@ -10,6 +11,7 @@ import { api } from "@/src/api";
 
 export default function TicketScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [category, setCategory] = useState(TICKET_CATEGORIES[0]);
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
@@ -18,7 +20,7 @@ export default function TicketScreen() {
   const [error, setError] = useState("");
 
   const submit = async () => {
-    if (!subject.trim() || !message.trim()) { setError("Add a subject and a message so we can help."); return; }
+    if (!subject.trim() || !message.trim()) { setError(t("ticket.validation")); return; }
     setError("");
     setBusy(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -27,7 +29,7 @@ export default function TicketScreen() {
       setDone(res.id);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (e: any) {
-      setError(e?.message || "Couldn't send your ticket. Try again.");
+      setError(e?.message || t("ticket.error"));
     } finally {
       setBusy(false);
     }
@@ -36,13 +38,13 @@ export default function TicketScreen() {
   if (done) {
     return (
       <View style={styles.root}>
-        <ScreenHeader title="Support Ticket" />
+        <ScreenHeader title={t("ticket.title")} />
         <View style={styles.successWrap}>
           <MaterialCommunityIcons name="check-decagram" size={64} color={colors.success} />
-          <Text style={styles.successTitle}>TICKET SENT</Text>
-          <Text style={styles.successSub}>We've got it — reference #{done.slice(0, 8).toUpperCase()}. We'll reply by email within 1 business day.</Text>
+          <Text style={styles.successTitle}>{t("ticket.sentTitle")}</Text>
+          <Text style={styles.successSub}>{t("ticket.sentSub", { ref: done.slice(0, 8).toUpperCase() })}</Text>
           <Pressable style={styles.cta} onPress={() => router.back()}>
-            <Text style={styles.ctaText}>DONE</Text>
+            <Text style={styles.ctaText}>{t("common.done")}</Text>
           </Pressable>
         </View>
       </View>
@@ -51,10 +53,10 @@ export default function TicketScreen() {
 
   return (
     <View style={styles.root}>
-      <ScreenHeader title="Support Ticket" />
+      <ScreenHeader title={t("ticket.title")} />
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-          <Text style={styles.label}>WHAT'S IT ABOUT?</Text>
+          <Text style={styles.label}>{t("ticket.about")}</Text>
           <View style={styles.chips}>
             {TICKET_CATEGORIES.map((c) => {
               const on = category === c;
@@ -66,16 +68,16 @@ export default function TicketScreen() {
             })}
           </View>
 
-          <Text style={styles.label}>SUBJECT</Text>
-          <TextInput testID="ticket-subject" style={styles.input} placeholder="Brief summary" placeholderTextColor={colors.onSurfaceTertiary} value={subject} onChangeText={setSubject} />
+          <Text style={styles.label}>{t("ticket.subject")}</Text>
+          <TextInput testID="ticket-subject" style={styles.input} placeholder={t("ticket.subjectPlaceholder")} placeholderTextColor={colors.onSurfaceTertiary} value={subject} onChangeText={setSubject} />
 
-          <Text style={styles.label}>MESSAGE</Text>
-          <TextInput testID="ticket-message" style={[styles.input, styles.textarea]} placeholder="Tell us what happened…" placeholderTextColor={colors.onSurfaceTertiary} value={message} onChangeText={setMessage} multiline />
+          <Text style={styles.label}>{t("ticket.message")}</Text>
+          <TextInput testID="ticket-message" style={[styles.input, styles.textarea]} placeholder={t("ticket.messagePlaceholder")} placeholderTextColor={colors.onSurfaceTertiary} value={message} onChangeText={setMessage} multiline />
 
           {!!error && <Text style={styles.error}>{error}</Text>}
 
           <Pressable testID="ticket-submit" style={styles.cta} onPress={submit} disabled={busy}>
-            {busy ? <ActivityIndicator color={colors.onBrandPrimary} /> : <Text style={styles.ctaText}>SEND TICKET</Text>}
+            {busy ? <ActivityIndicator color={colors.onBrandPrimary} /> : <Text style={styles.ctaText}>{t("ticket.send")}</Text>}
           </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>

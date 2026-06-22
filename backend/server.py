@@ -75,6 +75,7 @@ def public_user(u: dict) -> dict:
         "pain_point": u.get("pain_point"),
         "expectation": u.get("expectation"),
         "location": u.get("location", ""),
+        "language": u.get("language"),
         "credits": u.get("credits", 0),
         "voice_minutes": u.get("voice_minutes", 0),
         "subscription_tier": u.get("subscription_tier", "free"),
@@ -124,6 +125,7 @@ class ProfileReq(BaseModel):
     pain_point: Optional[List[str]] = None
     expectation: Optional[str] = None
     location: Optional[str] = None
+    language: Optional[str] = None
     onboarded: Optional[bool] = None
 
 
@@ -178,13 +180,24 @@ def _strip_json(raw: str) -> dict:
     return json.loads(raw)
 
 
+def lang_note(profile: dict) -> str:
+    lang = (profile or {}).get("language")
+    if lang and lang != "English":
+        return (
+            f"\n\nIMPORTANT: Write ALL output — every string value, title, instruction and "
+            f"sentence — in {lang}. Use natural, native {lang} phrasing. Keep JSON keys, "
+            f"placeholders and the word 'DIYhomie' in English. Do NOT use any other language."
+        )
+    return ""
+
+
 async def brain_generate(profile: dict, project_title: str, history: List[dict], user_msg: str) -> dict:
     system = MASTER_SYSTEM.format(
         experience=profile.get("experience") or "Weekend Warrior",
         budget=profile.get("budget") or "Standard",
         tools=", ".join(profile.get("tools") or []) or "None / basic hand tools",
         location=profile.get("location") or "United States",
-    )
+    ) + lang_note(profile)
     convo = f"Project: {project_title}\n"
     for h in history[-8:]:
         convo += f"{h['role']}: {h['content']}\n"
@@ -272,7 +285,7 @@ async def brain_generate_guide(profile: dict, title: str, weather: str = "") -> 
         budget=profile.get("budget") or "Standard",
         tools=", ".join(profile.get("tools") or []) or "None / basic hand tools",
         location=profile.get("location") or "United States",
-    )
+    ) + lang_note(profile)
     user_text = f"Create the full structured DIY guide for this project: '{title}'."
     if weather:
         user_text += (
@@ -292,6 +305,7 @@ async def brain_answer(profile: dict, title: str, question: str) -> str:
         "Answer their question in a clear, encouraging, practical way. Keep it under 60 words. "
         "If it's a setback, give the exact fix. Plain text only, no markdown."
     )
+    system += lang_note(profile)
     if PERPLEXITY_API_KEY:
         try:
             from openai import AsyncOpenAI

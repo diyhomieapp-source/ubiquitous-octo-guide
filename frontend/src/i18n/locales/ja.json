@@ -1,0 +1,77 @@
+{
+  "common": {
+    "credits": "クレジット",
+    "seeAll": "すべて見る",
+    "done": "完了",
+    "send": "送信",
+    "cancel": "キャンセル",
+    "save": "保存",
+    "retry": "再試行",
+    "loading": "読み込み中…",
+    "back": "戻る"
+  },
+  "tabs": {
+    "home": "ホミー",
+    "projects": "プロジェクト",
+    "supplies": "用品",
+    "proearn": "プロ・アーン",
+    "profile": "プロフィール"
+  },
+  "home": {
+    "greeting": "こんにちは,",
+    "greetingNamed": "こんにちは{{name}}さん,",
+    "question": "何を修理しますか？",
+    "subtitle": "作業内容を教えてください。DIYhomieがあなたのために完全なプランを作成します ― 器具、モデル、材料に合わせたツール、安全対策、ステップごとの写真付きです。",
+    "inputPlaceholder": "例: バスルームの蛇口を交換",
+    "buildPlan": "プランを作成",
+    "popularProjects": "人気プロジェクト",
+    "continue": "続ける"
+  },
+  "suggestions": {
+    "s1": "キッチンの蛇口を交換",
+    "s2": "壁の穴を修復",
+    "s3": "バスルームのシンクの詰まりを解消",
+    "s4": "隙間風のドアを気密化",
+    "s5": "スマートサーモスタットを設置",
+    "s6": "水漏れするトイレを修理"
+  },
+  "menu": {
+    "title": "メニュー",
+    "helpSupport": "ヘルプ & サポート",
+    "faq": "よくある質問",
+    "knowledgeBase": "ナレッジベース",
+    "contactUs": "お問い合わせ",
+    "supportTicket": "サポートチケットを提出",
+    "legal": "法的情報",
+    "terms": "利用規約",
+    "privacy": "プライバシーポリシー",
+    "disclaimer": "免責事項",
+    "language": "言語",
+    "follow": "DIYHOMIEをフォロー"
+  },
+  "language": {
+    "title": "言語",
+    "subtitle": "DIYhomieがあなたに話しかける言語を選択します。ガイドと回答もこの言語で記載されます。",
+    "auto": "デバイスの言語を使用",
+    "autoHint": "自動的に携帯やブラウザと一致",
+    "all": "すべての言語"
+  },
+  "notifications": {
+    "title": "通知",
+    "caughtUp": "すべて最新の状態です",
+    "caughtUpSub": "プロジェクトのリマインダー、屋外作業用の天気警報、そしてホミーからの更新情報がここに表示されます。"
+  },
+  "ticket": {
+    "title": "サポートチケット",
+    "about": "何についてですか？",
+    "subject": "件名",
+    "subjectPlaceholder": "簡単な要約",
+    "message": "メッセージ",
+    "messagePlaceholder": "詳細をお聞かせください…",
+    "send": "チケットを送信",
+    "sentTitle": "チケット送信完了",
+    "sentSub": "受け付けました ― 参照番号 #{{ref}}。1営業日以内にメールで返信いたします。",
+    "validation": "件名とメッセージを追加してください。そうすればお手伝いできます。",
+    "error": "チケットを送信できませんでした。再試行してください。"
+  }
+}

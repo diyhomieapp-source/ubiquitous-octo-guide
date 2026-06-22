@@ -1,0 +1,77 @@
+{
+  "common": {
+    "credits": "cr",
+    "seeAll": "See all",
+    "done": "Done",
+    "send": "Send",
+    "cancel": "Cancel",
+    "save": "Save",
+    "retry": "Try again",
+    "loading": "Loading…",
+    "back": "Back"
+  },
+  "tabs": {
+    "home": "HOMIE",
+    "projects": "PROJECTS",
+    "supplies": "SUPPLIES",
+    "proearn": "PRO-EARN",
+    "profile": "PROFILE"
+  },
+  "home": {
+    "greeting": "HEY,",
+    "greetingNamed": "HEY {{name}},",
+    "question": "WHAT ARE WE FIXING?",
+    "subtitle": "Tell me the job and I’ll build a complete game plan — tailored to your exact fixture, model or material with tools, safety and step-by-step photos.",
+    "inputPlaceholder": "e.g. Replace a bathroom faucet",
+    "buildPlan": "BUILD MY PLAN",
+    "popularProjects": "POPULAR PROJECTS",
+    "continue": "CONTINUE"
+  },
+  "suggestions": {
+    "s1": "Replace a kitchen faucet",
+    "s2": "Patch a hole in drywall",
+    "s3": "Unclog a bathroom sink",
+    "s4": "Weatherproof a drafty door",
+    "s5": "Install a smart thermostat",
+    "s6": "Fix a running toilet"
+  },
+  "menu": {
+    "title": "MENU",
+    "helpSupport": "HELP & SUPPORT",
+    "faq": "FAQ",
+    "knowledgeBase": "Knowledge Base",
+    "contactUs": "Contact Us",
+    "supportTicket": "Submit a Support Ticket",
+    "legal": "LEGAL",
+    "terms": "Terms of Service",
+    "privacy": "Privacy Policy",
+    "disclaimer": "Disclaimer",
+    "language": "Language",
+    "follow": "FOLLOW DIYHOMIE"
+  },
+  "language": {
+    "title": "Language",
+    "subtitle": "Choose how DIYhomie speaks to you. Your guides and answers will be written in this language too.",
+    "auto": "Use device language",
+    "autoHint": "Automatically match your phone or browser",
+    "all": "ALL LANGUAGES"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "caughtUp": "YOU'RE ALL CAUGHT UP",
+    "caughtUpSub": "Project reminders, weather alerts for your outdoor jobs, and updates from Homie will show up here."
+  },
+  "ticket": {
+    "title": "Support Ticket",
+    "about": "WHAT'S IT ABOUT?",
+    "subject": "SUBJECT",
+    "subjectPlaceholder": "Brief summary",
+    "message": "MESSAGE",
+    "messagePlaceholder": "Tell us what happened…",
+    "send": "SEND TICKET",
+    "sentTitle": "TICKET SENT",
+    "sentSub": "We've got it — reference #{{ref}}. We'll reply by email within 1 business day.",
+    "validation": "Add a subject and a message so we can help.",
+    "error": "Couldn't send your ticket. Try again."
+  }
+}

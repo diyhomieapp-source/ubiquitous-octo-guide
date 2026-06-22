@@ -1,20 +1,20 @@
 import { View, Text, StyleSheet } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
 import { colors, spacing, font, type } from "@/src/theme";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
 
 export default function NotificationsScreen() {
+  const { t } = useTranslation();
   return (
     <View style={styles.root}>
-      <ScreenHeader title="Notifications" />
+      <ScreenHeader title={t("notifications.title")} />
       <View style={styles.empty}>
         <View style={styles.iconWrap}>
           <MaterialCommunityIcons name="bell-outline" size={48} color={colors.brandPrimary} />
         </View>
-        <Text style={styles.title}>YOU'RE ALL CAUGHT UP</Text>
-        <Text style={styles.sub}>
-          Project reminders, weather alerts for your outdoor jobs, and updates from Homie will show up here.
-        </Text>
+        <Text style={styles.title}>{t("notifications.caughtUp")}</Text>
+        <Text style={styles.sub}>{t("notifications.caughtUpSub")}</Text>
       </View>
     </View>
   );

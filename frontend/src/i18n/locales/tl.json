@@ -1,0 +1,77 @@
+{
+  "common": {
+    "credits": "cr",
+    "seeAll": "Tingnan lahat",
+    "done": "Tapos",
+    "send": "Ipadala",
+    "cancel": "Kanselahin",
+    "save": "I-save",
+    "retry": "Subukang muli",
+    "loading": "Naglo-load…",
+    "back": "Bumalik"
+  },
+  "tabs": {
+    "home": "HOMIE",
+    "projects": "PROYEKTO",
+    "supplies": "SUPLAY",
+    "proearn": "PRO-EARN",
+    "profile": "PROPYL"
+  },
+  "home": {
+    "greeting": "HEY,",
+    "greetingNamed": "HEY {{name}},",
+    "question": "ANO ANG AAYUSIN NATIN?",
+    "subtitle": "Sabihin kung ano ang kailangan at gagawin ko ang kumpletong plano — iniayon sa eksaktong kagamitan, modelo o materyales kasama ang mga kasangkapan, kaligtasan at step-by-step na litrato.",
+    "inputPlaceholder": "hal. Palitan ang gripo sa banyo",
+    "buildPlan": "GUMAWA NG PLANO",
+    "popularProjects": "SIKAT NA MGA PROYEKTO",
+    "continue": "MAGPATULOY"
+  },
+  "suggestions": {
+    "s1": "Palitan ang gripo sa kusina",
+    "s2": "Tapalan ang butas sa drywall",
+    "s3": "Tanggalin ang bara sa lababo sa banyo",
+    "s4": "Ayusin ang madayang pinto para sa hangin",
+    "s5": "Mag-install ng smart thermostat",
+    "s6": "Ayusin ang umaagos na inidoro"
+  },
+  "menu": {
+    "title": "MENU",
+    "helpSupport": "TULONG & SUPORTA",
+    "faq": "FAQ",
+    "knowledgeBase": "Base ng Kaalaman",
+    "contactUs": "Makipag-ugnayan sa Amin",
+    "supportTicket": "Ipadala ang Suportang Tiket",
+    "legal": "LEGAL",
+    "terms": "Mga Tuntunin ng Serbisyo",
+    "privacy": "Patakaran sa Privacy",
+    "disclaimer": "Paunawa",
+    "language": "Wika",
+    "follow": "SUNDAN ANG DIYHOMIE"
+  },
+  "language": {
+    "title": "Wika",
+    "subtitle": "Piliin kung paano makikipag-usap sa'yo ang DIYhomie. Gagawin din sa wikang ito ang iyong mga gabay at sagot.",
+    "auto": "Gamitin ang wika ng device",
+    "autoHint": "Awtomatikong itugma sa iyong telepono o browser",
+    "all": "LAHAT NG WIKA"
+  },
+  "notifications": {
+    "title": "Mga Abiso",
+    "caughtUp": "WALA KA NANG HAHABULIN",
+    "caughtUpSub": "Ang mga paalala ng proyekto, mga alerto sa panahon para sa iyong mga gawain sa labas, at mga updates mula kay Homie ay makikita dito."
+  },
+  "ticket": {
+    "title": "Suportang Tiket",
+    "about": "TUNGKOL SAAN ITO?",
+    "subject": "PAKSA",
+    "subjectPlaceholder": "Maikling buod",
+    "message": "MESAHE",
+    "messagePlaceholder": "Sabihin sa amin kung ano ang nangyari…",
+    "send": "IPADALA ANG TIKET",
+    "sentTitle": "NAIPADALA ANG TIKET",
+    "sentSub": "Nasa amin na ito — sanggunian #{{ref}}. Sasagot kami sa pamamagitan ng email sa loob ng 1 araw ng negosyo.",
+    "validation": "Magdagdag ng paksa at mensahe para matulungan namin.",
+    "error": "Hindi maipadala ang iyong tiket. Subukang muli."
+  }
+}

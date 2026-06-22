@@ -1,0 +1,77 @@
+{
+  "common": {
+    "credits": "kredi",
+    "seeAll": "Gade tout",
+    "done": "Fini",
+    "send": "Voye",
+    "cancel": "Anile",
+    "save": "Sove",
+    "retry": "Eseye ankò",
+    "loading": "Chaje…",
+    "back": "Retounen"
+  },
+  "tabs": {
+    "home": "HOMIE",
+    "projects": "PWOJE",
+    "supplies": "PWOVIZYON",
+    "proearn": "GAINS-PRO",
+    "profile": "PROFIL"
+  },
+  "home": {
+    "greeting": "HEY,",
+    "greetingNamed": "HEY {{name}},",
+    "question": "KISA NOU PRAL FIKSE?",
+    "subtitle": "Di m travay la epi m ap bati yon plan konplè — adapte ak ekzatman sa ou bezwen, modèl oswa materyèl ak zouti, sekirite ak foto etap pa etap.",
+    "inputPlaceholder": "egzanp. Ranplase yon tiyo twalet",
+    "buildPlan": "KREYE PLAN MWEN",
+    "popularProjects": "PWOJE POPILÈ",
+    "continue": "KONTINYE"
+  },
+  "suggestions": {
+    "s1": "Ranplase yon tiyo kwizin",
+    "s2": "Plastre yon twou nan mi",
+    "s3": "Debouche yon lavabo twalet",
+    "s4": "Izole yon pòt ki kite lè pase",
+    "s5": "Enstale yon tèmosta entelijan",
+    "s6": "Ranje yon twalet kap koule"
+  },
+  "menu": {
+    "title": "MENI",
+    "helpSupport": "ÈD & SIPÒ",
+    "faq": "FAQ",
+    "knowledgeBase": "Baz Konesans",
+    "contactUs": "Kontakte Nou",
+    "supportTicket": "Voye yon Tikè Sipò",
+    "legal": "LEGAL",
+    "terms": "Kondisyon Sèvis",
+    "privacy": "Règleman sou Konfidansyalite",
+    "disclaimer": "Avis",
+    "language": "Lang",
+    "follow": "SUIVI DIYHOMIE"
+  },
+  "language": {
+    "title": "Lang",
+    "subtitle": "Chwazi kijan DIYhomie pale avè w. Gid ak repons ou yo ap ekri nan lang sa a tou.",
+    "auto": "Itilize lang aparèy",
+    "autoHint": "Matche otomatikman ak telefòn oswa navigatè ou",
+    "all": "TOUT LANG"
+  },
+  "notifications": {
+    "title": "Notifikasyon",
+    "caughtUp": "OU JOUK AKTYÈL",
+    "caughtUpSub": "Ranmase pwosè, alèt meteo pou travay deyò ou, ak mizajou soti nan Homie ap parèt isit la."
+  },
+  "ticket": {
+    "title": "Tikè Sipò",
+    "about": "KISA L YE SOU?",
+    "subject": "SIJE",
+    "subjectPlaceholder": "Rezime kout",
+    "message": "MESAJ",
+    "messagePlaceholder": "Di nou sa ki te pase…",
+    "send": "VOYE TIKÈ",
+    "sentTitle": "TIKÈ VOYE",
+    "sentSub": "Nou resevwa li — referans #{{ref}}. Nou pral reponn nan imel anndan 1 jou biznis.",
+    "validation": "Ajoute yon sijè ak yon mesaj pou nou ka ede.",
+    "error": "Pa t kab voye tikè ou. Eseye ankò."
+  }
+}

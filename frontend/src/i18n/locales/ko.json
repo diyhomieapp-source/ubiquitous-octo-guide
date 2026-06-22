@@ -1,0 +1,77 @@
+{
+  "common": {
+    "credits": "크레딧",
+    "seeAll": "모두 보기",
+    "done": "완료",
+    "send": "보내기",
+    "cancel": "취소",
+    "save": "저장",
+    "retry": "다시 시도",
+    "loading": "로딩 중…",
+    "back": "뒤로"
+  },
+  "tabs": {
+    "home": "홈",
+    "projects": "프로젝트",
+    "supplies": "재료",
+    "proearn": "프로-수익",
+    "profile": "프로필"
+  },
+  "home": {
+    "greeting": "안녕,",
+    "greetingNamed": "안녕 {{name}},",
+    "question": "무엇을 고칠까요?",
+    "subtitle": "작업을 알려주시면 정확한 기구, 모델, 재료에 맞춘 완벽한 계획을 세워드릴게요 — 도구, 안전 사항 및 단계별 사진 포함.",
+    "inputPlaceholder": "예: 욕실 수도꼭지 교체",
+    "buildPlan": "계획 세우기",
+    "popularProjects": "인기 프로젝트",
+    "continue": "계속"
+  },
+  "suggestions": {
+    "s1": "부엌 수도꼭지 교체",
+    "s2": "석고보드 구멍 메우기",
+    "s3": "욕실 세면대 막힘 해소",
+    "s4": "문틈 바람 막기",
+    "s5": "스마트 온도조절기 설치",
+    "s6": "계속 물이 흐르는 변기 수리"
+  },
+  "menu": {
+    "title": "메뉴",
+    "helpSupport": "도움말 및 지원",
+    "faq": "자주 묻는 질문",
+    "knowledgeBase": "지식 베이스",
+    "contactUs": "문의하기",
+    "supportTicket": "지원 요청 제출",
+    "legal": "법적 정보",
+    "terms": "서비스 약관",
+    "privacy": "개인정보처리방침",
+    "disclaimer": "면책사항",
+    "language": "언어",
+    "follow": "DIYHOMIE 팔로우"
+  },
+  "language": {
+    "title": "언어",
+    "subtitle": "DIYhomie가 사용하는 언어를 선택하세요. 가이드와 답변도 이 언어로 작성됩니다.",
+    "auto": "기기 언어 사용",
+    "autoHint": "휴대폰이나 브라우저에 자동으로 맞춤",
+    "all": "모든 언어"
+  },
+  "notifications": {
+    "title": "알림",
+    "caughtUp": "모든 알림을 확인했습니다",
+    "caughtUpSub": "프로젝트 알림, 야외 작업을 위한 날씨 경고 및 Homie의 업데이트가 여기에 표시됩니다."
+  },
+  "ticket": {
+    "title": "지원 요청",
+    "about": "어떤 도움을 원하시나요?",
+    "subject": "주제",
+    "subjectPlaceholder": "간단한 요약",
+    "message": "메시지",
+    "messagePlaceholder": "무슨 일이 있었는지 알려주세요…",
+    "send": "요청 보내기",
+    "sentTitle": "요청 전송 완료",
+    "sentSub": "참고 번호 #{{ref}}. 이메일로 1 영업일 내에 회신드리겠습니다.",
+    "validation": "우리가 도울 수 있도록 주제와 메시지를 추가하세요.",
+    "error": "요청을 보낼 수 없습니다. 다시 시도해주세요."
+  }
+}

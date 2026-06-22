@@ -6,6 +6,7 @@ import {
 import { useRouter, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
 import * as Haptics from "expo-haptics";
 
 import { colors, spacing, radius, font, type } from "@/src/theme";
@@ -14,25 +15,23 @@ import { api } from "@/src/api";
 import { storage } from "@/src/utils/storage";
 import { BlueprintOverlay } from "@/src/components/BlueprintOverlay";
 import { WeatherBanner } from "@/src/components/WeatherBanner";
+import { AppMenu } from "@/src/components/AppMenu";
 
 type ProjectSummary = { id: string; title: string; status: string; progress: number; total_steps: number; done_steps: number; has_guide: boolean };
 
-const SUGGESTIONS = [
-  "Replace a kitchen faucet",
-  "Patch a hole in drywall",
-  "Unclog a bathroom sink",
-  "Weatherproof a drafty door",
-  "Install a smart thermostat",
-  "Fix a running toilet",
-];
+const SUGGESTION_KEYS = ["s1", "s2", "s3", "s4", "s5", "s6"];
 
 export default function Home() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
+  const { t } = useTranslation();
   const [input, setInput] = useState("");
   const [creating, setCreating] = useState(false);
   const [active, setActive] = useState<ProjectSummary[]>([]);
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  const suggestions = SUGGESTION_KEYS.map((k) => t(`suggestions.${k}`));
 
   const load = useCallback(async () => {
     try {
@@ -44,12 +43,12 @@ export default function Home() {
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   const start = async (title: string) => {
-    const t = title.trim();
-    if (!t || creating) return;
+    const t2 = title.trim();
+    if (!t2 || creating) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setCreating(true);
     try {
-      const proj = await api<{ id: string }>("/projects", { method: "POST", body: { title: t, location: user?.location || "" } });
+      const proj = await api<{ id: string }>("/projects", { method: "POST", body: { title: t2, location: user?.location || "" } });
       await storage.setItem("diyhomie_active_project", proj.id);
       setInput("");
       router.push(`/project/${proj.id}?new=1`);
@@ -74,20 +73,28 @@ export default function Home() {
             <View style={styles.logoMark}><MaterialCommunityIcons name="hard-hat" size={20} color={colors.onBrandPrimary} /></View>
             <Text style={styles.wordmark}>DIY<Text style={{ color: colors.brandPrimary }}>homie</Text></Text>
           </View>
-          <View style={styles.creditPill}>
-            <MaterialCommunityIcons name="lightning-bolt" size={13} color={colors.brandPrimary} />
-            <Text style={styles.creditText}>{user?.credits ?? 0} cr</Text>
+          <View style={styles.actions}>
+            <View style={styles.creditPill}>
+              <MaterialCommunityIcons name="lightning-bolt" size={13} color={colors.brandPrimary} />
+              <Text style={styles.creditText}>{user?.credits ?? 0} {t("common.credits")}</Text>
+            </View>
+            <Pressable testID="home-notifications" style={styles.iconBtn} onPress={() => router.push("/notifications")} hitSlop={8}>
+              <MaterialCommunityIcons name="bell-outline" size={22} color={colors.onSurface} />
+            </Pressable>
+            <Pressable testID="home-menu" style={styles.iconBtn} onPress={() => setMenuOpen(true)} hitSlop={8}>
+              <MaterialCommunityIcons name="menu" size={24} color={colors.onSurface} />
+            </Pressable>
           </View>
         </View>
 
-        <Text style={styles.greeting}>HEY{user?.name ? ` ${user.name.toUpperCase()}` : ""},{"\n"}WHAT ARE WE FIXING?</Text>
-        <Text style={styles.subGreeting}>Tell me the job and I’ll build a complete game plan — tailored to your exact fixture, model or material (your specific toilet, faucet or paint) with tools, safety and step-by-step photos.</Text>
+        <Text style={styles.greeting}>{user?.name ? t("home.greetingNamed", { name: user.name.toUpperCase() }) : t("home.greeting")}{"\n"}{t("home.question")}</Text>
+        <Text style={styles.subGreeting}>{t("home.subtitle")}</Text>
 
         <View style={styles.inputCard}>
           <TextInput
             testID="home-project-input"
             style={styles.input}
-            placeholder="e.g. Replace a bathroom faucet"
+            placeholder={t("home.inputPlaceholder")}
             placeholderTextColor={colors.onSurfaceTertiary}
             value={input}
             onChangeText={setInput}
@@ -97,7 +104,7 @@ export default function Home() {
           <Pressable testID="home-start-button" style={[styles.startBtn, (!input.trim() || creating) && { opacity: 0.5 }]} onPress={() => start(input)} disabled={!input.trim() || creating}>
             {creating ? <ActivityIndicator color={colors.onBrandPrimary} /> : (
               <>
-                <Text style={styles.startText}>BUILD MY PLAN</Text>
+                <Text style={styles.startText}>{t("home.buildPlan")}</Text>
                 <MaterialCommunityIcons name="arrow-right" size={20} color={colors.onBrandPrimary} />
               </>
             )}
@@ -108,9 +115,9 @@ export default function Home() {
           <WeatherBanner location={user?.location} />
         </View>
 
-        <Text style={styles.sectionLabel}>POPULAR PROJECTS</Text>
+        <Text style={styles.sectionLabel}>{t("home.popularProjects")}</Text>
         <View style={styles.suggestWrap}>
-          {SUGGESTIONS.map((s) => (
+          {suggestions.map((s) => (
             <Pressable key={s} testID={`suggestion-${s}`} style={styles.suggestChip} onPress={() => start(s)}>
               <Text style={styles.suggestText}>{s}</Text>
             </Pressable>
@@ -120,9 +127,9 @@ export default function Home() {
         {active.length > 0 && (
           <>
             <View style={styles.continueHead}>
-              <Text style={styles.sectionLabel}>CONTINUE</Text>
+              <Text style={styles.sectionLabel}>{t("home.continue")}</Text>
               <Pressable testID="home-see-all" onPress={() => router.push("/(tabs)/projects")}>
-                <Text style={styles.seeAll}>See all</Text>
+                <Text style={styles.seeAll}>{t("common.seeAll")}</Text>
               </Pressable>
             </View>
             {active.map((p) => (
@@ -138,6 +145,7 @@ export default function Home() {
           </>
         )}
       </ScrollView>
+      <AppMenu visible={menuOpen} onClose={() => setMenuOpen(false)} />
     </KeyboardAvoidingView>
   );
 }
@@ -145,6 +153,8 @@ export default function Home() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.surface },
   topRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.xl },
+  actions: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  iconBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: radius.pill, backgroundColor: colors.surfaceSecondary, borderColor: colors.border, borderWidth: 1 },
   logoRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   logoMark: { width: 36, height: 36, borderRadius: radius.sm, backgroundColor: colors.brandPrimary, alignItems: "center", justifyContent: "center" },
   wordmark: { color: colors.onSurface, fontFamily: font.bold, fontSize: 22, letterSpacing: -0.5 },

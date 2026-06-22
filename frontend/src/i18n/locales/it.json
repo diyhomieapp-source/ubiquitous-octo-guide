@@ -1,0 +1,77 @@
+{
+  "common": {
+    "credits": "cr",
+    "seeAll": "Vedi tutto",
+    "done": "Fatto",
+    "send": "Invia",
+    "cancel": "Annulla",
+    "save": "Salva",
+    "retry": "Riprova",
+    "loading": "Caricamento…",
+    "back": "Indietro"
+  },
+  "tabs": {
+    "home": "HOMIE",
+    "projects": "PROGETTI",
+    "supplies": "FORNITURE",
+    "proearn": "PRO-GUADAGNA",
+    "profile": "PROFILO"
+  },
+  "home": {
+    "greeting": "CIAO,",
+    "greetingNamed": "CIAO {{name}},",
+    "question": "COSA DOBBIAMO RIPARARE?",
+    "subtitle": "Descrivimi il lavoro e costruirò un piano completo - su misura per la tua esatta installazione, modello o materiale con strumenti, sicurezza e foto passo-passo.",
+    "inputPlaceholder": "es. Sostituire un rubinetto del bagno",
+    "buildPlan": "CREA IL MIO PIANO",
+    "popularProjects": "PROGETTI POPOLARI",
+    "continue": "CONTINUA"
+  },
+  "suggestions": {
+    "s1": "Sostituire un rubinetto della cucina",
+    "s2": "Riparare un buco nel cartongesso",
+    "s3": "Sturare un lavandino del bagno",
+    "s4": "Isolare una porta con spifferi",
+    "s5": "Installare un termostato intelligente",
+    "s6": "Riparare un WC che perde"
+  },
+  "menu": {
+    "title": "MENU",
+    "helpSupport": "AIUTO & SUPPORTO",
+    "faq": "FAQ",
+    "knowledgeBase": "Base di Conoscenza",
+    "contactUs": "Contattaci",
+    "supportTicket": "Invia un Ticket di Supporto",
+    "legal": "LEGALE",
+    "terms": "Termini di Servizio",
+    "privacy": "Politica sulla Privacy",
+    "disclaimer": "Avviso",
+    "language": "Lingua",
+    "follow": "SEGUICI SU DIYHOMIE"
+  },
+  "language": {
+    "title": "Lingua",
+    "subtitle": "Scegli come DIYhomie ti parla. Anche le tue guide e risposte saranno scritte in questa lingua.",
+    "auto": "Usa la lingua del dispositivo",
+    "autoHint": "Abbina automaticamente il tuo telefono o browser",
+    "all": "TUTTE LE LINGUE"
+  },
+  "notifications": {
+    "title": "Notifiche",
+    "caughtUp": "HAI TUTTO SOTTO CONTROLLO",
+    "caughtUpSub": "Promemoria dei progetti, avvisi meteo per i tuoi lavori all'aperto, e aggiornamenti da Homie appariranno qui."
+  },
+  "ticket": {
+    "title": "Ticket di Supporto",
+    "about": "DI COSA SI TRATTA?",
+    "subject": "OGGETTO",
+    "subjectPlaceholder": "Breve riassunto",
+    "message": "MESSAGGIO",
+    "messagePlaceholder": "Dicci cosa è successo…",
+    "send": "INVIA TICKET",
+    "sentTitle": "TICKET INVIATO",
+    "sentSub": "L'abbiamo ricevuto — riferimento #{{ref}}. Risponderemo via email entro 1 giorno lavorativo.",
+    "validation": "Aggiungi un oggetto e un messaggio così possiamo aiutarti.",
+    "error": "Impossibile inviare il tuo ticket. Riprova."
+  }
+}

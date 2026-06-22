@@ -1,0 +1,55 @@
+{
+  "summary": "i18n + AppMenu + Notifications + Support Ticket feature validated end-to-end (backend + frontend). Backend: 6/6 pytest passing in /app/backend/tests/test_i18n_and_ticket.py — language persistence via PUT /api/profile, GET /api/auth/me round-trip; switching Spanish->English persists; POST /api/support/ticket returns 200 + id and is auth-gated (anon -> 403); AI-guide-in-Spanish: 35 Spanish tokens / 0 English tokens in overview+steps; AI-guide-in-English (default): 28 English tokens / 0 Spanish tokens. lang_note() prompt-injection is doing its job via gpt-4o-mini fallback (PERPLEXITY_API_KEY empty). Frontend (390x844 mobile viewport): registered fresh lang_tester_<ts>@diyhomie.com, home-menu and home-notifications buttons render, /notifications shows 'YOU'RE ALL CAUGHT UP' (translated equivalent NOT tested in ES — see minor), AppMenu opens with Language row (current=English), MENU title, HELP & SUPPORT, LEGAL, FOLLOW DIYHOMIE sections. /settings/language renders all 21 rows (lang-auto + 20 languages: en, es, zh, tl, vi, ar, fr, ko, ru, ht, de, hi, pt, it, pl, ja, ur, fa, gu, bn). Picking lang-es immediately translates Home: 'HOLA LANGTESTER, ¿QUÉ VAMOS A ARREGLAR?', 'CREAR MI PLAN' button, 'PROYECTOS POPULARES' label, all 6 suggestion chips in Spanish (Cambiar un grifo de cocina, Remendar un agujero en tablaroca, etc), tab labels: PROYECTOS / SUMINISTROS / PRO-EARN / PERFIL (HOMIE stays HOMIE — intentional). Switching back to lang-en restores 'BUILD MY PLAN'. /support/ticket submit succeeded — backend returned 200, UI shows 'TICKET SENT' with reference #CEF38964. All AppMenu routes (FAQ, Knowledge Base, Contact, Terms, Privacy, Disclaimer) load with substantive content (>=275 chars).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "passlib/bcrypt", "issue": "Carryover cosmetic warning 'module bcrypt has no attribute __about__' in backend.err.log. No functional impact."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "(tabs)/index.tsx Home", "issues": [
+        "WeatherBanner copy ('Get weather-smart tips / Tap to use your location, or add your ZIP/city in Profile.') remains in English even when language=es. This sits ON the Home screen which IS in the translated-chrome scope per spec. Minor — consider adding weather.* keys to locales/*.json and using t() inside WeatherBanner.",
+        "Bottom-tab 'SUMINISTROS' label is truncated to 'SUMINISTR...' on a 390-wide viewport because tabs have fixed equal width. Longer translations (e.g. Spanish, German, Portuguese) will get clipped in the tab bar. Consider numberOfLines=1 + adjustsFontSizeToFit on tab label, or reduce letterSpacing/font size for tabs in i18n languages."
+      ]}
+    ],
+    "react_native_issues": [
+      {"component": "shadow* style props", "issue": "(Carryover) Console warning 'shadow* style props are deprecated. Use boxShadow.' Multiple screens."},
+      {"component": "View pointerEvents prop", "issue": "(Carryover) 'props.pointerEvents is deprecated. Use style.pointerEvents.' Reference: /app/frontend/app/onboarding.tsx:21."},
+      {"component": "Animated useNativeDriver on web", "issue": "(Carryover, expected on web) 'useNativeDriver is not supported... Falling back to JS-based animation.' Informational."}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_i18n_and_ticket.py",
+    "/app/test_reports/pytest/i18n_results.xml"
+  ],
+  "action_items": [
+    "OPTIONAL: Translate WeatherBanner strings (it's on Home and visible in screenshot under Spanish UI) — add weather.* keys to all 20 locales.",
+    "OPTIONAL: Tab label clipping at 390w for long translations (SUMINISTROS). Add numberOfLines={1} + adjustsFontSizeToFit on Tabs.Screen tabBarLabel, or shorten labels for ES/DE/PT.",
+    "Carryover from iteration 5: fix demo-startfree-button ~10s perceived freeze.",
+    "Carryover: replace deprecated shadow* / pointerEvents / DM Sans font issues.",
+    "Carryover: AuthProvider Stripe/Google session_id collision (/app/frontend/src/auth.tsx)."
+  ],
+  "critical_code_review_comments": [
+    "i18n init synchronous in /app/frontend/src/i18n/index.ts (lng=deviceLanguage()) with deferred override from AsyncStorage — clean pattern, no flash of wrong language seen.",
+    "lang_note() in /app/backend/server.py:183 is applied to ALL three AI codepaths (brain_generate, brain_generate_guide, brain_answer) — correct.",
+    "PUT /api/profile accepts language as Optional[str] (English label, not code) — language label round-trips correctly; matches what AppMenu/setLanguage sends via updateProfile({language: metaFor(code).label}).",
+    "Language screen uses ScreenHeader + ScrollView; all 21 rows have testID; lang-auto branch correctly calls resetToDeviceLanguage(). Good.",
+    "AppMenu uses Modal + scrim + 84%-width slide-in sheet — works on web. testID 'menu-close' present, 'menu-language' present, social-* present.",
+    "Notifications screen is pure-static t()-based; no API call needed — passed.",
+    "Support ticket POST: payload validated by Pydantic TicketReq; 4000-char truncation on message is server-side and safe; success returns {id, status:'open'}."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_i18n_and_ticket.py (new — 6 tests)",
+    "/app/test_reports/pytest/i18n_results.xml (new junit)",
+    "/app/test_reports/iteration_6.json (new)"
+  ],
+  "success_rate": {"backend": "100% (6/6)", "frontend": "100% on the new i18n / menu / notifications / ticket flows"},
+  "seed_data_creation": "Backend pytest created 5 TEST_i18n_<tag>_<ts>@diyhomie.com users + 2 projects + 1 support ticket. UI test created lang_tester_<ts>@diyhomie.com + submitted 1 support ticket. All left in DB; harmless and prefixed for cleanup.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend tests run with: pytest /app/backend/tests/test_i18n_and_ticket.py -v -s. AI-language tests need ~15-30s each for OpenAI gpt-4o-mini fallback; if PERPLEXITY_API_KEY gets populated later they'll be faster but the assertion logic (Spanish vs English stopword counts) still holds. Frontend testIDs verified working: home-menu, home-notifications, menu-close, menu-language, lang-auto, lang-en..lang-bn (20 langs), ticket-subject, ticket-message, ticket-submit. Spanish UI strings to assert: 'CREAR MI PLAN', '¿QUÉ VAMOS A ARREGLAR?', 'PROYECTOS POPULARES', 'Idioma'. Note: register flow currently lands on /demo before /(tabs); for direct chrome-test, after register navigate explicitly to /(tabs)/.",
+  "rca_of_issue": "No new bugs requiring RCA. The two minor UX items (untranslated WeatherBanner copy + tab label clipping for SUMINISTROS) are design polish, not functional defects."
+}

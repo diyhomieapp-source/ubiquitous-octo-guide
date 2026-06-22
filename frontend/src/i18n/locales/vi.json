@@ -1,0 +1,77 @@
+{
+  "common": {
+    "credits": "cr",
+    "seeAll": "Xem tất cả",
+    "done": "Xong",
+    "send": "Gửi",
+    "cancel": "Hủy",
+    "save": "Lưu",
+    "retry": "Thử lại",
+    "loading": "Đang tải…",
+    "back": "Quay lại"
+  },
+  "tabs": {
+    "home": "HOMIE",
+    "projects": "DỰ ÁN",
+    "supplies": "VẬT TƯ",
+    "proearn": "PRO-EARN",
+    "profile": "HỒ SƠ"
+  },
+  "home": {
+    "greeting": "CHÀO,",
+    "greetingNamed": "CHÀO {{name}},",
+    "question": "CHÚNG TA ĐANG SỬA GÌ?",
+    "subtitle": "Nói cho tôi biết công việc bạn muốn làm và tôi sẽ xây dựng một kế hoạch hoàn chỉnh — phù hợp chính xác với thiết bị, mẫu mã hoặc vật liệu của bạn với công cụ, an toàn và ảnh hướng dẫn từng bước.",
+    "inputPlaceholder": "ví dụ: Thay vòi phòng tắm",
+    "buildPlan": "XÂY DỰNG KẾ HOẠCH",
+    "popularProjects": "DỰ ÁN PHỔ BIẾN",
+    "continue": "TIẾP TỤC"
+  },
+  "suggestions": {
+    "s1": "Thay vòi bếp",
+    "s2": "Vá lỗ trên tường thạch cao",
+    "s3": "Thông tắc bồn rửa phòng tắm",
+    "s4": "Chống thấm cửa bị hở gió",
+    "s5": "Lắp đặt nhiệt kế thông minh",
+    "s6": "Sửa toilet bị chảy nước"
+  },
+  "menu": {
+    "title": "MENU",
+    "helpSupport": "GIÚP ĐỠ & HỖ TRỢ",
+    "faq": "CÂU HỎI THƯỜNG GẶP",
+    "knowledgeBase": "Cơ sở kiến thức",
+    "contactUs": "Liên hệ chúng tôi",
+    "supportTicket": "Gửi phiếu hỗ trợ",
+    "legal": "PHÁP LÝ",
+    "terms": "Điều khoản dịch vụ",
+    "privacy": "Chính sách bảo mật",
+    "disclaimer": "Miễn trừ trách nhiệm",
+    "language": "Ngôn ngữ",
+    "follow": "THEO DÕI DIYHOMIE"
+  },
+  "language": {
+    "title": "Ngôn ngữ",
+    "subtitle": "Chọn cách DIYhomie giao tiếp với bạn. Hướng dẫn và câu trả lời của bạn cũng sẽ được viết bằng ngôn ngữ này.",
+    "auto": "Sử dụng ngôn ngữ thiết bị",
+    "autoHint": "Tự động khớp với điện thoại hoặc trình duyệt của bạn",
+    "all": "TẤT CẢ NGÔN NGỮ"
+  },
+  "notifications": {
+    "title": "Thông báo",
+    "caughtUp": "BẠN ĐÃ BẮT KỊP TẤT CẢ",
+    "caughtUpSub": "Nhắc nhở dự án, cảnh báo thời tiết cho công việc ngoài trời, và cập nhật từ Homie sẽ xuất hiện ở đây."
+  },
+  "ticket": {
+    "title": "Phiếu hỗ trợ",
+    "about": "NÓI VỀ CÁI GÌ?",
+    "subject": "CHỦ ĐỀ",
+    "subjectPlaceholder": "Tóm tắt ngắn gọn",
+    "message": "NỘI DUNG",
+    "messagePlaceholder": "Nói cho chúng tôi biết chuyện gì đã xảy ra…",
+    "send": "GỬI PHIẾU",
+    "sentTitle": "PHIẾU ĐÃ GỬI",
+    "sentSub": "Chúng tôi đã nhận được — mã tham chiếu #{{ref}}. Chúng tôi sẽ trả lời qua email trong vòng 1 ngày làm việc.",
+    "validation": "Thêm tiêu đề và nội dung để chúng tôi có thể giúp đỡ.",
+    "error": "Không thể gửi phiếu hỗ trợ của bạn. Thử lại."
+  }
+}

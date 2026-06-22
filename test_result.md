@@ -176,3 +176,12 @@ New answer keys saved to pending_survey/profile: goals[], confidence. Progress b
 - Wired into demo.tsx loading and project/[id].tsx generating state (replaced old spinner). Verified live via screenshot ("Fix a loose doorknob" -> "DIAGNOSING THE PROBLEM." with dots advancing).
 - Removed now-unused spinner code/imports in demo.tsx. Lint clean.
 NOTE: generation is a single backend call, so stages are time-progressed (approximating streaming). States for step-execution/troubleshooting/image/simplify/mistake/completion are defined and ready to wire into ASK HOMIE, image upload and step flow next.
+
+## Iteration 9 — Multi-language (i18n) + Header menu/bell hookup (main agent)
+- Added i18next + react-i18next + expo-localization. Config: src/i18n/index.ts (auto-detects device language, persists choice in AsyncStorage key diyhomie_lang, fallback en).
+- 20 USA languages with native names in src/i18n/languages.ts: en,es,zh,tl,vi,ar,fr,ko,ru,ht,de,hi,pt,it,pl,ja,ur,fa,gu,bn. Translation JSONs in src/i18n/locales/*.json generated via OpenAI (scripts/gen_translations.py).
+- NEW screen app/settings/language.tsx (language picker + "Use device language"). Reachable from AppMenu hamburger ("Language" row showing current native name).
+- Translated chrome: tabs labels, home screen, AppMenu, notifications, ticket. Screens not yet translated (deferred): onboarding, survey, auth, paywall, profile, projects, supplies, community, faq, kb, contact, legal (still English).
+- Home header now has notification bell (-> /notifications) + hamburger (opens AppMenu). testIDs: home-notifications, home-menu, menu-language, lang-<code>, lang-auto.
+- Backend: ProfileReq+public_user gained `language`. lang_note(profile) appended to brain_generate / brain_generate_guide / brain_answer system prompts so AI guides+answers are written in the user's chosen language. Frontend setLanguage syncs label to PUT /api/profile.
+- Smoke verified: /settings/language renders all 20 langs. Pending full e2e test.

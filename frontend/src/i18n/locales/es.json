@@ -1,0 +1,77 @@
+{
+  "common": {
+    "credits": "cr",
+    "seeAll": "Ver todo",
+    "done": "Hecho",
+    "send": "Enviar",
+    "cancel": "Cancelar",
+    "save": "Guardar",
+    "retry": "Intentar de nuevo",
+    "loading": "Cargando…",
+    "back": "Atrás"
+  },
+  "tabs": {
+    "home": "HOMIE",
+    "projects": "PROYECTOS",
+    "supplies": "SUMINISTROS",
+    "proearn": "PRO-EARN",
+    "profile": "PERFIL"
+  },
+  "home": {
+    "greeting": "HOLA,",
+    "greetingNamed": "HOLA {{name}},",
+    "question": "¿QUÉ VAMOS A ARREGLAR?",
+    "subtitle": "Dime el trabajo y te haré un plan completo — adaptado a tu accesorio, modelo o material exacto con herramientas, seguridad y fotos paso a paso.",
+    "inputPlaceholder": "ej. Cambiar un grifo de baño",
+    "buildPlan": "CREAR MI PLAN",
+    "popularProjects": "PROYECTOS POPULARES",
+    "continue": "CONTINUAR"
+  },
+  "suggestions": {
+    "s1": "Cambiar un grifo de cocina",
+    "s2": "Remendar un agujero en tablaroca",
+    "s3": "Desatascar un lavabo de baño",
+    "s4": "Impermeabilizar una puerta con corrientes de aire",
+    "s5": "Instalar un termostato inteligente",
+    "s6": "Arreglar un inodoro que corre"
+  },
+  "menu": {
+    "title": "MENÚ",
+    "helpSupport": "AYUDA Y SOPORTE",
+    "faq": "FAQ",
+    "knowledgeBase": "Base de Conocimientos",
+    "contactUs": "Contáctanos",
+    "supportTicket": "Enviar un Ticket de Soporte",
+    "legal": "LEGAL",
+    "terms": "Términos del Servicio",
+    "privacy": "Política de Privacidad",
+    "disclaimer": "Descargo de Responsabilidad",
+    "language": "Idioma",
+    "follow": "SIGUE DIYHOMIE"
+  },
+  "language": {
+    "title": "Idioma",
+    "subtitle": "Elige cómo habla DIYhomie contigo. Tus guías y respuestas también estarán escritas en este idioma.",
+    "auto": "Usar idioma del dispositivo",
+    "autoHint": "Coincidir automáticamente con tu teléfono o navegador",
+    "all": "TODOS LOS IDIOMAS"
+  },
+  "notifications": {
+    "title": "Notificaciones",
+    "caughtUp": "HAS TERMINADO TODO",
+    "caughtUpSub": "Recordatorios de proyectos, alertas meteorológicas para tus trabajos al aire libre y actualizaciones de Homie aparecerán aquí."
+  },
+  "ticket": {
+    "title": "Ticket de Soporte",
+    "about": "¿DE QUÉ SE TRATA?",
+    "subject": "ASUNTO",
+    "subjectPlaceholder": "Breve resumen",
+    "message": "MENSAJE",
+    "messagePlaceholder": "Cuéntanos qué ocurrió…",
+    "send": "ENVIAR TICKET",
+    "sentTitle": "TICKET ENVIADO",
+    "sentSub": "Lo tenemos — referencia #{{ref}}. Responderemos por correo electrónico dentro de 1 día hábil.",
+    "validation": "Agrega un asunto y un mensaje para que podamos ayudar.",
+    "error": "No se pudo enviar tu ticket. Intenta de nuevo."
+  }
+}
