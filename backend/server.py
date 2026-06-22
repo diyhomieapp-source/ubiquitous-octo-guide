@@ -16,6 +16,9 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field, EmailStr
 import jwt
 import httpx
+import asyncio
+import stripe
+from fastapi import Request
 from passlib.context import CryptContext
 
 ROOT_DIR = Path(__file__).parent
@@ -36,6 +39,13 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 security = HTTPBearer(auto_error=True)
 
 STRIPE_API_KEY = os.environ.get('STRIPE_API_KEY', '')
+STRIPE_SECRET_KEY = os.environ.get('STRIPE_SECRET_KEY', '').strip() or STRIPE_API_KEY
+STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET', '').strip()
+if STRIPE_SECRET_KEY:
+    stripe.api_key = STRIPE_SECRET_KEY
+    # The Emergent test proxy is only used for the placeholder test key.
+    if "sk_test_emergent" in STRIPE_SECRET_KEY:
+        stripe.api_base = "https://integrations.emergentagent.com/stripe"
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("diyhomie")
@@ -758,19 +768,53 @@ async def verify_reply(post_id: str, reply_id: str, user: dict = Depends(get_cur
     return {"ok": True, "rewarded_user": reply["author"]}
 
 
-# ---------------------------------------------------------------- billing (Stripe — one-time plan purchase)
-from emergentintegrations.payments.stripe.checkout import StripeCheckout, CheckoutSessionRequest
-
+# ---------------------------------------------------------------- billing (Stripe — recurring subscriptions)
 class SubscribeReq(BaseModel):
     tier: str  # "pro" | "master"
 
 
-# Server-side fixed packages. NEVER trust an amount sent from the client.
-STRIPE_PACKAGES = {
-    "pro": {"amount": 12.0, "credits": 500, "voice_minutes": 60, "label": "Pro"},
-    "master": {"amount": 29.0, "credits": 2000, "voice_minutes": 240, "label": "Master"},
+# Server-side plan definitions. NEVER trust prices/amounts from the client.
+PLAN_TIERS = {
+    "pro": {"name": "DIYhomie Pro", "amount": 1200, "credits": 500, "voice_minutes": 60,
+            "lookup_key": "diyhomie_pro_monthly", "label": "Pro"},
+    "master": {"name": "DIYhomie Master", "amount": 2900, "credits": 2000, "voice_minutes": 240,
+               "lookup_key": "diyhomie_master_monthly", "label": "Master"},
 }
-TIER_GRANTS = STRIPE_PACKAGES  # backward-compat alias
+STRIPE_PACKAGES = PLAN_TIERS   # backward-compat aliases
+TIER_GRANTS = PLAN_TIERS
+
+_PRICE_CACHE: dict = {}
+
+
+async def ensure_stripe_prices():
+    """Idempotently create recurring monthly Products/Prices via lookup_keys."""
+    if not STRIPE_SECRET_KEY or "sk_test_emergent" in STRIPE_SECRET_KEY:
+        return
+    for tier, data in PLAN_TIERS.items():
+        try:
+            prices = await asyncio.to_thread(
+                lambda lk=data["lookup_key"]: stripe.Price.list(lookup_keys=[lk], active=True)
+            )
+            if prices.data:
+                _PRICE_CACHE[tier] = prices.data[0].id
+            else:
+                product = await asyncio.to_thread(lambda n=data["name"]: stripe.Product.create(name=n))
+                price = await asyncio.to_thread(
+                    lambda p=product.id, a=data["amount"], lk=data["lookup_key"]: stripe.Price.create(
+                        product=p, unit_amount=a, currency="usd",
+                        recurring={"interval": "month"}, lookup_key=lk,
+                    )
+                )
+                _PRICE_CACHE[tier] = price.id
+        except Exception as e:
+            logger.error(f"ensure_stripe_prices[{tier}]: {e}")
+
+
+async def get_price_id(tier: str) -> Optional[str]:
+    if tier in _PRICE_CACHE:
+        return _PRICE_CACHE[tier]
+    await ensure_stripe_prices()
+    return _PRICE_CACHE.get(tier)
 
 
 class CheckoutReq(BaseModel):
@@ -780,77 +824,143 @@ class CheckoutReq(BaseModel):
 
 @api_router.post("/billing/checkout")
 async def create_checkout(req: CheckoutReq, user: dict = Depends(get_current_user)):
-    pkg = STRIPE_PACKAGES.get(req.tier)
-    if not pkg:
+    plan = PLAN_TIERS.get(req.tier)
+    if not plan:
         raise HTTPException(status_code=400, detail="Invalid tier")
-    if not STRIPE_API_KEY:
+    if not STRIPE_SECRET_KEY:
         raise HTTPException(status_code=500, detail="Payments not configured")
 
-    host = req.origin_url.rstrip("/")
-    success_url = f"{host}/billing/success?session_id={{CHECKOUT_SESSION_ID}}"
-    cancel_url = f"{host}/paywall"
+    # Reuse / create the Stripe customer for this user.
+    customer_id = user.get("stripe_customer_id")
+    if not customer_id:
+        try:
+            customer = await asyncio.to_thread(
+                lambda: stripe.Customer.create(email=user.get("email"), metadata={"user_id": user["id"]})
+            )
+        except Exception as e:
+            logger.error(f"stripe customer error: {e}")
+            raise HTTPException(status_code=502, detail="Could not start checkout. Try again.")
+        customer_id = customer.id
+        await db.users.update_one({"id": user["id"]}, {"$set": {"stripe_customer_id": customer_id}})
 
-    stripe_checkout = StripeCheckout(api_key=STRIPE_API_KEY)
-    cs_req = CheckoutSessionRequest(
-        amount=pkg["amount"],
-        currency="usd",
-        success_url=success_url,
-        cancel_url=cancel_url,
-        metadata={"user_id": user["id"], "tier": req.tier},
-    )
+    price_id = await get_price_id(req.tier)
+    if not price_id:
+        raise HTTPException(status_code=502, detail="Plan price unavailable. Try again shortly.")
+
+    host = req.origin_url.rstrip("/")
     try:
-        session = await stripe_checkout.create_checkout_session(cs_req)
+        session = await asyncio.to_thread(lambda: stripe.checkout.Session.create(
+            customer=customer_id,
+            mode="subscription",
+            payment_method_types=["card"],
+            line_items=[{"price": price_id, "quantity": 1}],
+            success_url=f"{host}/billing/success?session_id={{CHECKOUT_SESSION_ID}}",
+            cancel_url=f"{host}/paywall",
+            metadata={"user_id": user["id"], "tier": req.tier},
+            subscription_data={"metadata": {"user_id": user["id"], "tier": req.tier}},
+        ))
     except Exception as e:
         logger.error(f"stripe checkout error: {e}")
         raise HTTPException(status_code=502, detail="Could not start checkout. Try again.")
 
     await db.payment_transactions.insert_one({
-        "session_id": session.session_id,
+        "session_id": session.id,
         "user_id": user["id"],
         "tier": req.tier,
-        "amount": pkg["amount"],
+        "mode": "subscription",
+        "amount": plan["amount"],
         "currency": "usd",
         "payment_status": "initiated",
         "fulfilled": False,
         "created_at": now_iso(),
     })
-    return {"url": session.url, "session_id": session.session_id}
+    return {"url": session.url, "session_id": session.id}
+
+
+async def _activate_subscription(user_id: str, tier: str, subscription_id: Optional[str]):
+    plan = PLAN_TIERS.get(tier, {})
+    await db.users.update_one(
+        {"id": user_id},
+        {"$set": {
+            "subscription_tier": tier,
+            "subscription_status": "active",
+            "stripe_subscription_id": subscription_id,
+            "credits": plan.get("credits", 0),
+            "voice_minutes": plan.get("voice_minutes", 0),
+            "onboarded": True,
+        }},
+    )
 
 
 @api_router.get("/billing/status/{session_id}")
 async def billing_status(session_id: str, user: dict = Depends(get_current_user)):
-    if not STRIPE_API_KEY:
+    if not STRIPE_SECRET_KEY:
         raise HTTPException(status_code=500, detail="Payments not configured")
-    stripe_checkout = StripeCheckout(api_key=STRIPE_API_KEY)
     try:
-        st = await stripe_checkout.get_checkout_status(session_id)
+        session = await asyncio.to_thread(lambda: stripe.checkout.Session.retrieve(session_id))
     except Exception as e:
         logger.error(f"stripe status error: {e}")
         raise HTTPException(status_code=502, detail="Could not verify payment.")
 
+    payment_status = session.get("payment_status")
+    sess_status = session.get("status")
+    sub_id = session.get("subscription")
+
     tx = await db.payment_transactions.find_one({"session_id": session_id})
-    if tx and st.payment_status == "paid" and not tx.get("fulfilled"):
-        pkg = STRIPE_PACKAGES.get(tx["tier"], {})
-        await db.users.update_one(
-            {"id": tx["user_id"]},
-            {"$inc": {"credits": pkg.get("credits", 0), "voice_minutes": pkg.get("voice_minutes", 0)},
-             "$set": {"subscription_tier": tx["tier"], "onboarded": True}},
-        )
+    if tx and sess_status == "complete" and not tx.get("fulfilled"):
+        await _activate_subscription(tx["user_id"], tx["tier"], sub_id)
         await db.payment_transactions.update_one(
-            {"session_id": session_id}, {"$set": {"fulfilled": True, "payment_status": "paid"}}
+            {"session_id": session_id},
+            {"$set": {"fulfilled": True, "payment_status": payment_status or "paid"}},
         )
-    elif tx and st.payment_status != tx.get("payment_status"):
+    elif tx and payment_status and payment_status != tx.get("payment_status"):
         await db.payment_transactions.update_one(
-            {"session_id": session_id}, {"$set": {"payment_status": st.payment_status}}
+            {"session_id": session_id}, {"$set": {"payment_status": payment_status}}
         )
 
     fresh = await db.users.find_one({"id": user["id"]}, {"_id": 0})
-    return {"payment_status": st.payment_status, "status": st.status, "user": public_user(fresh)}
+    return {"payment_status": payment_status, "status": sess_status, "user": public_user(fresh)}
+
+
+@api_router.post("/webhook/stripe")
+async def stripe_webhook(request: Request):
+    """Keeps subscription_tier in sync across renewals / cancellations."""
+    payload = await request.body()
+    sig = request.headers.get("stripe-signature")
+    try:
+        if STRIPE_WEBHOOK_SECRET:
+            event = stripe.Webhook.construct_event(payload, sig, STRIPE_WEBHOOK_SECRET)
+        else:
+            event = json.loads(payload)
+    except Exception as e:
+        logger.error(f"webhook parse error: {e}")
+        raise HTTPException(status_code=400, detail="Invalid webhook payload")
+
+    etype = event.get("type")
+    obj = (event.get("data") or {}).get("object") or {}
+
+    if etype == "checkout.session.completed":
+        meta = obj.get("metadata") or {}
+        uid, tier = meta.get("user_id"), meta.get("tier")
+        if uid and tier:
+            await _activate_subscription(uid, tier, obj.get("subscription"))
+    elif etype == "invoice.paid":
+        sub_id = obj.get("subscription")
+        u = await db.users.find_one({"stripe_subscription_id": sub_id})
+        if u:
+            await _activate_subscription(u["id"], u.get("subscription_tier", "pro"), sub_id)
+    elif etype in ("customer.subscription.deleted", "customer.subscription.paused"):
+        sub_id = obj.get("id")
+        await db.users.update_one(
+            {"stripe_subscription_id": sub_id},
+            {"$set": {"subscription_tier": "free", "subscription_status": "canceled"}},
+        )
+    return {"status": "ok"}
 
 
 @api_router.post("/billing/subscribe")
 async def subscribe(req: SubscribeReq, user: dict = Depends(get_current_user)):
-    grant = STRIPE_PACKAGES.get(req.tier)
+    grant = PLAN_TIERS.get(req.tier)
     if not grant:
         raise HTTPException(status_code=400, detail="Invalid tier")
     await db.users.update_one(
@@ -876,6 +986,14 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.on_event("startup")
+async def _startup_stripe_prices():
+    try:
+        await ensure_stripe_prices()
+    except Exception as e:
+        logger.error(f"startup stripe price init failed: {e}")
 
 
 @app.on_event("shutdown")

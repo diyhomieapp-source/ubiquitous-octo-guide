@@ -34,7 +34,7 @@ const PLANS = [
 export default function Paywall() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { user, updateProfile, refresh } = useAuth();
+  const { user, updateProfile } = useAuth();
   const [busy, setBusy] = useState<string | null>(null);
   const [lastProject, setLastProject] = useState<string | null>(null);
 
@@ -122,7 +122,7 @@ export default function Paywall() {
               </View>
               <View style={styles.priceRow}>
                 <Text style={styles.price}>{p.price}</Text>
-                <Text style={styles.period}>one-time</Text>
+                <Text style={styles.period}>/month</Text>
               </View>
             </View>
             {p.perks.map((perk) => (
@@ -161,7 +161,7 @@ export default function Paywall() {
             <Text style={styles.trialText}>Keep exploring with my {user?.credits ?? 60} free credits</Text>
           )}
         </Pressable>
-        <Text style={styles.disclaimer}>Test mode — use card 4242 4242 4242 4242, any future date & CVC.</Text>
+        <Text style={styles.disclaimer}>Secure recurring billing via Stripe · cancel anytime.</Text>
       </ScrollView>
     </View>
   );

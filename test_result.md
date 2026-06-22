@@ -133,3 +133,14 @@ Replaced mock paywall with real Stripe Checkout via emergentintegrations (STRIPE
 
 ### agent_communication
 - main: Need web e2e: register->...->paywall->GET PRO->Stripe Checkout->pay 4242 4242 4242 4242->redirect to /billing/success->credits granted (60->560) & lands on tabs. Also verify status endpoint idempotency and that unpaid stays 60.
+
+## Iteration 4 — Real Recurring Stripe Subscriptions (LIVE keys, main agent)
+Switched from one-time (emergent proxy) to true recurring subscriptions using the merchant's OWN sk_live key + official `stripe` lib. Confirmed NOT Stripe Connect (standard Billing).
+- Startup ensure_stripe_prices(): idempotent Products + recurring monthly Prices via lookup_keys (diyhomie_pro_monthly $12, diyhomie_master_monthly $29). Verified created in LIVE account.
+- POST /api/billing/checkout: creates/reuses stripe Customer (stores stripe_customer_id), mode='subscription', payment_method_types=['card']. Verified returns real cs_live_ URL.
+- GET /api/billing/status/{sid}: on session.status=='complete' & !fulfilled -> _activate_subscription (sets tier, status active, stripe_subscription_id, grants monthly credits, onboarded). Idempotent.
+- POST /api/webhook/stripe: checkout.session.completed/invoice.paid -> activate/refill; customer.subscription.deleted -> downgrade to free. (Needs STRIPE_WEBHOOK_SECRET set + endpoint configured in Stripe dashboard.)
+- backend/.env: STRIPE_SECRET_KEY (sk_live), STRIPE_PUBLISHABLE_KEY, STRIPE_WEBHOOK_SECRET (empty placeholder).
+- paywall.tsx: prices now "/month", disclaimer "Secure recurring billing via Stripe · cancel anytime".
+
+NOTE: LIVE mode — cannot validate full pay->activate with test card 4242 (live declines test cards). Verified mechanics via API. Webhook secret pending user setup post-deploy.
