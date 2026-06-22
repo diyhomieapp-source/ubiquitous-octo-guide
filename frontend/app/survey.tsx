@@ -17,14 +17,50 @@ type Card = {
   options: { label: string; value: string; icon?: any; bg?: string }[];
 };
 
-type ToolCategory = { title: string; icon: any; items: string[] };
-const TOOL_CATEGORIES: ToolCategory[] = [
-  { title: "Hand Tools", icon: "hammer", items: ["Hammer", "Screwdriver Set", "Adjustable Wrench", "Pliers", "Tape Measure", "Utility Knife", "Spirit Level"] },
-  { title: "Power Tools", icon: "screwdriver", items: ["Cordless Drill", "Impact Driver", "Circular Saw", "Jigsaw", "Angle Grinder", "Orbital Sander"] },
-  { title: "Measure & Detect", icon: "ruler-square", items: ["Multimeter", "Stud Finder", "Laser Level"] },
-  { title: "Plumbing", icon: "pipe-wrench", items: ["Pipe Wrench", "Plunger", "Hacksaw"] },
-  { title: "Finishing", icon: "format-paint", items: ["Caulking Gun", "Putty Knife", "Paint Roller"] },
-  { title: "Safety Gear", icon: "shield-check", items: ["Safety Glasses", "Work Gloves", "Dust Mask"] },
+type ToolKit = { key: string; title: string; blurb: string; icon: any; items: { label: string; icon: any }[] };
+const TOOL_KITS: ToolKit[] = [
+  {
+    key: "essentials",
+    title: "The Essentials",
+    blurb: "Basics most homes already have",
+    icon: "hammer",
+    items: [
+      { label: "Hammer", icon: "hammer" },
+      { label: "Screwdriver Set", icon: "screwdriver" },
+      { label: "Wrench", icon: "wrench" },
+      { label: "Tape Measure", icon: "tape-measure" },
+      { label: "Pliers", icon: "hammer-wrench" },
+      { label: "Level", icon: "ruler-square" },
+    ],
+  },
+  {
+    key: "power",
+    title: "Power Tools",
+    blurb: "Plug-in & cordless muscle",
+    icon: "hammer-screwdriver",
+    items: [
+      { label: "Cordless Drill", icon: "hammer-screwdriver" },
+      { label: "Power Screwdriver", icon: "screwdriver" },
+      { label: "Circular Saw", icon: "saw-blade" },
+      { label: "Jigsaw", icon: "saw-blade" },
+      { label: "Sander", icon: "vibrate" },
+      { label: "Multimeter", icon: "gauge" },
+    ],
+  },
+  {
+    key: "pro",
+    title: "Pro Gear",
+    blurb: "For the serious builds",
+    icon: "medal-outline",
+    items: [
+      { label: "Nail Gun", icon: "hammer" },
+      { label: "Table Saw", icon: "table-saw" },
+      { label: "Angle Grinder", icon: "saw-blade" },
+      { label: "Paint Sprayer", icon: "spray" },
+      { label: "Tile Cutter", icon: "grid" },
+      { label: "Stud Finder", icon: "magnet" },
+    ],
+  },
 ];
 
 const CARDS: Card[] = [
@@ -115,6 +151,17 @@ export default function Survey() {
     advance(answers);
   };
 
+  const toggleKit = (kit: ToolKit) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const current: string[] = answers.tools || [];
+    const labels = kit.items.map((i) => i.label);
+    const allOn = labels.every((l) => current.includes(l));
+    const updated = allOn
+      ? current.filter((l) => !labels.includes(l))
+      : Array.from(new Set([...current, ...labels]));
+    setAnswers({ ...answers, tools: updated });
+  };
+
   return (
     <View style={[styles.root, { paddingTop: insets.top + spacing.md }]}>
       <View style={styles.logoTop}><Logo size="sm" /></View>
@@ -147,30 +194,69 @@ export default function Survey() {
       >
         {card.key === "tools" && (
           <View style={{ gap: spacing.lg }}>
-            {TOOL_CATEGORIES.map((cat) => (
-              <View key={cat.title}>
-                <View style={styles.toolCatHead}>
-                  <MaterialCommunityIcons name={cat.icon} size={15} color={colors.brandPrimary} />
-                  <Text style={styles.toolCatTitle}>{cat.title.toUpperCase()}</Text>
+            {TOOL_KITS.map((kit) => {
+              const selected: string[] = answers.tools || [];
+              const labels = kit.items.map((i) => i.label);
+              const allOn = labels.every((l) => selected.includes(l));
+              return (
+                <View key={kit.key} style={styles.kitCard}>
+                  <View style={styles.kitHead}>
+                    <View style={styles.kitIcon}>
+                      <MaterialCommunityIcons name={kit.icon} size={22} color={colors.brandPrimary} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.kitTitle}>{kit.title}</Text>
+                      <Text style={styles.kitBlurb}>{kit.blurb}</Text>
+                    </View>
+                    <Pressable
+                      testID={`survey-kit-${kit.key}`}
+                      onPress={() => toggleKit(kit)}
+                      style={[styles.addAll, allOn && styles.addAllOn]}
+                      hitSlop={8}
+                    >
+                      <MaterialCommunityIcons
+                        name={allOn ? "check-all" : "plus"}
+                        size={15}
+                        color={allOn ? colors.onBrandPrimary : colors.brandPrimary}
+                      />
+                      <Text style={[styles.addAllText, allOn && { color: colors.onBrandPrimary }]}>
+                        {allOn ? "Got it all" : "Add all"}
+                      </Text>
+                    </Pressable>
+                  </View>
+                  <View style={styles.tileGrid}>
+                    {kit.items.map((item) => {
+                      const on = selected.includes(item.label);
+                      return (
+                        <Pressable
+                          key={item.label}
+                          testID={`survey-option-${item.label}`}
+                          onPress={() => onSelect(item.label)}
+                          style={[styles.tile, on && styles.tileOn]}
+                        >
+                          <MaterialCommunityIcons
+                            name={item.icon}
+                            size={22}
+                            color={on ? colors.onBrandPrimary : colors.onSurfaceSecondary}
+                          />
+                          <Text style={[styles.tileText, on && { color: colors.onBrandPrimary }]} numberOfLines={2}>
+                            {item.label}
+                          </Text>
+                          {on && (
+                            <View style={styles.tileCheck}>
+                              <MaterialCommunityIcons name="check" size={11} color={colors.brandPrimary} />
+                            </View>
+                          )}
+                        </Pressable>
+                      );
+                    })}
+                  </View>
                 </View>
-                <View style={styles.toolGrid}>
-                  {cat.items.map((item) => {
-                    const selected = (answers.tools || []).includes(item);
-                    return (
-                      <Pressable
-                        key={item}
-                        testID={`survey-option-${item}`}
-                        onPress={() => onSelect(item)}
-                        style={[styles.toolChip, selected && styles.toolChipOn]}
-                      >
-                        {selected && <MaterialCommunityIcons name="check" size={13} color={colors.onBrandPrimary} />}
-                        <Text style={[styles.toolChipText, selected && { color: colors.onBrandPrimary }]}>{item}</Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              </View>
-            ))}
+              );
+            })}
+            <Text style={styles.kitFootnote}>
+              Tap a tile, or grab a whole set with “Add all”. Don’t have something? Just leave it off — Homie adapts.
+            </Text>
           </View>
         )}
         {card.key !== "tools" && card.options.map((opt) => {
@@ -274,10 +360,18 @@ const styles = StyleSheet.create({
   },
   continueText: { color: colors.onBrandPrimary, fontFamily: font.bold, fontSize: type.lg, letterSpacing: 1 },
   multiHint: { color: colors.brandPrimary, fontFamily: font.bold, fontSize: type.sm, letterSpacing: 0.5, marginTop: -spacing.md, marginBottom: spacing.lg },
-  toolCatHead: { flexDirection: "row", alignItems: "center", gap: spacing.xs, marginBottom: spacing.sm },
-  toolCatTitle: { color: colors.onSurfaceTertiary, fontFamily: font.bold, fontSize: 11, letterSpacing: 1.5 },
-  toolGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
-  toolChip: { flexDirection: "row", alignItems: "center", gap: spacing.xs, backgroundColor: colors.surfaceSecondary, borderColor: colors.border, borderWidth: 1.5, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
-  toolChipOn: { backgroundColor: colors.brandPrimary, borderColor: colors.brandPrimary },
-  toolChipText: { color: colors.onSurfaceSecondary, fontFamily: font.bold, fontSize: type.base },
+  kitCard: { backgroundColor: colors.surfaceSecondary, borderColor: colors.border, borderWidth: 1.5, borderRadius: radius.lg, padding: spacing.lg },
+  kitHead: { flexDirection: "row", alignItems: "center", gap: spacing.md, marginBottom: spacing.lg },
+  kitIcon: { width: 40, height: 40, borderRadius: radius.sm, backgroundColor: colors.surfaceTertiary, alignItems: "center", justifyContent: "center" },
+  kitTitle: { color: colors.onSurface, fontFamily: font.bold, fontSize: type.lg },
+  kitBlurb: { color: colors.onSurfaceTertiary, fontFamily: font.regular, fontSize: type.sm },
+  addAll: { flexDirection: "row", alignItems: "center", gap: spacing.xs, borderColor: colors.brandPrimary, borderWidth: 1.5, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 6 },
+  addAllOn: { backgroundColor: colors.brandPrimary, borderColor: colors.brandPrimary },
+  addAllText: { color: colors.brandPrimary, fontFamily: font.bold, fontSize: type.sm },
+  tileGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
+  tile: { width: "31.5%", aspectRatio: 1, alignItems: "center", justifyContent: "center", gap: spacing.xs, paddingHorizontal: spacing.xs, backgroundColor: colors.surfaceTertiary, borderColor: colors.border, borderWidth: 1.5, borderRadius: radius.md },
+  tileOn: { backgroundColor: colors.brandPrimary, borderColor: colors.brandPrimary },
+  tileText: { color: colors.onSurfaceSecondary, fontFamily: font.bold, fontSize: 11, textAlign: "center" },
+  tileCheck: { position: "absolute", top: 6, right: 6, width: 18, height: 18, borderRadius: 9, backgroundColor: colors.onBrandPrimary, alignItems: "center", justifyContent: "center" },
+  kitFootnote: { color: colors.onSurfaceTertiary, fontFamily: font.regular, fontSize: type.sm, lineHeight: 18, marginTop: spacing.xs },
 });
