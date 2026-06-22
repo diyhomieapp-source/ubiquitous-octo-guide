@@ -48,10 +48,6 @@ export default function Analysis() {
   const insets = useSafeAreaInsets();
   const [survey, setSurvey] = useState<Survey | null>(null);
 
-  // Animated match score count-up
-  const scoreAnim = useRef(new Animated.Value(0)).current;
-  const [score, setScore] = useState(0);
-
   useEffect(() => {
     (async () => {
       const raw = await storage.getItem<string>("diyhomie_pending_survey", "");
@@ -62,13 +58,6 @@ export default function Analysis() {
       }
     })();
   }, []);
-
-  useEffect(() => {
-    if (!survey) return;
-    const id = scoreAnim.addListener(({ value }) => setScore(Math.round(value)));
-    Animated.timing(scoreAnim, { toValue: 98, duration: 1400, delay: 300, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start();
-    return () => scoreAnim.removeListener(id);
-  }, [survey, scoreAnim]);
 
   if (!survey) {
     return <View style={styles.root} />;
@@ -86,8 +75,9 @@ export default function Analysis() {
   return (
     <View style={styles.root}>
       <ScrollView
+        style={{ flex: 1 }}
         contentContainerStyle={{ paddingTop: insets.top + spacing.lg, paddingHorizontal: spacing.xl, paddingBottom: spacing["3xl"] }}
-        showsVerticalScrollIndicator={false}
+        showsVerticalScrollIndicator={true}
       >
         <View style={styles.logoTop}><Logo size="sm" /></View>
 
@@ -99,16 +89,17 @@ export default function Analysis() {
           <Text style={styles.headline}>WE GET YOU.</Text>
         </Reveal>
 
-        {/* Match meter */}
+        {/* Superhuman contractor statement (NOT a match with a person) */}
         <Reveal delay={150}>
           <View style={styles.matchCard}>
-            <View style={styles.matchLeft}>
-              <Text style={styles.matchScore}>{score}<Text style={styles.matchPct}>%</Text></Text>
-              <Text style={styles.matchLabel}>CONTRACTOR{"\n"}MATCH</Text>
+            <View style={styles.heroIcon}>
+              <MaterialCommunityIcons name="account-hard-hat" size={32} color={colors.brandPrimary} />
             </View>
             <View style={styles.matchRight}>
+              <Text style={styles.heroKicker}>YOUR DIY GUIDE IS A</Text>
+              <Text style={styles.heroTitle}>SUPERHUMAN CONTRACTOR</Text>
               <Text style={styles.matchText}>
-                Homie is built around your answers. Here's exactly how we'll have your back:
+                Trained on every project from every angle — codes, pricing, methods, step-by-step, and fixes for whatever goes sideways.
               </Text>
             </View>
           </View>
@@ -193,10 +184,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.brandTertiary, borderColor: colors.brandPrimary, borderWidth: 1.5,
     borderRadius: radius.lg, padding: spacing.lg, marginTop: spacing.xl, marginBottom: spacing.lg,
   },
-  matchLeft: { alignItems: "center" },
-  matchScore: { color: colors.brandPrimary, fontFamily: font.display, fontSize: 52, lineHeight: 52 },
-  matchPct: { fontSize: 24 },
-  matchLabel: { color: colors.onBrandTertiary, fontFamily: font.bold, fontSize: 10, letterSpacing: 1, textAlign: "center", marginTop: -spacing.xs },
+  heroIcon: { width: 56, height: 56, borderRadius: radius.md, backgroundColor: colors.surfaceTertiary, alignItems: "center", justifyContent: "center" },
+  heroKicker: { color: colors.onBrandTertiary, fontFamily: font.bold, fontSize: 10, letterSpacing: 1.5, marginBottom: 2 },
+  heroTitle: { color: colors.onSurface, fontFamily: font.display, fontSize: 26, lineHeight: 26, marginBottom: spacing.sm },
   matchRight: { flex: 1 },
   matchText: { color: colors.onSurface, fontFamily: font.medium, fontSize: type.base, lineHeight: 21 },
   row: {

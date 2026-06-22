@@ -9,6 +9,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 
 import { colors, spacing, radius, font, type } from "@/src/theme";
+import { Logo } from "@/src/components/Logo";
 import { useAuth } from "@/src/auth";
 import { storage } from "@/src/utils/storage";
 
@@ -78,8 +79,7 @@ export default function Auth() {
         </Pressable>
 
         <View style={styles.logoRow}>
-          <MaterialCommunityIcons name="hard-hat" size={28} color={colors.brandPrimary} />
-          <Text style={styles.logo}>DIYhomie</Text>
+          <Logo size="sm" />
         </View>
 
         <Text style={styles.title}>{mode === "register" ? "CREATE YOUR ACCOUNT" : "WELCOME BACK"}</Text>
