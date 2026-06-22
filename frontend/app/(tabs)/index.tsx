@@ -13,6 +13,7 @@ import { useAuth } from "@/src/auth";
 import { api } from "@/src/api";
 import { storage } from "@/src/utils/storage";
 import { BlueprintOverlay } from "@/src/components/BlueprintOverlay";
+import { WeatherBanner } from "@/src/components/WeatherBanner";
 
 type ProjectSummary = { id: string; title: string; status: string; progress: number; total_steps: number; done_steps: number; has_guide: boolean };
 
@@ -101,6 +102,10 @@ export default function Home() {
               </>
             )}
           </Pressable>
+        </View>
+
+        <View style={{ marginBottom: spacing.xl }}>
+          <WeatherBanner location={user?.location} />
         </View>
 
         <Text style={styles.sectionLabel}>POPULAR PROJECTS</Text>

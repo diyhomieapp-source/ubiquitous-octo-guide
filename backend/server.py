@@ -39,6 +39,7 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 security = HTTPBearer(auto_error=True)
 
 STRIPE_API_KEY = os.environ.get('STRIPE_API_KEY', '')
+WEATHER_API_KEY = os.environ.get('WEATHER_API_KEY', '').strip()
 STRIPE_SECRET_KEY = os.environ.get('STRIPE_SECRET_KEY', '').strip() or STRIPE_API_KEY
 STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET', '').strip()
 if STRIPE_SECRET_KEY:
@@ -265,7 +266,7 @@ async def _llm_json(system: str, user_text: str, max_tokens: int = 1800) -> dict
     return _strip_json(out)
 
 
-async def brain_generate_guide(profile: dict, title: str) -> dict:
+async def brain_generate_guide(profile: dict, title: str, weather: str = "") -> dict:
     system = GUIDE_SYSTEM.format(
         experience=profile.get("experience") or "Weekend Warrior",
         budget=profile.get("budget") or "Standard",
@@ -273,6 +274,13 @@ async def brain_generate_guide(profile: dict, title: str) -> dict:
         location=profile.get("location") or "United States",
     )
     user_text = f"Create the full structured DIY guide for this project: '{title}'."
+    if weather:
+        user_text += (
+            f"\nCurrent local weather: {weather}. If ANY part of this job happens OUTDOORS, "
+            "adapt the timing, materials and safety_warnings to these conditions "
+            "(e.g. don't paint/seal/pour in rain, high heat or below ~50°F; avoid spraying/sanding in wind). "
+            "If the job is fully indoors, ignore the weather."
+        )
     return await _llm_json(system, user_text)
 
 
@@ -299,6 +307,85 @@ async def brain_answer(profile: dict, title: str, question: str) -> str:
     from emergentintegrations.llm.chat import LlmChat, UserMessage
     chat = LlmChat(api_key=EMERGENT_LLM_KEY, session_id=new_id(), system_message=system).with_model("openai", "gpt-4o-mini")
     return (await chat.send_message(UserMessage(text=question))).strip()
+
+
+async def fetch_weather(q: str) -> Optional[dict]:
+    if not WEATHER_API_KEY or not q:
+        return None
+    try:
+        async with httpx.AsyncClient(timeout=10) as http:
+            r = await http.get(
+                "https://api.weatherapi.com/v1/forecast.json",
+                params={"key": WEATHER_API_KEY, "q": q, "days": 1, "aqi": "no"},
+            )
+        if r.status_code != 200:
+            logger.warning(f"weather api {r.status_code}: {r.text[:160]}")
+            return None
+        data = r.json()
+        cur = data.get("current", {}) or {}
+        loc = data.get("location", {}) or {}
+        day = ((data.get("forecast", {}) or {}).get("forecastday") or [{}])[0].get("day", {}) or {}
+        return {
+            "location": loc.get("name"),
+            "region": loc.get("region"),
+            "temp_f": cur.get("temp_f"),
+            "feelslike_f": cur.get("feelslike_f"),
+            "condition": (cur.get("condition") or {}).get("text"),
+            "icon": (cur.get("condition") or {}).get("icon"),
+            "wind_mph": cur.get("wind_mph"),
+            "precip_in": cur.get("precip_in"),
+            "humidity": cur.get("humidity"),
+            "uv": cur.get("uv"),
+            "chance_of_rain": day.get("daily_chance_of_rain", 0),
+            "maxtemp_f": day.get("maxtemp_f"),
+            "mintemp_f": day.get("mintemp_f"),
+        }
+    except Exception as e:
+        logger.warning(f"fetch_weather error: {e}")
+        return None
+
+
+def weather_advisories(w: Optional[dict]) -> List[dict]:
+    """Rule-based do/don't tips for outdoor work."""
+    tips: List[dict] = []
+    if not w:
+        return tips
+    temp = w.get("temp_f")
+    rain = w.get("chance_of_rain") or 0
+    precip = w.get("precip_in") or 0
+    wind = w.get("wind_mph") or 0
+    uv = w.get("uv") or 0
+    hum = w.get("humidity") or 0
+    if rain >= 40 or precip > 0:
+        tips.append({"level": "warn", "icon": "weather-pouring",
+                     "text": f"{rain}% chance of rain today — hold off on exterior paint, stain, sealant or concrete; they need a dry window to cure."})
+    if temp is not None and temp >= 85:
+        tips.append({"level": "warn", "icon": "thermometer-high",
+                     "text": "It's hot — paint and adhesives dry too fast and can streak. Work in shade, early morning or evening, and stay hydrated."})
+    if temp is not None and temp <= 50:
+        tips.append({"level": "warn", "icon": "snowflake",
+                     "text": "It's cold — most paints, caulk and concrete won't cure below 50°F. Check the product's min temperature before starting."})
+    if wind >= 15:
+        tips.append({"level": "warn", "icon": "weather-windy",
+                     "text": f"Windy ({round(wind)} mph) — skip spraying and sanding (overspray and debris travel), and double-check ladder footing."})
+    if uv >= 7:
+        tips.append({"level": "info", "icon": "weather-sunny-alert",
+                     "text": "High UV index — wear sunscreen and take shade breaks on any longer outdoor job."})
+    if hum >= 80 and not any(t["level"] == "warn" for t in tips):
+        tips.append({"level": "info", "icon": "water-percent",
+                     "text": "High humidity — finishes and adhesives dry slower today. Plan extra cure time."})
+    if not tips and temp is not None:
+        tips.append({"level": "good", "icon": "weather-partly-cloudy",
+                     "text": "Great conditions for outdoor work — go for it!"})
+    return tips
+
+
+def weather_context_str(w: Optional[dict]) -> str:
+    if not w:
+        return ""
+    return (f"{w.get('location') or 'your area'}: {w.get('condition')}, {w.get('temp_f')}°F "
+            f"(feels {w.get('feelslike_f')}°F), wind {w.get('wind_mph')} mph, "
+            f"{w.get('chance_of_rain')}% chance of rain, humidity {w.get('humidity')}%, UV {w.get('uv')}")
 
 
 def _owned(tool: str, owned_tools: List[str]) -> bool:
@@ -495,8 +582,10 @@ async def build_guide(project_id: str, user: dict = Depends(get_current_user)):
     cost = 0 if prior_guides == 0 else 3
     if user.get("credits", 0) < cost:
         raise HTTPException(status_code=402, detail="Out of credits. Upgrade to continue.")
+    loc_query = project.get("location") or user.get("location") or ""
+    weather = await fetch_weather(loc_query)
     try:
-        data = await brain_generate_guide(user, project["title"])
+        data = await brain_generate_guide(user, project["title"], weather_context_str(weather))
     except Exception as e:
         logger.error(f"guide error: {e}")
         raise HTTPException(status_code=502, detail="Homie could not draft the plan. Try again.")
@@ -766,6 +855,18 @@ async def verify_reply(post_id: str, reply_id: str, user: dict = Depends(get_cur
             {"$inc": {"credits": 10, "voice_minutes": 2}},
         )
     return {"ok": True, "rewarded_user": reply["author"]}
+
+
+# ---------------------------------------------------------------- weather (WeatherAPI.com)
+@api_router.get("/weather")
+async def get_weather(q: Optional[str] = None, user: dict = Depends(get_current_user)):
+    query = (q or user.get("location") or "").strip()
+    if not query:
+        raise HTTPException(status_code=400, detail="No location set. Add your ZIP or city in Profile, or allow location access.")
+    w = await fetch_weather(query)
+    if not w:
+        raise HTTPException(status_code=502, detail="Weather is unavailable right now. Try again shortly.")
+    return {"weather": w, "advisories": weather_advisories(w)}
 
 
 # ---------------------------------------------------------------- billing (Stripe — recurring subscriptions)

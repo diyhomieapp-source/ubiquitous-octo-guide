@@ -152,3 +152,11 @@ NOTE: LIVE mode — cannot validate full pay->activate with test card 4242 (live
 - demo.tsx: added secondary CTA "Start building with my free credits" (testID demo-startfree-button) -> sets onboarded, goes to (tabs) (avoids forced paywall; usage-based conversion later).
 - (tabs)/index.tsx: home description now mentions guides are tailored to the user's exact fixture/model/material (specific toilet, faucet, paint).
 Funnel order unchanged: onboarding → survey → /analysis → register → /demo → /paywall(or free)→ (tabs).
+
+## Iteration 6 — Geolocation + WeatherAPI.com (main agent)
+- backend/.env: WEATHER_API_KEY set. server.py: fetch_weather() via WeatherAPI forecast.json; weather_advisories() rule-based do/don't tips (rain/heat/cold/wind/UV/humidity); weather_context_str().
+- GET /api/weather?q=... (auth; falls back to user.location) -> {weather, advisories}. Verified curl: q=90210 -> Beverly Hills data + advisory.
+- build_guide now fetches weather for project/user location and injects into brain_generate_guide so OUTDOOR steps/timing/safety adapt (ignored for indoor jobs).
+- Frontend: src/components/WeatherBanner.tsx (GPS via expo-location w/ permission handling + Settings fallback, else profile ZIP/city). Added to Home below the project launcher. Verified UI: "AUSTIN · 79°F Overcast" + humidity advisory.
+- app.json: added iOS NSLocationWhenInUseUsageDescription + Android ACCESS_FINE/COARSE_LOCATION.
+- Pending (user said "more later"): Perplexity-driven local codes/construction practices deep-dive.
