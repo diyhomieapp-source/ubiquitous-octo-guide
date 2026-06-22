@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { View, Text, StyleSheet, Animated, Easing } from "react-native";
+import { View, Text, StyleSheet, Animated, Easing, Platform } from "react-native";
 import { Image } from "expo-image";
 import { colors, spacing, font } from "@/src/theme";
 
@@ -16,7 +16,7 @@ function Ring({ dim, delay }: { dim: number; delay: number }) {
     const anim = Animated.sequence([
       Animated.delay(delay),
       Animated.loop(
-        Animated.timing(v, { toValue: 1, duration: 2200, easing: Easing.out(Easing.quad), useNativeDriver: true })
+        Animated.timing(v, { toValue: 1, duration: 2200, easing: Easing.out(Easing.quad), useNativeDriver: Platform.OS !== "web" })
       ),
     ]);
     anim.start();

@@ -1427,6 +1427,203 @@ async def my_referrals(user: dict = Depends(get_current_user)):
         "reward_cents": REFERRAL_REWARD_CENTS,
         "is_paid": (user.get("subscription_tier") or "free") != "free",
     }
+
+
+# ---------------------------------------------------------------- Project Communities (v2)
+COMMUNITY_SEED_PATH = ROOT_DIR / "community_seed.json"
+
+
+class ExperienceReq(BaseModel):
+    title: str
+    body: str
+    tools: List[str] = []
+    cost_cents: Optional[int] = None
+    minutes: Optional[int] = None
+    photos: List[str] = []
+
+
+class ThreadReq(BaseModel):
+    question: str
+
+
+class ThreadReplyReq(BaseModel):
+    body: str
+
+
+def _community_badge(count: int) -> str:
+    if count >= 8:
+        return "Master Builder"
+    if count >= 3:
+        return "Experienced DIYer"
+    if count >= 1:
+        return "Verified Installer"
+    return "Verified Owner"
+
+
+def _exp_public(e: dict) -> dict:
+    return {k: e.get(k) for k in (
+        "id", "project_slug", "author", "badge", "location", "title", "body",
+        "tools", "cost_cents", "minutes", "cheers", "photos", "created_at", "seeded",
+    )}
+
+
+def _months_ago_iso(m: int) -> str:
+    return (datetime.now(timezone.utc) - timedelta(days=int(m) * 30)).isoformat()
+
+
+async def seed_community():
+    try:
+        if not COMMUNITY_SEED_PATH.exists():
+            return
+        data = json.loads(COMMUNITY_SEED_PATH.read_text())
+        for p in data.get("projects", []):
+            slug = p["slug"]
+            await db.community_projects.update_one(
+                {"slug": slug},
+                {"$set": {
+                    "slug": slug, "title": p["title"], "category": p["category"],
+                    "icon": p["icon"], "blurb": p["blurb"], "stats": p["stats"],
+                    "top_questions": p.get("top_questions", []),
+                    "common_mistakes": p.get("common_mistakes", []),
+                    "helpful_tips": p.get("helpful_tips", []),
+                }},
+                upsert=True,
+            )
+            for i, e in enumerate(p.get("experiences", [])):
+                eid = f"seed_{slug}_{i}"
+                await db.community_experiences.update_one(
+                    {"id": eid},
+                    {"$setOnInsert": {
+                        "id": eid, "project_slug": slug, "author": e["author"],
+                        "badge": e.get("badge"), "location": e.get("location", ""),
+                        "title": e["title"], "body": e["body"], "tools": e.get("tools", []),
+                        "cost_cents": e.get("cost_cents"), "minutes": e.get("minutes"),
+                        "cheers": e.get("cheers", 0), "photos": [], "seeded": True,
+                        "user_id": None, "created_at": _months_ago_iso(e.get("months_ago", 1)),
+                    }},
+                    upsert=True,
+                )
+            for i, th in enumerate(p.get("threads", [])):
+                tid = f"seed_{slug}_t{i}"
+                replies = [{
+                    "id": f"{tid}_r{j}", "author": r["author"], "badge": r.get("badge"),
+                    "body": r["body"], "user_id": None,
+                    "created_at": _months_ago_iso(th.get("months_ago", 1)),
+                } for j, r in enumerate(th.get("replies", []))]
+                await db.community_threads.update_one(
+                    {"id": tid},
+                    {"$setOnInsert": {
+                        "id": tid, "project_slug": slug, "author": th["author"],
+                        "badge": th.get("badge"), "question": th["question"],
+                        "replies": replies, "user_id": None, "seeded": True,
+                        "created_at": _months_ago_iso(th.get("months_ago", 1)),
+                    }},
+                    upsert=True,
+                )
+        logger.info("community seeded")
+    except Exception as e:
+        logger.error(f"community seed failed: {e}")
+
+
+@api_router.get("/community/projects")
+async def community_projects():
+    projects = await db.community_projects.find({}, {"_id": 0}).to_list(200)
+    counts: dict = {}
+    async for row in db.community_experiences.aggregate(
+        [{"$group": {"_id": "$project_slug", "n": {"$sum": 1}}}]
+    ):
+        counts[row["_id"]] = row["n"]
+    for p in projects:
+        p["experience_count"] = counts.get(p["slug"], 0)
+    projects.sort(key=lambda x: x.get("stats", {}).get("completed", 0), reverse=True)
+    return projects
+
+
+@api_router.get("/community/feed")
+async def community_feed(limit: int = 30):
+    exps = await db.community_experiences.find({}, {"_id": 0}).sort("created_at", -1).to_list(limit)
+    titles = {p["slug"]: p["title"] async for p in db.community_projects.find({}, {"_id": 0, "slug": 1, "title": 1})}
+    out = []
+    for e in exps:
+        d = _exp_public(e)
+        d["project_title"] = titles.get(e["project_slug"], "")
+        out.append(d)
+    return out
+
+
+@api_router.get("/community/projects/{slug}")
+async def community_project_detail(slug: str):
+    p = await db.community_projects.find_one({"slug": slug}, {"_id": 0})
+    if not p:
+        raise HTTPException(status_code=404, detail="Community not found")
+    exps = await db.community_experiences.find({"project_slug": slug}, {"_id": 0}).sort("created_at", -1).to_list(300)
+    threads = await db.community_threads.find({"project_slug": slug}, {"_id": 0}).sort("created_at", -1).to_list(300)
+    p["experiences"] = [_exp_public(e) for e in exps]
+    p["threads"] = threads
+    p["experience_count"] = len(exps)
+    return p
+
+
+@api_router.post("/community/projects/{slug}/experiences")
+async def add_experience(slug: str, req: ExperienceReq, user: dict = Depends(get_current_user)):
+    if not await db.community_projects.find_one({"slug": slug}):
+        raise HTTPException(status_code=404, detail="Community not found")
+    mine = await db.community_experiences.count_documents({"user_id": user["id"]})
+    exp = {
+        "id": new_id(), "project_slug": slug, "user_id": user["id"],
+        "author": user.get("name") or user["email"].split("@")[0],
+        "badge": _community_badge(mine + 1),
+        "location": user.get("location", ""),
+        "title": req.title.strip()[:120], "body": req.body.strip()[:2000],
+        "tools": [t.strip() for t in (req.tools or []) if t.strip()][:12],
+        "cost_cents": req.cost_cents, "minutes": req.minutes,
+        "cheers": 0, "photos": (req.photos or [])[:4], "seeded": False,
+        "created_at": now_iso(),
+    }
+    await db.community_experiences.insert_one(exp)
+    return _exp_public(exp)
+
+
+@api_router.post("/community/experiences/{exp_id}/cheer")
+async def cheer_experience(exp_id: str, user: dict = Depends(get_current_user)):
+    await db.community_experiences.update_one({"id": exp_id}, {"$inc": {"cheers": 1}})
+    e = await db.community_experiences.find_one({"id": exp_id}, {"_id": 0, "cheers": 1})
+    if not e:
+        raise HTTPException(status_code=404, detail="Not found")
+    return {"cheers": e["cheers"]}
+
+
+@api_router.post("/community/projects/{slug}/threads")
+async def add_thread(slug: str, req: ThreadReq, user: dict = Depends(get_current_user)):
+    if not await db.community_projects.find_one({"slug": slug}):
+        raise HTTPException(status_code=404, detail="Community not found")
+    mine = await db.community_experiences.count_documents({"user_id": user["id"]})
+    th = {
+        "id": new_id(), "project_slug": slug, "user_id": user["id"],
+        "author": user.get("name") or user["email"].split("@")[0],
+        "badge": _community_badge(mine), "question": req.question.strip()[:300],
+        "replies": [], "seeded": False, "created_at": now_iso(),
+    }
+    await db.community_threads.insert_one(th)
+    th.pop("_id", None)
+    return th
+
+
+@api_router.post("/community/threads/{thread_id}/replies")
+async def add_thread_reply(thread_id: str, req: ThreadReplyReq, user: dict = Depends(get_current_user)):
+    if not await db.community_threads.find_one({"id": thread_id}):
+        raise HTTPException(status_code=404, detail="Thread not found")
+    mine = await db.community_experiences.count_documents({"user_id": user["id"]})
+    reply = {
+        "id": new_id(), "user_id": user["id"],
+        "author": user.get("name") or user["email"].split("@")[0],
+        "badge": _community_badge(mine), "body": req.body.strip()[:1500],
+        "created_at": now_iso(),
+    }
+    await db.community_threads.update_one({"id": thread_id}, {"$push": {"replies": reply}})
+    return reply
+
+
 STOP_WORDS = {"a", "an", "the", "to", "of", "in", "on", "my", "your", "and", "or", "for", "with", "how"}
 
 
@@ -1890,9 +2087,20 @@ async def _ensure_indexes():
         await db.support_tickets.create_index([("status", 1), ("created_at", -1)])
         await db.referrals.create_index("referrer_id")
         await db.referrals.create_index("code")
+        await db.community_projects.create_index("slug")
+        await db.community_experiences.create_index([("project_slug", 1), ("created_at", -1)])
+        await db.community_experiences.create_index("id")
+        await db.community_experiences.create_index("user_id")
+        await db.community_threads.create_index([("project_slug", 1), ("created_at", -1)])
+        await db.community_threads.create_index("id")
         logger.info("indexes ensured")
     except Exception as e:
         logger.warning(f"index ensure: {e}")
+
+
+@app.on_event("startup")
+async def _startup_seed_community():
+    await seed_community()
 
 
 @app.on_event("startup")

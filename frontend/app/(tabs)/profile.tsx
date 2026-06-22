@@ -101,6 +101,16 @@ export default function Profile() {
           </Pressable>
         </View>
 
+        {/* share & earn */}
+        <Pressable testID="profile-referrals" style={styles.refer} onPress={() => router.push("/referrals")}>
+          <View style={styles.referIcon}><MaterialCommunityIcons name="gift-outline" size={22} color={colors.brandPrimary} /></View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.referTitle}>SHARE & EARN $5</Text>
+            <Text style={styles.referSub}>Invite friends — you both get credit.</Text>
+          </View>
+          <MaterialCommunityIcons name="chevron-right" size={22} color={colors.onSurfaceTertiary} />
+        </Pressable>
+
         {/* upgrade */}
         <Pressable testID="profile-upgrade" style={styles.upgrade} onPress={() => router.push("/paywall")}>
           <View style={{ flex: 1 }}>
@@ -160,6 +170,10 @@ const styles = StyleSheet.create({
   locSave: { backgroundColor: colors.surfaceTertiary, paddingHorizontal: spacing.lg, borderRadius: radius.md, alignItems: "center", justifyContent: "center" },
   locSaveText: { color: colors.onSurface, fontFamily: font.bold, fontSize: type.sm, letterSpacing: 1 },
   upgrade: { flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: colors.brandPrimary, borderRadius: radius.md, padding: spacing.lg, marginBottom: spacing.lg },
+  refer: { flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, padding: spacing.lg, borderColor: colors.brandPrimary, borderWidth: 1.5, marginBottom: spacing.lg },
+  referIcon: { width: 40, height: 40, borderRadius: radius.sm, backgroundColor: colors.brandTertiary, alignItems: "center", justifyContent: "center" },
+  referTitle: { color: colors.onSurface, fontFamily: font.bold, fontSize: type.base, letterSpacing: 0.5 },
+  referSub: { color: colors.onSurfaceTertiary, fontFamily: font.regular, fontSize: type.sm, marginTop: 1 },
   upgradeTitle: { color: colors.onBrandPrimary, fontFamily: font.bold, fontSize: type.lg, letterSpacing: 0.5 },
   upgradeSub: { color: colors.onBrandPrimary, fontFamily: font.regular, fontSize: type.sm, opacity: 0.85, marginTop: 1 },
   logout: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, paddingVertical: spacing.lg },

@@ -3,6 +3,16 @@ import { Platform } from "react-native";
 import * as WebBrowser from "expo-web-browser";
 import * as Linking from "expo-linking";
 import { api, setToken, clearToken, getToken } from "@/src/api";
+import { storage } from "@/src/utils/storage";
+
+const REF_KEY = "diyhomie_ref";
+function extractRef(url: string | null | undefined): string | null {
+  if (!url) return null;
+  const m = url.match(/[#?&]ref=([^&]+)/);
+  const v = m ? decodeURIComponent(m[1]) : null;
+  // ignore non-referral markers (e.g. ?ref=blog used by SEO links)
+  return v && /^[A-Za-z0-9]{4,12}$/.test(v) && v.toLowerCase() !== "blog" ? v.toUpperCase() : null;
+}
 
 function extractSessionId(url: string | null | undefined): string | null {
   if (!url) return null;
@@ -91,6 +101,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     (async () => {
       try {
         if (Platform.OS === "web" && typeof window !== "undefined") {
+          const r = extractRef(window.location.search) || extractRef(window.location.hash);
+          if (r) { try { await storage.setItem(REF_KEY, r); } catch {} }
+        } else if (Platform.OS !== "web") {
+          const r = extractRef(await Linking.getInitialURL());
+          if (r) { try { await storage.setItem(REF_KEY, r); } catch {} }
+        }
+        if (Platform.OS === "web" && typeof window !== "undefined") {
           const path = window.location.pathname || "";
           const sid = extractSessionId(window.location.hash) || extractSessionId(window.location.search);
           // Stripe checkout returns ?session_id=cs_... on /billing/* — never a Google session.
@@ -126,13 +143,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signUp = async (email: string, password: string, name: string) => {
+    let ref: string | null = null;
+    try { ref = await storage.getItem<string>(REF_KEY, ""); } catch {}
     const res = await api<{ access_token: string; user: User }>("/auth/register", {
       method: "POST",
-      body: { email, password, name },
+      body: { email, password, name, ...(ref ? { ref } : {}) },
       auth: false,
     });
     await setToken(res.access_token);
     setUserState(res.user);
+    try { await storage.removeItem(REF_KEY); } catch {}
     return res.user;
   };
 

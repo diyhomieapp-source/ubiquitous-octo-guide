@@ -1,0 +1,418 @@
+{
+  "projects": [
+    {
+      "slug": "toilet-replacement",
+      "title": "Toilet Replacement",
+      "category": "Plumbing",
+      "icon": "toilet",
+      "blurb": "Swap an old toilet for a new one — remove, set a fresh wax ring, and seal it leak-free.",
+      "stats": { "completed": 38421, "difficulty": 4, "avg_minutes": 132, "avg_cost_cents": 18500, "success_rate": 96 },
+      "top_questions": [
+        "What if my shutoff valve leaks when I turn it back on?",
+        "Do I need to replace the flange or can I reuse it?",
+        "What size supply line do I need?",
+        "How do I stop the new toilet from rocking?"
+      ],
+      "common_mistakes": [
+        "Over-tightening the tank bolts and cracking the porcelain",
+        "Reusing an old, compressed wax ring",
+        "Forgetting to replace corroded closet bolts",
+        "Not shimming an uneven floor, causing the toilet to rock"
+      ],
+      "helpful_tips": [
+        "Spray penetrating oil on the old bolts the night before.",
+        "Buy two wax rings just in case the first one shifts.",
+        "Take a photo of the supply line before disconnecting.",
+        "Replace the shutoff valve while the water is already off."
+      ],
+      "experiences": [
+        { "author": "Mike R.", "badge": "Verified Pro", "location": "Austin, TX", "months_ago": 2, "title": "Champion 4 install — 90 minutes start to finish", "body": "Did this in my guest bath. The included wax ring was fine but I always double up. Floor was slightly uneven so I added two plastic shims and caulked the base. Zero rocking, zero leaks.", "tools": ["Adjustable wrench", "Putty knife", "Caulk gun"], "cost_cents": 21000, "minutes": 92, "cheers": 47 },
+        { "author": "Sarah L.", "badge": "Experienced DIYer", "location": "Denver, CO", "months_ago": 5, "title": "First time and it actually went great", "body": "Was terrified of this but the old bolts came off with penetrating oil. Hardest part was lifting the old toilet — get a friend. New supply line was needed, the old one was too short.", "tools": ["Adjustable wrench", "Sponge"], "cost_cents": 16500, "minutes": 150, "cheers": 33 },
+        { "author": "Dwayne P.", "badge": "Master Builder", "location": "Tampa, FL", "months_ago": 1, "title": "Flange was cracked — glad I checked", "body": "Pulled the old one and the flange was broken. Added a repair ring before the wax. Adds 30 min but saves you a callback. Always inspect the flange before you set the bowl.", "tools": ["Hacksaw", "Repair flange", "Wax ring"], "cost_cents": 23500, "minutes": 165, "cheers": 58 }
+      ],
+      "threads": [
+        { "author": "NewHomeowner22", "badge": "Verified Owner", "months_ago": 1, "question": "My shutoff valve is the old multi-turn type and drips a little. Should I replace it during the swap?", "replies": [
+          { "author": "Mike R.", "badge": "Verified Pro", "body": "100% yes. Water's already off — swap it for a quarter-turn valve. $12 part and you'll never fight it again." },
+          { "author": "Sarah L.", "badge": "Experienced DIYer", "body": "I did exactly this. Took 10 extra minutes and the drip is gone." }
+        ] }
+      ]
+    },
+    {
+      "slug": "water-heater-replacement",
+      "title": "Water Heater Replacement",
+      "category": "Plumbing",
+      "icon": "water-boiler",
+      "blurb": "Replace a failing tank water heater — drain, disconnect, set the new unit, and relight.",
+      "stats": { "completed": 12740, "difficulty": 7, "avg_minutes": 240, "avg_cost_cents": 62000, "success_rate": 89 },
+      "top_questions": [
+        "Do I need a permit to replace my own water heater?",
+        "Gas or electric — what's harder?",
+        "Should I add an expansion tank?",
+        "How do I safely drain the old tank?"
+      ],
+      "common_mistakes": [
+        "Not turning off the gas/breaker before draining",
+        "Forgetting an expansion tank where code requires it",
+        "Cross-threading the flex connectors",
+        "Skipping the drip pan on a second floor"
+      ],
+      "helpful_tips": [
+        "Connect a hose and drain into a floor drain or outside.",
+        "Use flexible water and gas connectors — far easier than rigid.",
+        "Add an expansion tank; many codes now require it.",
+        "Test for gas leaks with soapy water on every joint."
+      ],
+      "experiences": [
+        { "author": "Carlos M.", "badge": "Verified Pro", "location": "Phoenix, AZ", "months_ago": 3, "title": "Rheem 50gal gas swap — get a helper", "body": "These tanks are heavy full and awkward empty. Drained overnight to be safe. Flex connectors made the reconnect painless. Soapy-water tested every gas joint, lit fine on the first try.", "tools": ["Pipe wrench", "Tubing cutter", "Voltage tester"], "cost_cents": 68000, "minutes": 230, "cheers": 41 },
+        { "author": "Janet K.", "badge": "Experienced DIYer", "location": "Columbus, OH", "months_ago": 6, "title": "Electric unit — easier than I feared", "body": "Killed the breaker, confirmed with a tester. The only surprise was needing an expansion tank for our city code. Added one and passed inspection.", "tools": ["Screwdriver", "Voltage tester"], "cost_cents": 58000, "minutes": 260, "cheers": 27 }
+      ],
+      "threads": [
+        { "author": "FixItFred", "badge": "Verified Owner", "months_ago": 2, "question": "Is it worth going tankless instead while I'm at it?", "replies": [
+          { "author": "Carlos M.", "badge": "Verified Pro", "body": "Only if your gas line and venting can handle it — otherwise it's a much bigger job. For a straight swap, a tank is a 4-hour afternoon." }
+        ] }
+      ]
+    },
+    {
+      "slug": "faucet-installation",
+      "title": "Kitchen Faucet Installation",
+      "category": "Plumbing",
+      "icon": "faucet",
+      "blurb": "Replace a kitchen or bath faucet — disconnect supply lines, mount, and connect the new one.",
+      "stats": { "completed": 41230, "difficulty": 3, "avg_minutes": 75, "avg_cost_cents": 14000, "success_rate": 97 },
+      "top_questions": [
+        "Why won't the old mounting nut come loose?",
+        "Do I need a basin wrench?",
+        "Do new faucets come with supply lines?",
+        "How tight should the connections be?"
+      ],
+      "common_mistakes": [
+        "Skipping the basin wrench and rounding the nuts",
+        "Over-tightening plastic supply nuts",
+        "Forgetting plumber's tape on threaded joints",
+        "Not clearing the old gunk/caulk from the sink deck"
+      ],
+      "helpful_tips": [
+        "A basin wrench is a $15 lifesaver for tight spaces.",
+        "Hand-tighten plus a quarter turn on supply lines — no more.",
+        "Run a bead of silicone under the base plate.",
+        "Keep a bucket and towel under the cabinet."
+      ],
+      "experiences": [
+        { "author": "Tina W.", "badge": "Experienced DIYer", "location": "Seattle, WA", "months_ago": 1, "title": "Pull-down sprayer upgrade", "body": "Old nuts were seized — the basin wrench saved me. New faucet came with supply lines so I didn't need to buy any. 50 minutes including cleanup.", "tools": ["Basin wrench", "Bucket"], "cost_cents": 12900, "minutes": 50, "cheers": 22 },
+        { "author": "Omar S.", "badge": "Weekend Warrior", "location": "Chicago, IL", "months_ago": 4, "title": "Easiest plumbing win ever", "body": "Honestly my favorite beginner project. Took photos before disconnecting and just reversed the steps. The hardest part was lying under the sink.", "tools": ["Basin wrench", "Plumber's tape"], "cost_cents": 15000, "minutes": 65, "cheers": 18 }
+      ],
+      "threads": [
+        { "author": "KitchenReno", "badge": "Verified Owner", "months_ago": 1, "question": "My new faucet has 3 holes but my sink has 4. What do I do with the extra?", "replies": [
+          { "author": "Tina W.", "badge": "Experienced DIYer", "body": "Add a soap dispenser or a deck plate that covers all four. Most faucets include an optional plate." }
+        ] }
+      ]
+    },
+    {
+      "slug": "garbage-disposal-replacement",
+      "title": "Garbage Disposal Replacement",
+      "category": "Plumbing",
+      "icon": "sink",
+      "blurb": "Swap a dead disposal — disconnect, twist off the old unit, and mount the new one.",
+      "stats": { "completed": 19880, "difficulty": 4, "avg_minutes": 70, "avg_cost_cents": 13500, "success_rate": 95 },
+      "top_questions": [
+        "Can I reuse the old mounting ring?",
+        "How do I wire it without an electrician?",
+        "Why is my new disposal leaking at the dishwasher hose?",
+        "Do I need to remove the knockout plug?"
+      ],
+      "common_mistakes": [
+        "Forgetting to punch out the dishwasher knockout plug",
+        "Not supporting the heavy unit while twisting it on",
+        "Reusing a worn mounting gasket",
+        "Loose discharge tube clamp causing leaks"
+      ],
+      "helpful_tips": [
+        "If the brand matches, the old mount often reuses — huge time saver.",
+        "Punch the knockout plug BEFORE installing if you have a dishwasher.",
+        "Rest the unit on a paint can while you line up the mount.",
+        "Reset button on the bottom fixes most 'dead' disposals first."
+      ],
+      "experiences": [
+        { "author": "Greg H.", "badge": "Master Builder", "location": "Raleigh, NC", "months_ago": 2, "title": "Same brand = 25 minute swap", "body": "Went Badger to Badger so the mounting ring stayed. Just unplugged, twisted off, twisted on, reconnected. Knocked out the dishwasher plug first — learned that one the hard way years ago.", "tools": ["Screwdriver", "Pliers"], "cost_cents": 11000, "minutes": 25, "cheers": 31 }
+      ],
+      "threads": [
+        { "author": "QuietPlease", "badge": "Verified Owner", "months_ago": 1, "question": "Any recommendations for a quieter unit? Mine sounds like a jet engine.", "replies": [
+          { "author": "Greg H.", "badge": "Master Builder", "body": "Step up to a 3/4 or 1 HP insulated model. The sound insulation is night and day." }
+        ] }
+      ]
+    },
+    {
+      "slug": "drywall-repair",
+      "title": "Drywall Hole Repair",
+      "category": "Walls & Ceilings",
+      "icon": "wall",
+      "blurb": "Patch holes from dings to doorknob-sized — mesh, mud, sand, and paint to invisible.",
+      "stats": { "completed": 52910, "difficulty": 3, "avg_minutes": 90, "avg_cost_cents": 4500, "success_rate": 94 },
+      "top_questions": [
+        "Mesh tape or paper tape for the patch?",
+        "How many coats of mud do I really need?",
+        "How do I match the existing wall texture?",
+        "Why does my patch show through after painting?"
+      ],
+      "common_mistakes": [
+        "Applying mud too thick and over-sanding",
+        "Skipping primer so the patch flashes through paint",
+        "Not feathering the edges wide enough",
+        "Rushing coats before they fully dry"
+      ],
+      "helpful_tips": [
+        "Three thin coats beat one thick coat every time.",
+        "Feather each coat wider than the last.",
+        "Prime the patch before painting or it'll show.",
+        "Match texture with a spray can of wall texture."
+      ],
+      "experiences": [
+        { "author": "Lena F.", "badge": "Experienced DIYer", "location": "Portland, OR", "months_ago": 1, "title": "Doorknob hole — California patch method", "body": "Cut a square, used the California/butterfly patch so no framing needed. Three coats of lightweight mud, sanded between, primed, painted. You truly cannot find it.", "tools": ["Drywall saw", "Putty knife", "Sanding sponge"], "cost_cents": 3500, "minutes": 80, "cheers": 44 },
+        { "author": "Marcus T.", "badge": "Weekend Warrior", "location": "Atlanta, GA", "months_ago": 3, "title": "Texture match was the tricky part", "body": "The patch itself was easy. Matching the orange-peel texture took a couple practice sprays on cardboard first. Glad I tested before hitting the wall.", "tools": ["Putty knife", "Texture spray"], "cost_cents": 5000, "minutes": 100, "cheers": 19 }
+      ],
+      "threads": [
+        { "author": "RenterRick", "badge": "Verified Owner", "months_ago": 2, "question": "Getting my deposit back — what's the fastest way to fix a dozen nail holes?", "replies": [
+          { "author": "Lena F.", "badge": "Experienced DIYer", "body": "Lightweight spackle with your finger, let dry, light sand, dab of matching paint. 20 minutes for all of them." }
+        ] }
+      ]
+    },
+    {
+      "slug": "ceiling-fan-installation",
+      "title": "Ceiling Fan Installation",
+      "category": "Electrical",
+      "icon": "fan",
+      "blurb": "Replace a light or install a new ceiling fan — brace box, wire, and balance the blades.",
+      "stats": { "completed": 28650, "difficulty": 5, "avg_minutes": 105, "avg_cost_cents": 16000, "success_rate": 92 },
+      "top_questions": [
+        "Do I need a fan-rated electrical box?",
+        "Which wire is which on an old fixture?",
+        "Why does my fan wobble?",
+        "Can I put a fan where a light used to be?"
+      ],
+      "common_mistakes": [
+        "Hanging a fan from a standard light box (not rated for weight)",
+        "Skipping the downrod for low ceilings — or needing one for high",
+        "Not using the balancing kit for wobble",
+        "Loose wire nuts in the canopy"
+      ],
+      "helpful_tips": [
+        "Always swap to a fan-rated brace box — it carries the motion load.",
+        "Take a phone photo of the existing wiring first.",
+        "Assemble the fan on the ground as much as possible.",
+        "Use the included balancing clips to kill the wobble."
+      ],
+      "experiences": [
+        { "author": "Priya N.", "badge": "Verified Pro", "location": "San Jose, CA", "months_ago": 2, "title": "Light-to-fan conversion done right", "body": "The old box was not fan-rated, so I installed a saddle brace box from the attic. That's the step people skip and regret. Wiring was straightforward, blades balanced with the kit.", "tools": ["Voltage tester", "Screwdriver", "Wire stripper"], "cost_cents": 18000, "minutes": 120, "cheers": 38 }
+      ],
+      "threads": [
+        { "author": "WobblyWanda", "badge": "Verified Owner", "months_ago": 1, "question": "Installed fine but it wobbles on high. Help?", "replies": [
+          { "author": "Priya N.", "badge": "Verified Pro", "body": "Check that all blade screws are tight first, then use the stick-on balancing weights. Move one weight along a blade until the wobble drops." }
+        ] }
+      ]
+    },
+    {
+      "slug": "light-fixture-installation",
+      "title": "Light Fixture Replacement",
+      "category": "Electrical",
+      "icon": "ceiling-light",
+      "blurb": "Swap a dated fixture for something fresh — kill power, match wires, mount, done.",
+      "stats": { "completed": 47210, "difficulty": 2, "avg_minutes": 45, "avg_cost_cents": 8000, "success_rate": 98 },
+      "top_questions": [
+        "How do I know the power is really off?",
+        "What if there's no ground wire in an old house?",
+        "Black to black, white to white — always?",
+        "My new fixture is heavier — is the box okay?"
+      ],
+      "common_mistakes": [
+        "Relying on the switch instead of the breaker",
+        "Not testing wires with a voltage tester",
+        "Ignoring a missing ground in older homes",
+        "Pinching wires when pushing the fixture up"
+      ],
+      "helpful_tips": [
+        "Kill the breaker AND test every wire before touching.",
+        "No ground? Connect to the box if it's metal and grounded.",
+        "Hold the fixture with a hook or helper while wiring.",
+        "Tuck wires neatly so the canopy sits flush."
+      ],
+      "experiences": [
+        { "author": "Brett A.", "badge": "Experienced DIYer", "location": "Nashville, TN", "months_ago": 1, "title": "Dining room pendant in 30 min", "body": "Genuinely the easiest electrical project. Breaker off, tested, matched the wires, mounted. The only tip: support the new fixture so you're not wiring one-handed.", "tools": ["Voltage tester", "Screwdriver"], "cost_cents": 9500, "minutes": 30, "cheers": 25 }
+      ],
+      "threads": [
+        { "author": "OldHouseOwner", "badge": "Verified Owner", "months_ago": 2, "question": "1950s house, the box only has black and white — no ground. Safe to install?", "replies": [
+          { "author": "Brett A.", "badge": "Experienced DIYer", "body": "If the metal box is grounded you can pigtail the fixture ground to it. If unsure, a $10 outlet tester or an electrician's quick look is worth it." }
+        ] }
+      ]
+    },
+    {
+      "slug": "smart-doorbell-install",
+      "title": "Smart Doorbell Install",
+      "category": "Smart Home",
+      "icon": "doorbell-video",
+      "blurb": "Install a video doorbell — wire to existing chime or go battery, then set up the app.",
+      "stats": { "completed": 33470, "difficulty": 3, "avg_minutes": 50, "avg_cost_cents": 12000, "success_rate": 93 },
+      "top_questions": [
+        "Will it work with my existing doorbell wiring?",
+        "Do I need the chime adapter (jumper)?",
+        "My transformer is 16V — is that enough?",
+        "How do I mount on brick or stucco?"
+      ],
+      "common_mistakes": [
+        "Forgetting the chime adapter, causing a buzzing chime",
+        "Undersized transformer — low voltage warnings",
+        "Drilling brick without a masonry bit",
+        "Not turning off the breaker for the doorbell circuit"
+      ],
+      "helpful_tips": [
+        "Check your transformer voltage first — most need 16–24V AC.",
+        "Install the chime adapter if you keep your mechanical chime.",
+        "Use the included angle wedge to aim at the walkway.",
+        "A masonry bit + anchors are a must for brick."
+      ],
+      "experiences": [
+        { "author": "Hannah B.", "badge": "Weekend Warrior", "location": "Boulder, CO", "months_ago": 1, "title": "Ring Pro on brick — wedge mount helped", "body": "Transformer was already 16V so wired install worked. The chime adapter stopped the buzzing. Masonry bit through the brick was the only 'real tool' moment. App setup was 5 minutes.", "tools": ["Masonry drill bit", "Screwdriver"], "cost_cents": 13000, "minutes": 55, "cheers": 29 }
+      ],
+      "threads": [
+        { "author": "RentSmart", "badge": "Verified Owner", "months_ago": 1, "question": "No existing doorbell wiring — is battery version reliable?", "replies": [
+          { "author": "Hannah B.", "badge": "Weekend Warrior", "body": "Battery versions are great now. You'll recharge every 1–3 months depending on traffic. Totally fine for an apartment." }
+        ] }
+      ]
+    },
+    {
+      "slug": "deck-staining",
+      "title": "Deck Staining",
+      "category": "Outdoor",
+      "icon": "deck",
+      "blurb": "Clean, prep, and stain a wood deck to protect it and bring back the color.",
+      "stats": { "completed": 21540, "difficulty": 4, "avg_minutes": 360, "avg_cost_cents": 11000, "success_rate": 90 },
+      "top_questions": [
+        "Do I need to strip the old stain first?",
+        "How long should the deck dry after cleaning?",
+        "Solid, semi-transparent, or transparent stain?",
+        "What's the best temperature/weather to stain?"
+      ],
+      "common_mistakes": [
+        "Staining damp wood — it won't absorb and peels",
+        "Skipping the cleaning/brightening step",
+        "Applying in direct hot sun (dries too fast, lap marks)",
+        "Too-thick coats that stay tacky"
+      ],
+      "helpful_tips": [
+        "Let the deck dry 24–48 hours after washing.",
+        "Stain in the shade or on an overcast day.",
+        "Work in 2–3 board sections to avoid lap marks.",
+        "A pump sprayer + back-brushing gives the best finish."
+      ],
+      "experiences": [
+        { "author": "Tom V.", "badge": "Master Builder", "location": "Minneapolis, MN", "months_ago": 8, "title": "Semi-transparent over a weekend", "body": "Pressure washed Saturday, let it dry all day Sunday, stained Monday evening when the sun was off it. Sprayer plus back-brush was way faster than a roller and looked even.", "tools": ["Pressure washer", "Pump sprayer", "Stain brush"], "cost_cents": 12500, "minutes": 330, "cheers": 36 }
+      ],
+      "threads": [
+        { "author": "GreyDeck", "badge": "Verified Owner", "months_ago": 3, "question": "My deck is grey and weathered. Can I stain right over it?", "replies": [
+          { "author": "Tom V.", "badge": "Master Builder", "body": "Use a deck cleaner/brightener first — it pulls out the grey and opens the wood so the stain actually soaks in." }
+        ] }
+      ]
+    },
+    {
+      "slug": "interior-painting",
+      "title": "Interior Room Painting",
+      "category": "Painting",
+      "icon": "format-paint",
+      "blurb": "Repaint a room like a pro — prep, cut in, roll, and get crisp edges.",
+      "stats": { "completed": 61230, "difficulty": 2, "avg_minutes": 300, "avg_cost_cents": 9000, "success_rate": 97 },
+      "top_questions": [
+        "Do I really need to prime?",
+        "How do I get sharp lines without bleed?",
+        "One coat or two?",
+        "What roller nap for my wall texture?"
+      ],
+      "common_mistakes": [
+        "Skipping prep — dust and grease ruin adhesion",
+        "Pulling tape after the paint fully dries (peels the edge)",
+        "Overloading the roller and leaving drips",
+        "Cheap brushes that shed bristles"
+      ],
+      "helpful_tips": [
+        "Prep is 80% of a good paint job — wash, patch, sand.",
+        "Pull tape while the paint is still slightly wet for crisp lines.",
+        "Two thin coats almost always beat one thick coat.",
+        "Buy one good 2.5\" angled brush — it lasts years."
+      ],
+      "experiences": [
+        { "author": "Aisha R.", "badge": "Experienced DIYer", "location": "Brooklyn, NY", "months_ago": 1, "title": "Bold accent wall — tape trick works", "body": "Caulked the tape edge with a thin paint line first, let it seal, then painted the color. Pulled tape while wet. Razor-sharp line, zero bleed. Game changer.", "tools": ["Angled brush", "Roller", "Painter's tape"], "cost_cents": 8500, "minutes": 280, "cheers": 52 }
+      ],
+      "threads": [
+        { "author": "FirstApartment", "badge": "Verified Owner", "months_ago": 1, "question": "Going from dark green to white. How many coats?", "replies": [
+          { "author": "Aisha R.", "badge": "Experienced DIYer", "body": "Prime with a tinted gray primer, then 2 coats of white. Trying to do it without primer over dark = endless coats." }
+        ] }
+      ]
+    },
+    {
+      "slug": "hvac-filter-replacement",
+      "title": "HVAC Filter Replacement",
+      "category": "HVAC",
+      "icon": "air-filter",
+      "blurb": "Keep your system healthy — find the right size, orientation, and swap schedule.",
+      "stats": { "completed": 88120, "difficulty": 1, "avg_minutes": 10, "avg_cost_cents": 2500, "success_rate": 99 },
+      "top_questions": [
+        "Which way does the arrow point?",
+        "What MERV rating should I use?",
+        "How often should I really change it?",
+        "Why are there filters in two places?"
+      ],
+      "common_mistakes": [
+        "Installing the filter backwards (arrow should point toward the unit)",
+        "Going too high on MERV and choking airflow",
+        "Forgetting a return-grille filter elsewhere in the house",
+        "Buying the wrong size — measure, don't guess"
+      ],
+      "helpful_tips": [
+        "Arrow points in the direction of airflow — toward the furnace/blower.",
+        "MERV 8–11 is the sweet spot for most homes.",
+        "Write the date on the filter edge with a marker.",
+        "Set a 90-day phone reminder (30 with pets)."
+      ],
+      "experiences": [
+        { "author": "Dell C.", "badge": "Weekend Warrior", "location": "Kansas City, MO", "months_ago": 1, "title": "The 5-minute money saver", "body": "Cannot believe I paid someone for this. Slid the old one out, noted the arrow, slid the new one in same direction. Wrote the date on it. Airflow noticeably better.", "tools": [], "cost_cents": 2200, "minutes": 6, "cheers": 14 }
+      ],
+      "threads": [
+        { "author": "AllergyMom", "badge": "Verified Owner", "months_ago": 2, "question": "Can I use the highest MERV filter for allergies?", "replies": [
+          { "author": "Dell C.", "badge": "Weekend Warrior", "body": "Careful — too-high MERV restricts airflow and strains the blower. MERV 11–13 is usually the max a residential system likes." }
+        ] }
+      ]
+    },
+    {
+      "slug": "door-replacement",
+      "title": "Interior Door Replacement",
+      "category": "Carpentry",
+      "icon": "door",
+      "blurb": "Hang a new slab or pre-hung door — measure, set hinges, and get it swinging true.",
+      "stats": { "completed": 17760, "difficulty": 5, "avg_minutes": 110, "avg_cost_cents": 14500, "success_rate": 91 },
+      "top_questions": [
+        "Slab door or pre-hung — which is easier?",
+        "How do I transfer the hinge locations?",
+        "Why does my door swing open or shut on its own?",
+        "How much gap should I leave around the door?"
+      ],
+      "common_mistakes": [
+        "Buying a slab and fighting hinge/latch alignment",
+        "Not shimming a pre-hung frame plumb",
+        "Mortising hinges too deep or too shallow",
+        "Forgetting the swing direction when ordering"
+      ],
+      "helpful_tips": [
+        "A pre-hung door is far more forgiving for beginners.",
+        "Use the old door as a template for a slab.",
+        "A self-swinging door means the frame isn't plumb — shim it.",
+        "Nickel-thickness gap around the door is the standard."
+      ],
+      "experiences": [
+        { "author": "Rosa D.", "badge": "Experienced DIYer", "location": "Albuquerque, NM", "months_ago": 4, "title": "Used old slab as a template", "body": "Stacked the old and new doors, traced the hinges and latch, chiseled the mortises. Tedious but it lined up perfectly. A door swinging on its own = check plumb, which fixed mine.", "tools": ["Chisel", "Drill", "Level"], "cost_cents": 9000, "minutes": 130, "cheers": 23 }
+      ],
+      "threads": [
+        { "author": "DraftyDoor", "badge": "Verified Owner", "months_ago": 1, "question": "New door has a big gap at the bottom. Normal?", "replies": [
+          { "author": "Rosa D.", "badge": "Experienced DIYer", "body": "A bit of gap is normal for clearance over flooring, but if it's huge you can add a sweep or trim the jamb. What's your flooring height?" }
+        ] }
+      ]
+    }
+  ]
+}
