@@ -57,6 +57,7 @@ export default function Workspace() {
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [loadingIntake, setLoadingIntake] = useState(false);
   const [changedIds, setChangedIds] = useState<string[]>([]);
+  const [remembers, setRemembers] = useState(false);
 
   const buildGuide = useCallback(async (pid: string, context?: Record<string, string>) => {
     setIntake(null);
@@ -75,7 +76,8 @@ export default function Workspace() {
   const startIntake = useCallback(async (pid: string) => {
     setLoadingIntake(true);
     try {
-      const res = await api<{ questions: IntakeQ[] }>(`/projects/${pid}/intake`, { method: "POST", timeout: 60000 });
+      const res = await api<{ questions: IntakeQ[]; remembers?: boolean }>(`/projects/${pid}/intake`, { method: "POST", timeout: 60000 });
+      setRemembers(!!res.remembers);
       if (res.questions?.length) setIntake(res.questions);
       else buildGuide(pid);
     } catch { buildGuide(pid); }
@@ -199,6 +201,12 @@ export default function Workspace() {
         <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + 40, gap: spacing.md }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           <Text style={styles.intakeTitle}>A FEW QUICK DETAILS</Text>
           <Text style={styles.intakeSub}>The more Homie knows, the more your plan matches your exact situation — your specific model, your floor, your space. Skip anything you're unsure of.</Text>
+          {remembers && (
+            <View style={styles.memBanner} testID="intake-remembers">
+              <MaterialCommunityIcons name="brain" size={18} color={colors.brandPrimary} />
+              <Text style={styles.memText}>Homie remembers your past work in this space and will factor it in.</Text>
+            </View>
+          )}
           {intake.map((q) => (
             <View key={q.key} style={styles.intakeCard}>
               <Text style={styles.intakeQ}>{q.question}</Text>
@@ -435,6 +443,8 @@ const styles = StyleSheet.create({
   closeText: { color: colors.onSurfaceTertiary, fontFamily: font.medium, fontSize: type.base },
   intakeTitle: { color: colors.onSurface, fontFamily: font.display, fontSize: 30, letterSpacing: 1 },
   intakeSub: { color: colors.onSurfaceTertiary, fontFamily: font.regular, fontSize: type.base, lineHeight: 21, marginBottom: spacing.sm },
+  memBanner: { flexDirection: "row", alignItems: "center", gap: spacing.sm, backgroundColor: colors.surfaceSecondary, borderColor: colors.brandPrimary, borderWidth: 1.5, borderRadius: radius.md, padding: spacing.md },
+  memText: { flex: 1, color: colors.onSurface, fontFamily: font.medium, fontSize: type.sm, lineHeight: 18 },
   intakeCard: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, padding: spacing.lg, borderColor: colors.border, borderWidth: 1, gap: spacing.sm },
   intakeQ: { color: colors.onSurface, fontFamily: font.bold, fontSize: type.lg },
   intakeInput: { backgroundColor: colors.surface, borderColor: colors.borderStrong, borderWidth: 1.5, borderRadius: radius.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.md, color: colors.onSurface, fontFamily: font.medium, fontSize: type.base },

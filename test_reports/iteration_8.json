@@ -1,0 +1,52 @@
+{
+  "summary": "HOME MEMORY (agentic recall) tested end-to-end on backend + mobile web. Backend pytest /app/backend/tests/test_home_memory.py: 3/4 passed. PASSED — (1) brand-new account's first bathroom intake returns remembers=false; (2) GET /api/auth/me NEVER exposes home_memory before or after guide build (public_user filter holds); (4) regression — intake/guide/ask/adapt all return 200 after the memory feature, /auth/me still excludes home_memory. PASSED behavior also confirmed for memory accumulation + same-room recall in the kitchen-isolation test (Project 2 'Fix the bathroom sink plumbing' intake returned remembers=true and the generated guide referenced 'drain' / 'reroute' / 'previous toilet' — qualitative recall works). FAILED — cross-room isolation: a brand-new kitchen project ('Replace a kitchen faucet') AFTER bathroom memories exist STILL returns remembers=true. Root cause in /app/backend/server.py:215-224 relevant_memories(): when a room IS detected but no memories match that room, it falls back to `mem[-4:]` (last 4 snippets regardless of room), so bathroom memories leak into kitchen intake. Spec explicitly says kitchen project should NOT surface bathroom memories. Frontend (390x844): registered TEST_uimem_<ts>@diyhomie.com, drove Project 1 bathroom toilet end-to-end (intake + guide + adapt with 'reroute the drain line to the left'), then navigated to /project/<p2>?new=1 for 'Fix the bathroom sink plumbing'. testID 'intake-remembers' banner rendered correctly with text 'Homie remembers your past work in this space and will factor it in.' alongside the 4 intake question cards. No deprecated-expo-package issues introduced by this feature (carryovers from prior iterations remain).",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "POST /api/projects/{id}/intake (room isolation)",
+        "issue": "Cross-room isolation broken: a kitchen project's first intake returns remembers=true when bathroom memories exist. /app/backend/server.py relevant_memories() lines 221-223 falls back to `mem[-4:]` when no room-matching items are found, even though a room was successfully detected. Should only fall back when room == '' (room unknown). Suggested fix:\n\n    items = [m for m in mem if room and m.get('room') == room]\n    if not items and not room:\n        items = mem[-4:]\n    return items[-8:]\n\nThis preserves the original 'no room detected → use generic recent memories' behavior while preventing bleed across rooms.",
+        "priority": "HIGH"
+      }
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Workspace intake banner",
+        "issue": "Banner correctly renders via testID='intake-remembers' when backend returns remembers=true (verified visually). However, because of the backend cross-room bug above, the banner will INCORRECTLY appear on a fresh kitchen project once any bathroom memory exists. UI is correct; backend is the source of the false positive.",
+        "affected_testIDs": ["intake-remembers"]
+      }
+    ],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_home_memory.py",
+    "/app/test_reports/pytest/home_memory_results.xml"
+  ],
+  "action_items": [
+    "CRITICAL: Fix /app/backend/server.py relevant_memories() (around line 221) — only fall back to mem[-4:] when no room could be detected from the title/context, not when room is detected but unmatched. This is the only spec violation found.",
+    "After the fix, re-run pytest /app/backend/tests/test_home_memory.py::test_memory_accumulates_recalls_and_isolates_by_room — it will pass (currently the only failure).",
+    "Carryover from iteration_7: ASK HOMIE sheet ask-adapt/ask-send sit at viewport edge on 375x667; deprecated shadow*/pointerEvents style warnings."
+  ],
+  "critical_code_review_comments": [
+    "push_memory() correctly caps memory at 40 snippets per user and truncates each snippet to 240 chars — bloat is well controlled.",
+    "memory_note() is correctly injected into brain_intake / brain_generate_guide / brain_adapt system prompts. Verified qualitatively: Project 2's bathroom-sink guide referenced 'drain', 'reroute' and prior toilet work.",
+    "public_user() does NOT include home_memory, and the home_memory key was confirmed absent from GET /api/auth/me both before and after a guide build/adapt cycle.",
+    "detect_room() is keyword-based and order-dependent on the dict iteration; titles like 'Fix the bathroom sink plumbing' resolve to 'bathroom' before 'kitchen' would match. Works for the spec, but a title with both keywords could be ambiguous.",
+    "intake endpoint correctly stamps data['remembers'] = bool(relevant_memories(user, project['title'])); but relevant_memories' fallback breaks the truthiness contract (see critical bug)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_home_memory.py (new — 4 tests)",
+    "/app/test_reports/pytest/home_memory_results.xml (new junit)",
+    "/app/test_reports/iteration_8.json (new)"
+  ],
+  "success_rate": {"backend": "75% (3/4 — cross-room isolation fails)", "frontend": "100% (intake-remembers banner rendered correctly given backend remembers=true)"},
+  "seed_data_creation": "Created TEST_mem_first_<ts>, TEST_mem_public_<ts>, TEST_mem_flow_<ts>, TEST_mem_regress_<ts>, TEST_uimem_<ts> users — all prefixed for cleanup, ~2 projects each.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run: EXPO_PUBLIC_BACKEND_URL=$(grep EXPO_PUBLIC_BACKEND_URL /app/frontend/.env | cut -d= -f2) pytest /app/backend/tests/test_home_memory.py -v -s. Each full run is ~2 min (guide build ~30s × 2 + adapt ~20s + ask ~5s). The test imports use EXPO_BACKEND_URL OR EXPO_PUBLIC_BACKEND_URL. detect_room() room keywords: bathroom={bathroom,toilet,shower,bathtub,tub,vanity}, kitchen={kitchen,dishwasher,disposal,range,oven,countertop,backsplash}, basement, garage, bedroom, laundry, living, outdoor. The cross-room failure is reproducible deterministically — does NOT depend on LLM output. Frontend testID intake-remembers is present at /app/frontend/app/project/[id].tsx:205 and renders only when state.remembers is truthy (set by startIntake from res.remembers).",
+  "rca_of_issue": "BUG: Cross-room memory bleed.\nReproduction: 1) register a fresh user. 2) Build a bathroom guide (push_memory stores room='bathroom'). 3) Optionally adapt with another bathroom problem. 4) Create a fresh kitchen project: POST /api/projects {title:'Replace a kitchen faucet'}. 5) POST /api/projects/{id}/intake. Expected: remembers=false (no kitchen memory yet). Actual: remembers=true.\nRoot cause: /app/backend/server.py relevant_memories() falls back to the last 4 memories whenever the room-filtered list is empty, regardless of whether the room was successfully detected. detect_room('Replace a kitchen faucet') correctly resolves to 'kitchen', the room-filter yields [], then mem[-4:] returns bathroom snippets, and bool([...]) is True.\nMitigation (single-line change): only fall back when room is the empty string. See action_items for exact patch."
+}

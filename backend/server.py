@@ -191,6 +191,58 @@ def lang_note(profile: dict) -> str:
     return ""
 
 
+# ---------------------------------------------------------------- home memory (agentic recall)
+ROOM_KEYWORDS = {
+    "bathroom": ["bathroom", "toilet", "shower", "bathtub", "tub", "vanity"],
+    "kitchen": ["kitchen", "dishwasher", "disposal", "range", "oven", "countertop", "backsplash"],
+    "basement": ["basement", "sump", "crawl space", "crawlspace"],
+    "garage": ["garage", "opener"],
+    "bedroom": ["bedroom", "closet"],
+    "laundry": ["laundry", "washer", "dryer"],
+    "living": ["living room", "den", "family room"],
+    "outdoor": ["deck", "fence", "patio", "yard", "gutter", "roof", "siding", "driveway"],
+}
+
+
+def detect_room(text: str) -> str:
+    t = (text or "").lower()
+    for room, kws in ROOM_KEYWORDS.items():
+        if any(k in t for k in kws):
+            return room
+    return ""
+
+
+def relevant_memories(profile: dict, title: str, context: dict = None) -> List[dict]:
+    mem = profile.get("home_memory") or []
+    if not mem:
+        return []
+    blob = (title or "") + " " + " ".join(str(v) for v in (context or {}).values())
+    room = detect_room(blob)
+    items = [m for m in mem if room and m.get("room") == room]
+    if not items:
+        items = mem[-4:]
+    return items[-8:]
+
+
+def memory_note(profile: dict, title: str, context: dict = None) -> str:
+    items = relevant_memories(profile, title, context)
+    lines = "\n".join(f"- {m.get('text')}" for m in items if m.get("text"))
+    if not lines:
+        return ""
+    return (
+        "\n\nWHAT YOU (HOMIE) ALREADY KNOW ABOUT THIS HOME from the homeowner's past projects — "
+        "use it silently to stay consistent (e.g. plumbing/wiring you already rerouted, fixtures "
+        "already installed) and only mention it when it actually affects this job:\n" + lines
+    )
+
+
+async def push_memory(user_id: str, current: list, room: str, text: str):
+    items = list(current or [])
+    items.append({"id": new_id(), "room": room, "text": (text or "")[:240], "created_at": now_iso()})
+    items = items[-40:]  # cap so per-user memory never bloats
+    await db.users.update_one({"id": user_id}, {"$set": {"home_memory": items}})
+
+
 async def brain_generate(profile: dict, project_title: str, history: List[dict], user_msg: str) -> dict:
     system = MASTER_SYSTEM.format(
         experience=profile.get("experience") or "Weekend Warrior",
@@ -285,7 +337,7 @@ async def brain_generate_guide(profile: dict, title: str, weather: str = "", con
         budget=profile.get("budget") or "Standard",
         tools=", ".join(profile.get("tools") or []) or "None / basic hand tools",
         location=profile.get("location") or "United States",
-    ) + lang_note(profile)
+    ) + lang_note(profile) + memory_note(profile, title, context)
     user_text = f"Create the full structured DIY guide for this project: '{title}'."
     if context:
         details = "; ".join(f"{k}: {v}" for k, v in context.items() if v)
@@ -344,7 +396,7 @@ async def brain_intake(profile: dict, title: str) -> dict:
         "if standing next to them. Respond ONLY with valid JSON (no markdown) of the form: "
         '{"questions": [{"key": "model", "question": "...", "placeholder": "...", '
         '"examples": ["...", "..."]}]} with 2 to 4 questions.'
-    ) + lang_note(profile)
+    ) + lang_note(profile) + memory_note(profile, title)
     user_text = f"The homeowner wants to: '{title}'. Ask your clarifying questions now as JSON."
     data = await _llm_json(system, user_text, max_tokens=600)
     qs = data.get("questions") if isinstance(data, dict) else None
@@ -364,7 +416,7 @@ async def brain_adapt(profile: dict, title: str, steps: List[dict], problem: str
         '"inserts": [{"after_index": <step number to insert after, 0 for start>, "title": "...", '
         '"instruction": "...", "visual_description": "..."}]}\n'
         "Use empty arrays when nothing needs changing. Never rewrite the whole list — be surgical."
-    ) + lang_note(profile)
+    ) + lang_note(profile) + memory_note(profile, title)
     user_text = (
         f"Project: '{title}'.\nCurrent steps:\n{step_lines}\n\n"
         f"The homeowner says: \"{problem}\"\n\nReturn the minimal JSON edits now."
@@ -654,6 +706,7 @@ async def project_intake(project_id: str, user: dict = Depends(get_current_user)
     except Exception as e:
         logger.warning(f"intake error: {e}")
         data = {"questions": []}
+    data["remembers"] = bool(relevant_memories(user, project["title"]))
     return data
 
 
@@ -714,6 +767,10 @@ async def build_guide(project_id: str, req: GuideReq = GuideReq(), user: dict = 
         {"id": project_id},
         {"$set": {"guide": guide, "steps": steps, "missing_supplies": missing_supplies, "context": context, "last_viewed_at": now_iso()}},
     )
+    room = detect_room(project["title"] + " " + " ".join(str(v) for v in (context or {}).values()))
+    ctx_txt = "; ".join(f"{k}: {v}" for k, v in (context or {}).items() if v)
+    await push_memory(user["id"], user.get("home_memory"), room,
+                      f"{project['title']}" + (f" — {ctx_txt}" if ctx_txt else ""))
     new_credits = user.get("credits", 0) - cost
     await db.users.update_one({"id": user["id"]}, {"$set": {"credits": new_credits}})
     fresh = await db.projects.find_one({"id": project_id}, {"_id": 0})
@@ -833,6 +890,8 @@ async def adapt_guide(project_id: str, req: AdaptReq, user: dict = Depends(get_c
         {"id": project_id},
         {"$set": {"steps": steps, "last_viewed_at": now_iso()}},
     )
+    await push_memory(user["id"], user.get("home_memory"), detect_room(project["title"]),
+                      f"While '{project['title']}': {req.problem[:160]}")
     new_credits = user.get("credits", 0) - cost
     await db.users.update_one({"id": user["id"]}, {"$set": {"credits": new_credits}})
     fresh = await db.projects.find_one({"id": project_id}, {"_id": 0})

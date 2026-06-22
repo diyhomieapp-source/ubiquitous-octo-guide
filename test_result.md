@@ -185,3 +185,10 @@ NOTE: generation is a single backend call, so stages are time-progressed (approx
 - Home header now has notification bell (-> /notifications) + hamburger (opens AppMenu). testIDs: home-notifications, home-menu, menu-language, lang-<code>, lang-auto.
 - Backend: ProfileReq+public_user gained `language`. lang_note(profile) appended to brain_generate / brain_generate_guide / brain_answer system prompts so AI guides+answers are written in the user's chosen language. Frontend setLanguage syncs label to PUT /api/profile.
 - Smoke verified: /settings/language renders all 20 langs. Pending full e2e test.
+
+## Iteration 10 — Home Memory (agentic recall) (main agent)
+- Per-user `home_memory` array on the user doc (capped at 40 compact, room-tagged snippets; never returned to client to avoid bloat).
+- detect_room() tags projects (bathroom/kitchen/basement/garage/bedroom/laundry/living/outdoor). push_memory() appends a snippet on guide build (title + context) and on adapt (the problem reported).
+- relevant_memories()/memory_note() inject only room-matching (or 4 most-recent) snippets into brain_intake / brain_generate_guide / brain_adapt system prompts so Homie stays consistent with past work (e.g. rerouted plumbing).
+- POST /api/projects/{id}/intake now also returns `remembers` (bool). Intake screen shows a "🧠 Homie remembers your past work in this space" banner (testID intake-remembers) when true.
+- Verify: do 2 projects in same room (e.g. "Replace toilet" then "Fix sink plumbing" → both bathroom). 2nd project's intake returns remembers=true and the guide should reference prior work.
