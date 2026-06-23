@@ -1,0 +1,38 @@
+{
+  "summary": "Backend-only testing of new built-in email autoresponder engine (email_engine.py). Created /app/backend/tests/test_email_engine.py with 15 tests covering admin auth gating (401/403), overview shape & draft-mode (configured=false, no SES keys), templates CRUD + transactional-delete guard, automations CRUD with enrolled/active_runs counters, segments listing (incl. 'All Users'), campaign create→send→queued→delete with suppression skip, suppression CRUD, welcome-on-signup enqueue via /api/auth/register, public open-pixel tracking, unsubscribe link, and SES SNS bounce webhook. Found 1 real bug: trigger_event was failing silently with 'Database objects do not implement truth value testing' because email_engine.py used `if not _db` against a Motor database (which raises NotImplementedError on bool()). This silently broke the welcome-on-signup trigger and the SES delivery webhook handling for opens. Fixed by replacing `not _db` with `_db is None`. After fix, 15/15 tests pass.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_email_engine.py",
+    "/app/test_reports/pytest/email_engine_results.xml"
+  ],
+  "action_items": [
+    "Verify the Motor truth-test fix in email_engine.py (line 292) — already applied by testing agent, but please review the same pattern elsewhere in the codebase to ensure no other `if not _db` / `if db` / `if collection` checks exist against Motor objects.",
+    "Optional: add a startup smoke test that calls trigger_event('welcome', {dummy user}) so a regression like this is caught immediately in dev."
+  ],
+  "critical_code_review_comments": [
+    "email_engine.py used `if not _db` on a Motor AsyncIOMotorDatabase, which raises NotImplementedError and was swallowed by the broad try/except in trigger_event — silently disabling ALL transactional triggers (welcome, purchase, renewal, ticket_reply). Fixed to `if _db is None`.",
+    "trigger_event catches all exceptions and only logs a warning — this hid the bug from normal smoke testing. Consider re-raising in dev or surfacing in /api/admin/email/overview as a 'last_trigger_error' field.",
+    "scheduler_loop's `_loop_started` guard is module-level, so on uvicorn --reload the second worker will see it as still True and skip starting; not an issue in production but worth noting.",
+    "`/api/admin/email/queue` is hard-capped at 100 rows with no pagination — fine for now but will get noisy in production.",
+    "Bcrypt warning in backend logs ('module bcrypt has no attribute __about__') is harmless but noisy; pin passlib/bcrypt versions when convenient (unrelated to email engine)."
+  ],
+  "updated_files": [
+    "/app/backend/email_engine.py (line 292: `if not _db` → `if _db is None`)",
+    "/app/backend/tests/test_email_engine.py (new comprehensive test suite, 15 tests)"
+  ],
+  "success_rate": {"backend": "100% (15/15)", "frontend": "not tested (backend-only request)"},
+  "seed_data_creation": "Tests register a few throwaway users (TEST_camp_*, TEST_wel_*, TEST_open_*) via /api/auth/register; they remain in db.users (no destructive cleanup of users by design, but all suppression/campaign/template/automation rows created by the suite are cleaned up).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run `pytest /app/backend/tests/test_email_engine.py -v` to regress the email engine. Tests use EXPO_PUBLIC_BACKEND_URL and admin creds from /app/memory/test_credentials.md. Welcome-on-signup is verified by registering a fresh user and checking /api/admin/email/queue for a `kind=transactional` row. Once AWS SES keys land, expect overview.configured=true and queued rows to flip to status=sent within ~30s (scheduler tick).",
+  "rca_of_issue": "RCA for the welcome-trigger silent failure: email_engine.trigger_event() began with `if not _db or not user or not user.get('email'): return`. Motor's AsyncIOMotorDatabase explicitly raises NotImplementedError on __bool__ (to force `is None` comparisons). That exception bubbled into the outer try/except which only logged a warning, so register returned 200 normally while no welcome email was ever enqueued. Repro: POST /api/auth/register with a new email, then GET /api/admin/email/queue — pre-fix no row appears and backend.err.log shows 'trigger_event(welcome) failed: Database objects do not implement truth value testing'. Mitigation: changed guard to `if _db is None or not user or not user.get('email')`. Restart backend, re-run pytest — 15/15 pass and the queue row now appears with kind=transactional."
+}

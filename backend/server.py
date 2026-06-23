@@ -24,6 +24,8 @@ from fastapi.responses import HTMLResponse, PlainTextResponse
 from urllib.parse import quote
 from passlib.context import CryptContext
 
+import email_engine
+
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
@@ -559,6 +561,7 @@ async def register(req: RegisterReq):
     }
     await db.users.insert_one(user)
     await link_referral(req.ref, user["id"])
+    await email_engine.trigger_event("welcome", user)
     token = create_token(user["id"])
     return {"access_token": token, "token_type": "bearer", "user": public_user(user)}
 
@@ -1256,7 +1259,7 @@ async def create_checkout(req: CheckoutReq, user: dict = Depends(get_current_use
     return {"url": session.url, "session_id": session.id}
 
 
-async def _activate_subscription(user_id: str, tier: str, subscription_id: Optional[str]):
+async def _activate_subscription(user_id: str, tier: str, subscription_id: Optional[str], email_event: Optional[str] = None):
     plan = PLAN_TIERS.get(tier, {})
     await db.users.update_one(
         {"id": user_id},
@@ -1276,6 +1279,11 @@ async def _activate_subscription(user_id: str, tier: str, subscription_id: Optio
         await flush_referrer_pending(user_id)
     except Exception as e:
         logger.error(f"referral payout error: {e}")
+    # Transactional email (purchase / renewal).
+    if email_event:
+        fresh = await db.users.find_one({"id": user_id}, {"_id": 0})
+        if fresh:
+            await email_engine.trigger_event(email_event, fresh)
 
 
 @api_router.get("/billing/status/{session_id}")
@@ -1294,7 +1302,7 @@ async def billing_status(session_id: str, user: dict = Depends(get_current_user)
 
     tx = await db.payment_transactions.find_one({"session_id": session_id})
     if tx and sess_status == "complete" and not tx.get("fulfilled"):
-        await _activate_subscription(tx["user_id"], tx["tier"], sub_id)
+        await _activate_subscription(tx["user_id"], tx["tier"], sub_id, email_event="purchase")
         await db.payment_transactions.update_one(
             {"session_id": session_id},
             {"$set": {"fulfilled": True, "payment_status": payment_status or "paid"}},
@@ -1334,7 +1342,7 @@ async def stripe_webhook(request: Request):
         sub_id = obj.get("subscription")
         u = await db.users.find_one({"stripe_subscription_id": sub_id})
         if u:
-            await _activate_subscription(u["id"], u.get("subscription_tier", "pro"), sub_id)
+            await _activate_subscription(u["id"], u.get("subscription_tier", "pro"), sub_id, email_event="renewal")
     elif etype in ("customer.subscription.deleted", "customer.subscription.paused"):
         sub_id = obj.get("id")
         await db.users.update_one(
@@ -2085,6 +2093,34 @@ async def admin_update_ticket(tid: str, req: TicketUpdate, admin: dict = Depends
     return {"ok": True}
 
 
+class TicketReplyReq(BaseModel):
+    message: str
+
+
+@api_router.post("/admin/tickets/{tid}/reply")
+async def admin_reply_ticket(tid: str, req: TicketReplyReq, admin: dict = Depends(require_admin)):
+    """Reply to a support ticket; emails the user (ticket_reply transactional)."""
+    ticket = await db.support_tickets.find_one({"id": tid}, {"_id": 0})
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+    reply = {
+        "id": new_id(), "admin_id": admin["id"], "message": req.message[:4000], "created_at": now_iso(),
+    }
+    await db.support_tickets.update_one(
+        {"id": tid},
+        {"$push": {"replies": reply}, "$set": {"status": "replied", "last_reply_at": now_iso()}},
+    )
+    user = await db.users.find_one({"id": ticket.get("user_id")}, {"_id": 0}) if ticket.get("user_id") else None
+    if not user and ticket.get("email"):
+        user = {"email": ticket["email"], "name": ticket["email"].split("@")[0]}
+    if user:
+        await email_engine.trigger_event("ticket_reply", user, {
+            "ticket_subject": ticket.get("subject", "your request"),
+            "reply_message": req.message,
+        })
+    return {"ok": True, "reply": reply}
+
+
 @api_router.get("/admin/blog")
 async def admin_blog(published: Optional[bool] = None, admin: dict = Depends(require_admin)):
     q = {} if published is None else {"published": published}
@@ -2356,6 +2392,23 @@ CRM_SEGMENT_ORDER = [
     "Plumbing Users", "HVAC Users", "Electrical Users", "Appliance Users",
     "Bathroom Users", "Deck & Outdoor Users", "Painting Users",
 ]
+
+
+async def email_segment_resolver(segment_name):
+    """Bridge the CRM smart-segments into the email engine.
+    segment_name=None → {segments:[{name,count}]}; else → [{user_id,email,name,plan}]."""
+    users = await db.users.find({}, {"_id": 0}).to_list(5000)
+    contacts = await _crm_enrich(users)
+    if segment_name is None:
+        counts: dict = {}
+        for c in contacts:
+            for s in c["segments"]:
+                counts[s] = counts.get(s, 0) + 1
+        seglist = [{"name": "All Users", "count": len(contacts)}]
+        seglist += [{"name": s, "count": counts.get(s, 0)} for s in CRM_SEGMENT_ORDER]
+        return {"segments": seglist}
+    sel = contacts if segment_name == "All Users" else [c for c in contacts if segment_name in c["segments"]]
+    return [{"user_id": c.get("id"), "email": c.get("email"), "name": c.get("name"), "plan": c.get("plan")} for c in sel]
 
 
 @api_router.get("/admin/crm/stats")
@@ -2958,6 +3011,11 @@ async def code_check(req: CodeCheckReq, user: dict = Depends(get_current_user)):
 
 app.include_router(api_router)
 
+# Built-in autoresponder / email engine (separate module to keep server.py lean).
+email_engine.configure(db, logger, email_segment_resolver)
+app.include_router(email_engine.build_admin_router(require_admin))
+app.include_router(email_engine.build_public_router())
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
@@ -3007,6 +3065,12 @@ async def _ensure_indexes():
 async def _startup_seed_community():
     await seed_community()
     await seed_vendors()
+
+
+@app.on_event("startup")
+async def _startup_email_engine():
+    await email_engine.seed_templates()
+    asyncio.create_task(email_engine.scheduler_loop())
 
 
 @app.on_event("startup")
