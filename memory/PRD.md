@@ -137,4 +137,12 @@ Goal: solve the real pain points of existing DIY platforms with solutions people
 - Landing/onboarding sub-headline copy updated to the "trusted contractor on call 24/7" message.
 - Tested iter_16: 10/10 backend pytest + frontend E2E (all PASS, Stripe LIVE constraint respected — no checkout triggered).
 
+## Shipped (continued 10) — Built-in Autoresponder / Email Marketing Engine (Amazon SES)
+- New self-hosted email engine (`/app/backend/email_engine.py`, separate module to keep server.py lean): templates, drip automations, broadcasts to CRM segments, send-queue, background scheduler loop (30s), open-tracking pixel, unsubscribe links, SES SNS bounce/complaint webhook, suppression list. Engine is $0 — only delivery uses Amazon SES.
+- Transactional triggers wired: welcome on signup, purchase + renewal (Stripe), support ticket reply (new POST /api/admin/tickets/{id}/reply). 4 default templates auto-seeded (welcome/purchase/renewal/ticket_reply, deletion-protected, merge vars {{name}}/{{plan}}/{{app_url}}).
+- Admin "Email Marketing" module (`src/components/admin/EmailModule.tsx`): Overview stats, Templates CRUD, Automations builder (trigger + delayed steps), Broadcasts (segment picker + send), Suppression list. Reuses CRM smart-segments via email_segment_resolver.
+- DRAFT MODE until AWS keys added: AWS_REGION/AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY/SENDER_EMAIL/SES_CONFIGURATION_SET placeholders added to backend/.env. overview.configured=false; emails queue safely, send the moment keys + SES production access are in.
+- Tested iter_17: 15/15 backend pytest PASS (auth gating, CRUD, segments, suppression skip, welcome-on-signup enqueue, open pixel, unsubscribe, SES bounce webhook). FIXED real Motor bug: `if not _db` → `if _db is None` (was silently disabling all transactional triggers).
+- ⚠️ ACTION: user to (1) buy domain (Route 53 recommended), (2) verify domain DKIM in SES + request production access, (3) paste AWS IAM keys + SENDER_EMAIL into backend/.env to go live.
+
 ## ⚠️ BLOCKER/ACTION: backend/.env PERPLEXITY_API_KEY is EMPTY. Perplexity is NOT active — guide generation has been silently using the Emergent fallback (gpt-4o-mini, no web search), and Code Check returns 503. User must paste a real Perplexity API key into backend/.env PERPLEXITY_API_KEY to activate both accurate guides and local code lookup.
