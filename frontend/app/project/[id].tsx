@@ -14,6 +14,8 @@ import { api } from "@/src/api";
 import { useAuth } from "@/src/auth";
 import { storage } from "@/src/utils/storage";
 import { AvatarThinking } from "@/src/components/AvatarThinking";
+import { CalculatorSheet } from "@/src/components/CalculatorSheet";
+import { calculatorForProject } from "@/src/calculators/registry";
 
 type Step = { id: string; index: number; title: string; instruction: string; visual_description: string; image_base64: string | null; done: boolean; added?: boolean };
 type IntakeQ = { key: string; question: string; placeholder?: string; examples?: string[] };
@@ -52,6 +54,7 @@ export default function Workspace() {
   const [askInput, setAskInput] = useState("");
   const [asking, setAsking] = useState(false);
   const [mode, setMode] = useState<"text" | "voice">("text");
+  const [calcOpen, setCalcOpen] = useState(false);
   const askRef = useRef<ScrollView>(null);
   const [intake, setIntake] = useState<IntakeQ[] | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -282,7 +285,18 @@ export default function Workspace() {
             ))}
           </Section>
 
-          {(g?.safety_warnings?.length || 0) > 0 && (
+          {calculatorForProject(project?.title) && (
+            <Pressable testID="project-calc-banner" style={styles.calcBanner} onPress={() => setCalcOpen(true)}>
+              <MaterialCommunityIcons name="calculator-variant-outline" size={22} color={colors.brandPrimary} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.calcBannerTitle}>Estimate materials for this project</Text>
+                <Text style={styles.calcBannerSub}>Get exact quantities before you shop</Text>
+              </View>
+              <MaterialCommunityIcons name="arrow-right" size={20} color={colors.brandPrimary} />
+            </Pressable>
+          )}
+          <CalculatorSheet calcId={calculatorForProject(project?.title)} visible={calcOpen} onClose={() => setCalcOpen(false)} />
+
             <Section title="SAFETY FIRST" icon="shield-alert-outline">
               {g!.safety_warnings.map((s, i) => (
                 <View key={i} style={styles.listRow}><MaterialCommunityIcons name="alert" size={16} color={colors.warning} /><Text style={styles.listText}>{s}</Text></View>
@@ -408,6 +422,9 @@ const styles = StyleSheet.create({
   listRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   listText: { flex: 1, color: colors.onSurfaceSecondary, fontFamily: font.regular, fontSize: type.base, lineHeight: 20 },
   needTag: { color: colors.brandPrimary, fontFamily: font.bold, fontSize: 10, letterSpacing: 1 },
+  calcBanner: { flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: colors.surfaceSecondary, borderColor: colors.brandPrimary, borderWidth: 1.5, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.lg },
+  calcBannerTitle: { color: colors.onSurface, fontFamily: font.bold, fontSize: type.base },
+  calcBannerSub: { color: colors.onSurfaceTertiary, fontFamily: font.regular, fontSize: type.sm, marginTop: 1 },
   bullet: { color: colors.brandPrimary, fontFamily: font.bold, fontSize: type.lg, width: 14 },
   stepsHeading: { color: colors.onSurfaceTertiary, fontFamily: font.bold, fontSize: type.sm, letterSpacing: 2, marginTop: spacing.sm },
   stepCard: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, padding: spacing.lg, borderColor: colors.border, borderWidth: 1, gap: spacing.sm },

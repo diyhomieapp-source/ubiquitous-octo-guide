@@ -124,6 +124,15 @@ export default function Home() {
           <MaterialCommunityIcons name="arrow-right" size={22} color={colors.brandPrimary} />
         </Pressable>
 
+        <Pressable testID="home-calculators" style={styles.calcBanner} onPress={() => router.push("/calculators")}>
+          <View style={styles.calcIcon}><MaterialCommunityIcons name="calculator-variant-outline" size={22} color={colors.brandPrimary} /></View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.calcTitle}>DIY CALCULATORS</Text>
+            <Text style={styles.calcSub}>Know exactly how much material you need</Text>
+          </View>
+          <MaterialCommunityIcons name="chevron-right" size={22} color={colors.onSurfaceTertiary} />
+        </Pressable>
+
         <Text style={styles.sectionLabel}>{t("home.popularProjects")}</Text>
         <View style={styles.suggestWrap}>
           {suggestions.map((s) => (
@@ -191,4 +200,8 @@ const styles = StyleSheet.create({
   paintIcon: { width: 44, height: 44, borderRadius: radius.sm, backgroundColor: colors.brandPrimary, alignItems: "center", justifyContent: "center" },
   paintTitle: { color: colors.onSurface, fontFamily: font.bold, fontSize: type.base, letterSpacing: 0.5 },
   paintSub: { color: colors.onSurfaceTertiary, fontFamily: font.regular, fontSize: type.sm, marginTop: 1 },
+  calcBanner: { flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: colors.surfaceSecondary, borderColor: colors.border, borderWidth: 1, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.xl },
+  calcIcon: { width: 44, height: 44, borderRadius: radius.sm, backgroundColor: colors.brandTertiary, alignItems: "center", justifyContent: "center" },
+  calcTitle: { color: colors.onSurface, fontFamily: font.bold, fontSize: type.base, letterSpacing: 0.5 },
+  calcSub: { color: colors.onSurfaceTertiary, fontFamily: font.regular, fontSize: type.sm, marginTop: 1 },
 });
