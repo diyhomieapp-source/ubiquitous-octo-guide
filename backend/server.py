@@ -13,6 +13,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
+from pymongo import ReturnDocument
 from pydantic import BaseModel, Field, EmailStr
 import jwt
 import httpx
@@ -2589,6 +2590,173 @@ async def visualize_finish(req: VisualizeReq, user: dict = Depends(get_current_u
 async def visualize_history(limit: int = 20, user: dict = Depends(get_current_user)):
     items = await db.visualizations.find({"user_id": user["id"]}, {"_id": 0}).sort("created_at", -1).to_list(limit)
     return items
+
+
+# ---------------------------------------------------------------- Home Maintenance Scheduler
+FREQ_PER_YEAR = {"monthly": 12, "quarterly": 4, "biannual": 2, "seasonal": 2, "annual": 1, "once": 0}
+FREQ_DAYS = {"monthly": 30, "quarterly": 91, "biannual": 182, "seasonal": 182, "annual": 365, "once": 0}
+
+MAINTENANCE_TEMPLATE = [
+    {"title": "Replace HVAC air filter", "category": "HVAC", "frequency": "monthly", "est_cost_cents": 1500, "offset_days": 10},
+    {"title": "Clean garbage disposal", "category": "Appliances", "frequency": "monthly", "est_cost_cents": 0, "offset_days": 18},
+    {"title": "Test smoke & CO detectors", "category": "Safety", "frequency": "quarterly", "est_cost_cents": 0, "offset_days": 7},
+    {"title": "Test GFCI outlets", "category": "Electrical", "frequency": "quarterly", "est_cost_cents": 0, "offset_days": 25},
+    {"title": "Clean range hood filter", "category": "Appliances", "frequency": "quarterly", "est_cost_cents": 0, "offset_days": 35},
+    {"title": "Fertilize & treat lawn", "category": "Lawn & Garden", "frequency": "seasonal", "est_cost_cents": 4000, "offset_days": 21},
+    {"title": "HVAC tune-up (heating/cooling)", "category": "HVAC", "frequency": "biannual", "est_cost_cents": 12000, "offset_days": 45},
+    {"title": "Clean gutters & downspouts", "category": "Exterior", "frequency": "biannual", "est_cost_cents": 0, "offset_days": 60},
+    {"title": "Clean refrigerator coils", "category": "Appliances", "frequency": "biannual", "est_cost_cents": 0, "offset_days": 70},
+    {"title": "Replace water filters", "category": "Plumbing", "frequency": "biannual", "est_cost_cents": 4000, "offset_days": 30},
+    {"title": "Inspect & re-caulk bathrooms", "category": "Plumbing", "frequency": "biannual", "est_cost_cents": 1000, "offset_days": 80},
+    {"title": "Flush water heater", "category": "Plumbing", "frequency": "annual", "est_cost_cents": 0, "offset_days": 90},
+    {"title": "Inspect roof & flashing", "category": "Exterior", "frequency": "annual", "est_cost_cents": 0, "offset_days": 110},
+    {"title": "Clean dryer vent", "category": "Safety", "frequency": "annual", "est_cost_cents": 0, "offset_days": 55},
+    {"title": "Test sump pump", "category": "Plumbing", "frequency": "annual", "est_cost_cents": 0, "offset_days": 100},
+    {"title": "Reseal windows & exterior doors", "category": "Exterior", "frequency": "annual", "est_cost_cents": 2500, "offset_days": 120},
+    {"title": "Service garage door", "category": "Other", "frequency": "annual", "est_cost_cents": 0, "offset_days": 130},
+    {"title": "Check & recharge fire extinguisher", "category": "Safety", "frequency": "annual", "est_cost_cents": 0, "offset_days": 140},
+    {"title": "Deep clean & inspect deck", "category": "Exterior", "frequency": "annual", "est_cost_cents": 3000, "offset_days": 150},
+    {"title": "Winterize outdoor faucets", "category": "Seasonal", "frequency": "annual", "est_cost_cents": 0, "offset_days": 75},
+]
+
+
+class MaintTaskReq(BaseModel):
+    title: str
+    category: Optional[str] = "Other"
+    frequency: str = "annual"
+    est_cost_cents: Optional[int] = 0
+    next_due: Optional[str] = None
+    notes: Optional[str] = None
+
+
+def _today():
+    return datetime.now(timezone.utc).date()
+
+
+def _task_status(next_due: Optional[str]) -> str:
+    if not next_due:
+        return "upcoming"
+    try:
+        d = datetime.fromisoformat(next_due).date()
+    except Exception:
+        return "upcoming"
+    delta = (d - _today()).days
+    if delta < 0:
+        return "overdue"
+    if delta <= 30:
+        return "due_soon"
+    return "upcoming"
+
+
+def _maint_public(t: dict) -> dict:
+    out = {k: t.get(k) for k in ("id", "title", "category", "frequency", "est_cost_cents", "next_due", "last_done", "notes", "source", "created_at")}
+    out["status"] = _task_status(t.get("next_due"))
+    return out
+
+
+@api_router.post("/maintenance/generate")
+async def maintenance_generate(user: dict = Depends(get_current_user)):
+    existing = {t["title"] async for t in db.maintenance_tasks.find({"user_id": user["id"]}, {"_id": 0, "title": 1})}
+    today = _today()
+    added = 0
+    for tpl in MAINTENANCE_TEMPLATE:
+        if tpl["title"] in existing:
+            continue
+        due = (today + timedelta(days=tpl["offset_days"])).isoformat()
+        await db.maintenance_tasks.insert_one({
+            "id": new_id(), "user_id": user["id"], "title": tpl["title"], "category": tpl["category"],
+            "frequency": tpl["frequency"], "est_cost_cents": tpl["est_cost_cents"], "next_due": due,
+            "last_done": None, "notes": "", "source": "template", "created_at": now_iso(),
+        })
+        added += 1
+    return {"added": added}
+
+
+@api_router.get("/maintenance/tasks")
+async def maintenance_tasks(user: dict = Depends(get_current_user)):
+    tasks = await db.maintenance_tasks.find({"user_id": user["id"]}, {"_id": 0}).to_list(500)
+    pub = [_maint_public(t) for t in tasks]
+    order = {"overdue": 0, "due_soon": 1, "upcoming": 2}
+    pub.sort(key=lambda t: (order.get(t["status"], 3), t.get("next_due") or "9999"))
+    return pub
+
+
+@api_router.get("/maintenance/summary")
+async def maintenance_summary(user: dict = Depends(get_current_user)):
+    tasks = await db.maintenance_tasks.find({"user_id": user["id"]}, {"_id": 0}).to_list(500)
+    overdue = due_month = 0
+    annual_budget = 0
+    for t in tasks:
+        st = _task_status(t.get("next_due"))
+        if st == "overdue":
+            overdue += 1
+        elif st == "due_soon":
+            due_month += 1
+        annual_budget += (t.get("est_cost_cents") or 0) * FREQ_PER_YEAR.get(t.get("frequency", "annual"), 1)
+    year = _today().year
+    spent = 0
+    async for c in db.maintenance_log.find({"user_id": user["id"]}, {"_id": 0, "cost_cents": 1, "date": 1}):
+        if (c.get("date") or "").startswith(str(year)):
+            spent += c.get("cost_cents") or 0
+    return {
+        "total": len(tasks), "overdue": overdue, "due_this_month": due_month,
+        "annual_budget_cents": annual_budget, "spent_ytd_cents": spent,
+        "on_track": overdue == 0,
+    }
+
+
+@api_router.post("/maintenance/tasks")
+async def maintenance_add(req: MaintTaskReq, user: dict = Depends(get_current_user)):
+    freq = req.frequency if req.frequency in FREQ_DAYS else "annual"
+    due = req.next_due or (_today() + timedelta(days=FREQ_DAYS.get(freq, 365) or 30)).isoformat()
+    task = {
+        "id": new_id(), "user_id": user["id"], "title": req.title.strip()[:120], "category": req.category or "Other",
+        "frequency": freq, "est_cost_cents": req.est_cost_cents or 0, "next_due": due,
+        "last_done": None, "notes": (req.notes or "").strip()[:500], "source": "custom", "created_at": now_iso(),
+    }
+    await db.maintenance_tasks.insert_one(dict(task))
+    return _maint_public(task)
+
+
+@api_router.put("/maintenance/tasks/{task_id}")
+async def maintenance_update(task_id: str, req: MaintTaskReq, user: dict = Depends(get_current_user)):
+    patch = {
+        "title": req.title.strip()[:120], "category": req.category or "Other",
+        "frequency": req.frequency if req.frequency in FREQ_DAYS else "annual",
+        "est_cost_cents": req.est_cost_cents or 0, "notes": (req.notes or "").strip()[:500],
+    }
+    if req.next_due:
+        patch["next_due"] = req.next_due
+    res = await db.maintenance_tasks.find_one_and_update({"id": task_id, "user_id": user["id"]}, {"$set": patch}, return_document=ReturnDocument.AFTER)
+    if not res:
+        raise HTTPException(status_code=404, detail="Task not found")
+    return _maint_public(res)
+
+
+@api_router.post("/maintenance/tasks/{task_id}/complete")
+async def maintenance_complete(task_id: str, user: dict = Depends(get_current_user)):
+    t = await db.maintenance_tasks.find_one({"id": task_id, "user_id": user["id"]})
+    if not t:
+        raise HTTPException(status_code=404, detail="Task not found")
+    today = _today()
+    await db.maintenance_log.insert_one({
+        "id": new_id(), "user_id": user["id"], "task_id": task_id, "title": t["title"],
+        "cost_cents": t.get("est_cost_cents") or 0, "date": today.isoformat(),
+    })
+    freq = t.get("frequency", "annual")
+    if freq == "once":
+        await db.maintenance_tasks.delete_one({"id": task_id})
+        return {"completed": True, "removed": True}
+    next_due = (today + timedelta(days=FREQ_DAYS.get(freq, 365))).isoformat()
+    res = await db.maintenance_tasks.find_one_and_update(
+        {"id": task_id}, {"$set": {"last_done": today.isoformat(), "next_due": next_due}}, return_document=ReturnDocument.AFTER)
+    return {"completed": True, "task": _maint_public(res)}
+
+
+@api_router.delete("/maintenance/tasks/{task_id}")
+async def maintenance_delete(task_id: str, user: dict = Depends(get_current_user)):
+    await db.maintenance_tasks.delete_one({"id": task_id, "user_id": user["id"]})
+    return {"ok": True}
 
 
 app.include_router(api_router)

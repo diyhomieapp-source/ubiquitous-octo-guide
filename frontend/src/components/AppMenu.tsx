@@ -60,6 +60,11 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
               <Text style={styles.itemText}>Paint Studio</Text>
               <MaterialCommunityIcons name="chevron-right" size={20} color={colors.onSurfaceTertiary} />
             </Pressable>
+            <Pressable testID="menu-maintenance" style={[styles.item, { borderColor: colors.border, borderWidth: 1, borderRadius: radius.sm, paddingHorizontal: spacing.md, marginBottom: spacing.sm }]} onPress={() => go("/maintenance")}>
+              <MaterialCommunityIcons name="calendar-check-outline" size={20} color={colors.brandPrimary} />
+              <Text style={styles.itemText}>Maintenance Schedule</Text>
+              <MaterialCommunityIcons name="chevron-right" size={20} color={colors.onSurfaceTertiary} />
+            </Pressable>
             <Pressable testID="menu-calculators" style={[styles.item, { borderColor: colors.border, borderWidth: 1, borderRadius: radius.sm, paddingHorizontal: spacing.md, marginBottom: spacing.sm }]} onPress={() => go("/calculators")}>
               <MaterialCommunityIcons name="calculator-variant-outline" size={20} color={colors.brandPrimary} />
               <Text style={styles.itemText}>DIY Calculators</Text>

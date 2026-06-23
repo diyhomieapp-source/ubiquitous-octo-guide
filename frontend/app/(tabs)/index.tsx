@@ -133,6 +133,15 @@ export default function Home() {
           <MaterialCommunityIcons name="chevron-right" size={22} color={colors.onSurfaceTertiary} />
         </Pressable>
 
+        <Pressable testID="home-maintenance" style={styles.calcBanner} onPress={() => router.push("/maintenance")}>
+          <View style={styles.calcIcon}><MaterialCommunityIcons name="calendar-check-outline" size={22} color={colors.brandPrimary} /></View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.calcTitle}>MAINTENANCE SCHEDULE</Text>
+            <Text style={styles.calcSub}>Stay ahead of repairs & on budget</Text>
+          </View>
+          <MaterialCommunityIcons name="chevron-right" size={22} color={colors.onSurfaceTertiary} />
+        </Pressable>
+
         <Text style={styles.sectionLabel}>{t("home.popularProjects")}</Text>
         <View style={styles.suggestWrap}>
           {suggestions.map((s) => (
