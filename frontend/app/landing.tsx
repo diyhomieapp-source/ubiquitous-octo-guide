@@ -33,8 +33,8 @@ export default function Landing() {
           <Logo width={150} />
 
           <View style={styles.eyebrow}>
-            <MaterialCommunityIcons name="hammer-wrench" size={14} color={colors.brandPrimary} />
-            <Text style={styles.eyebrowText}>YOUR AI MASTER CONTRACTOR</Text>
+            <MaterialCommunityIcons name="hammer-screwdriver" size={14} color={colors.brandPrimary} />
+            <Text style={styles.eyebrowText}>REPAIR · MAINTAIN · IMPROVE</Text>
           </View>
 
           <Text style={styles.h1}>Fix it. Build it.{"\n"}Do it right.</Text>
