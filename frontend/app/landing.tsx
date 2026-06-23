@@ -1,4 +1,6 @@
 import { View, Text, StyleSheet, ScrollView, Pressable, Linking } from "react-native";
+import { Image } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -6,11 +8,11 @@ import * as Haptics from "expo-haptics";
 
 import { colors, spacing, radius, font, type } from "@/src/theme";
 import { Logo } from "@/src/components/Logo";
-import { DiyBackdrop } from "@/src/components/DiyBackdrop";
 
 // Paste real store URLs here once the apps are published — buttons go live instantly.
 const APP_STORE_URL = "";
 const PLAY_STORE_URL = "";
+const DIY_BG = require("../assets/diy-bg.png");
 
 export default function Landing() {
   const router = useRouter();
@@ -24,7 +26,20 @@ export default function Landing() {
 
   return (
     <View style={styles.root}>
-      <DiyBackdrop />
+      {/* layered DIY background: art faded into black + warm glow */}
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+        <Image source={DIY_BG} style={[StyleSheet.absoluteFill, { opacity: 0.28 }]} contentFit="cover" />
+        <LinearGradient
+          colors={["rgba(255,106,0,0.30)", "rgba(255,106,0,0.05)", "transparent"]}
+          locations={[0, 0.35, 0.7]}
+          style={StyleSheet.absoluteFill}
+        />
+        <LinearGradient
+          colors={["rgba(14,14,14,0.45)", "rgba(14,14,14,0.10)", "rgba(14,14,14,0.78)", "#0E0E0E"]}
+          locations={[0, 0.38, 0.78, 1]}
+          style={StyleSheet.absoluteFill}
+        />
+      </View>
       <ScrollView
         contentContainerStyle={[styles.scroll, { paddingTop: insets.top + spacing.xl, paddingBottom: insets.bottom + spacing.xl }]}
         showsVerticalScrollIndicator={false}
@@ -37,14 +52,14 @@ export default function Landing() {
             <Text style={styles.eyebrowText}>REPAIR · MAINTAIN · IMPROVE</Text>
           </View>
 
-          <Text style={styles.h1}>Fix it. Build it.{"\n"}Do it right.</Text>
+          <Text style={styles.h1}>DIY anything.{"\n"}Done right.</Text>
 
           <Text style={styles.sub}>
             Personalized, step-by-step guidance for every home repair and project — like a trusted contractor on call 24/7.
           </Text>
 
           <Pressable testID="landing-start" style={styles.primaryBtn} onPress={start}>
-            <Text style={styles.primaryText}>Start free</Text>
+            <Text style={styles.primaryText}>Get started</Text>
           </Pressable>
 
           <Text style={styles.trust}>Free to start · No credit card</Text>
