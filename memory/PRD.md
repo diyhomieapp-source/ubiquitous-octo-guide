@@ -107,3 +107,12 @@ Goal: solve the real pain points of existing DIY platforms with solutions people
 - Integrated strictly via integration_playbook_expert. Tested iter_13 (9/9 backend pytest live + frontend E2E). Decor8 calls cost ~$0.20 each (real money).
 
 ## Decor8 roadmap: exterior/flooring quality tuning; Home Depot + Lowe's affiliate product hookup on the shopping list (user-provided APIs) for commission; tie visualizations to a project/Home Memory.
+
+## Shipped (continued 6) — DIY Calculators
+- Data-driven calculator engine: src/calculators/registry.ts (26 calculators w/ real formulas) + one shared renderer src/components/CalculatorRunner.tsx (live inputs -> results + SHOPPING LIST w/ qty). Categories: Painting & Walls, Flooring & Tile, Outdoor & Landscape, Concrete & Masonry, Framing & Carpentry, Roofing & Gutters, Other. Calcs include: paint, wallpaper, drywall, insulation, flooring, tile, deck, fence, mulch/soil, gravel, grass-seed, concrete-slab, post-hole, brick/block, framing, stairs, trim, crown-molding, roofing, gutter, pool volume, cabinet hardware, tool rent-vs-buy.
+- Standalone hub /calculators (search + grouped) + page /calculators/[id]. CONTEXTUAL POPUP: src/components/CalculatorSheet.tsx + calculatorForProject(title) keyword map auto-shows the matching calculator inside a project guide ("Estimate materials for this project" banner -> bottom sheet). Pure client-side math, offline.
+- Entry points: Home banners (Paint Studio + DIY Calculators), hamburger menu items, project-guide contextual banner.
+- Each calculator outputs a shopping list (qty) — architected to later auto-fill Home Depot/Lowe's quantities for affiliate commission.
+- Tested iter_14 (frontend). Fixed post-test: restored SAFETY conditional JSX wrapper in project/[id].tsx, tightened cabinet-hardware keyword (was matching 'doorknob'), fixed invalid deck icon (-> floor-plan). All lint-clean.
+
+## Calculators roadmap: add long-tail/engineering calcs (electrical load NEC, beam/joist span, septic, refrigerant, paver patio, retaining wall, BTU/HVAC sizing, etc.); AI chat/avatar auto-trigger the right calculator at the right step; pipe calculator qty into HD/Lowe's affiliate cart.

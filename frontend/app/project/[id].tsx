@@ -297,6 +297,7 @@ export default function Workspace() {
           )}
           <CalculatorSheet calcId={calculatorForProject(project?.title)} visible={calcOpen} onClose={() => setCalcOpen(false)} />
 
+          {(g?.safety_warnings?.length || 0) > 0 && (
             <Section title="SAFETY FIRST" icon="shield-alert-outline">
               {g!.safety_warnings.map((s, i) => (
                 <View key={i} style={styles.listRow}><MaterialCommunityIcons name="alert" size={16} color={colors.warning} /><Text style={styles.listText}>{s}</Text></View>

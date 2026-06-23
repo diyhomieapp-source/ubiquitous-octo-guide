@@ -201,7 +201,7 @@ export const CALCULATORS: Calculator[] = [
   },
   // ---------------- Outdoor & Landscape ----------------
   {
-    id: "deck", name: "Deck Calculator", category: "Outdoor & Landscape", icon: "deck",
+    id: "deck", name: "Deck Calculator", category: "Outdoor & Landscape", icon: "floor-plan",
     blurb: "Decking boards, joists & screws.",
     inputs: [
       { key: "length", label: "Deck length", unit: "ft", default: 16 },
@@ -636,7 +636,7 @@ const PROJECT_CALC_MAP: { keywords: string[]; calc: string }[] = [
   { keywords: ["roof", "shingle"], calc: "roofing" },
   { keywords: ["gutter", "downspout"], calc: "gutter" },
   { keywords: ["pool"], calc: "pool-volume" },
-  { keywords: ["cabinet hardware", "knob", "pull"], calc: "cabinet-hardware" },
+  { keywords: ["cabinet hardware", "cabinet knob", "cabinet pull", "drawer pull"], calc: "cabinet-hardware" },
 ];
 
 export function calculatorForProject(title?: string): string | null {
