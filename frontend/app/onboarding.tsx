@@ -1,6 +1,4 @@
 import { View, Text, StyleSheet, Pressable } from "react-native";
-import { Image } from "expo-image";
-import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
@@ -8,8 +6,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 import { colors, spacing, radius, font, type } from "@/src/theme";
 import { Logo } from "@/src/components/Logo";
-
-const BLUEPRINT = require("../assets/blueprint-bg.png");
+import { DiyBackdrop } from "@/src/components/DiyBackdrop";
 
 export default function Onboarding() {
   const router = useRouter();
@@ -18,13 +15,7 @@ export default function Onboarding() {
   return (
     <View style={styles.root}>
       <View style={styles.bg}>
-        <Image source={BLUEPRINT} style={[StyleSheet.absoluteFill, { opacity: 0.16 }]} contentFit="cover" pointerEvents="none" />
-        <LinearGradient
-          colors={["rgba(18,18,18,0.55)", "rgba(18,18,18,0.2)", "rgba(18,18,18,0.7)", "rgba(18,18,18,0.97)"]}
-          locations={[0, 0.35, 0.7, 1]}
-          style={StyleSheet.absoluteFill}
-          pointerEvents="none"
-        />
+        <DiyBackdrop />
         <View style={[styles.content, { paddingTop: insets.top + spacing["2xl"], paddingBottom: insets.bottom + spacing.lg }]}>
           <Logo size="md" />
 

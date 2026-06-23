@@ -8,12 +8,14 @@ import { api, getToken } from "@/src/api";
 import { CrmModule } from "@/src/components/admin/CrmModule";
 import { VendorsModule } from "@/src/components/admin/VendorsModule";
 import { EmailModule } from "@/src/components/admin/EmailModule";
+import { AffiliateModule } from "@/src/components/admin/AffiliateModule";
 
-type Mod = "overview" | "crm" | "vendors" | "email" | "feedback" | "tickets" | "blog";
+type Mod = "overview" | "crm" | "vendors" | "email" | "affiliate" | "feedback" | "tickets" | "blog";
 const MODULES: { key: Mod; label: string; icon: string }[] = [
   { key: "overview", label: "Overview", icon: "view-dashboard-outline" },
   { key: "crm", label: "CRM / Contacts", icon: "account-multiple-outline" },
   { key: "email", label: "Email Marketing", icon: "email-fast-outline" },
+  { key: "affiliate", label: "Affiliate Widget", icon: "cart-percent" },
   { key: "vendors", label: "Vendors", icon: "domain" },
   { key: "feedback", label: "Feedback", icon: "message-alert-outline" },
   { key: "tickets", label: "Support Tickets", icon: "ticket-outline" },
@@ -81,6 +83,7 @@ export default function AdminWorkstation() {
         {mod === "overview" && <Overview />}
         {mod === "crm" && <CrmModule />}
         {mod === "email" && <EmailModule />}
+        {mod === "affiliate" && <AffiliateModule />}
         {mod === "vendors" && <VendorsModule />}
         {mod === "feedback" && <Feedback />}
         {mod === "tickets" && <Tickets />}

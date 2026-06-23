@@ -25,6 +25,7 @@ from urllib.parse import quote
 from passlib.context import CryptContext
 
 import email_engine
+import affiliate_engine
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -1811,6 +1812,12 @@ async def maybe_create_blog_post(project: dict, guide: dict, steps: list, contex
     }
     await db.blog_posts.insert_one(post)
     logger.info(f"blog post created: {slug}")
+    # Affiliate widget: store an instant list now, enrich with AI in the background.
+    try:
+        await db.blog_posts.update_one({"slug": slug}, {"$set": {"shopping_list": affiliate_engine.quick_list(post)}})
+        asyncio.create_task(affiliate_engine.generate_and_store(slug, use_ai=True))
+    except Exception as e:
+        logger.warning(f"affiliate list init: {e}")
 
 
 @api_router.get("/blog")
@@ -1837,7 +1844,7 @@ async def get_blog(slug: str):
     return post
 
 
-def _build_post_html(post: dict, base: str, canonical: str) -> str:
+def _build_post_html(post: dict, base: str, canonical: str, widget_html: str = "") -> str:
     app_link = f"{base}?ref=blog&utm_source=blog&utm_medium=guide&project={quote(post.get('title',''))}"
     esc = lambda t: (t or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     steps = post.get("steps", [])
@@ -1917,6 +1924,7 @@ footer{margin-top:40px;padding-top:18px;border-top:1px solid #eee;color:#888;fon
         + (f'<h2>Step-by-step</h2>{steps_html}' if steps_html else '')
         + (f'<h2>Stay safe</h2><div class="safety">{ul(post.get("safety"))}</div>' if post.get("safety") else '')
         + (f'<h2>Common mistakes to avoid</h2>{ul(post.get("common_mistakes"))}' if post.get("common_mistakes") else '')
+        + widget_html
         + cta_html + share_html
         + '<footer>DIYhomie provides AI-generated DIY guidance for informational purposes and is not a licensed contractor. Always follow local codes and consult a professional for gas, major electrical, or structural work.</footer></div>'
     )
@@ -1956,7 +1964,23 @@ async def blog_html(slug: str, request: Request):
     await db.blog_posts.update_one({"slug": slug}, {"$inc": {"views": 1}})
     base = public_base(request)
     canonical = f"{base}api/blog/{slug}/html"
-    return HTMLResponse(_build_post_html(post, base, canonical))
+    widget_html = ""
+    try:
+        cfg = await affiliate_engine.ensure_config()
+        widget_html = affiliate_engine.render_widget_html(affiliate_engine.build_widget_data(post, cfg))
+    except Exception as e:
+        logger.warning(f"affiliate widget render: {e}")
+    return HTMLResponse(_build_post_html(post, base, canonical, widget_html))
+
+
+@api_router.get("/blog/{slug}/materials")
+async def blog_materials(slug: str):
+    """Render-ready affiliate widget data for the in-app blog reader."""
+    post = await db.blog_posts.find_one({"slug": slug, "published": True}, {"_id": 0})
+    if not post:
+        raise HTTPException(status_code=404, detail="Not found")
+    cfg = await affiliate_engine.ensure_config()
+    return affiliate_engine.build_widget_data(post, cfg) or {"categories": []}
 
 
 @api_router.get("/sitemap.xml", response_class=PlainTextResponse)
@@ -3015,6 +3039,10 @@ app.include_router(api_router)
 email_engine.configure(db, logger, email_segment_resolver)
 app.include_router(email_engine.build_admin_router(require_admin))
 app.include_router(email_engine.build_public_router())
+
+# Intelligent affiliate product widget engine (blog monetization).
+affiliate_engine.configure(db, logger, _llm_json)
+app.include_router(affiliate_engine.build_admin_router(require_admin))
 
 app.add_middleware(
     CORSMiddleware,

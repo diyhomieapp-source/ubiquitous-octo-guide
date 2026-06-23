@@ -6,6 +6,7 @@ import * as Haptics from "expo-haptics";
 
 import { colors, spacing, radius, font, type } from "@/src/theme";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
+import { AffiliateWidget } from "@/src/components/AffiliateWidget";
 import { api } from "@/src/api";
 
 type Post = {
@@ -110,6 +111,8 @@ export default function BlogPost() {
             {post.common_mistakes!.map((s, i) => <Text key={i} style={styles.li}>• {s}</Text>)}
           </>
         )}
+
+        <AffiliateWidget slug={post.slug} />
 
         <View style={styles.cta}>
           <Text style={styles.ctaTitle}>Want this built for YOUR exact setup?</Text>
