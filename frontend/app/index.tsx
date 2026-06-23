@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { View, ActivityIndicator, StyleSheet } from "react-native";
+import { View, ActivityIndicator, StyleSheet, Platform } from "react-native";
 import { useRouter } from "expo-router";
 import { useAuth } from "@/src/auth";
 import { colors } from "@/src/theme";
@@ -14,6 +14,9 @@ export default function Index() {
       router.replace("/(tabs)");
     } else if (user && !user.onboarded) {
       router.replace("/paywall");
+    } else if (Platform.OS === "web") {
+      // Web visitors land on the marketing funnel; native users go straight to onboarding.
+      router.replace("/landing");
     } else {
       router.replace("/onboarding");
     }

@@ -153,4 +153,10 @@ Goal: solve the real pain points of existing DIY platforms with solutions people
 - Phase 1 = affiliate SEARCH links (works now, no gated APIs). Phase 2 (later) = live price/image/rating via Amazon PA-API / Impact once user has approvals.
 - Tested iter_18: 11/11 backend pytest + frontend admin & blog reader verified. App onboarding redesigned with custom DiyBackdrop (orange glow + faint blueprint grid + scattered tool icons), removed photo bg.
 
+## Shipped (continued 12) — Web Landing / Funnel Page + App Store badges
+- New `app/landing.tsx`: high-converting marketing funnel for web visitors — sticky nav (Sign in / Start free), bold hero ("Fix it. Build it. Do it right.") with animated phone app-preview mockup, App Store + Google Play badges, value strip, 3-step "how it works", 6-feature grid, ⭐ testimonials, final CTA band, footer. Uses `DiyBackdrop`. Fully responsive (wide≥900 desktop layout vs stacked mobile).
+- `app/index.tsx`: unauthenticated WEB visitors now route to `/landing` (native users still go to `/onboarding`). Logged-in users → tabs/paywall unchanged.
+- Store badges: `APP_STORE_URL`/`PLAY_STORE_URL` consts at top of landing.tsx — empty for now (apps not published) so badges route to web onboarding with "coming soon" note; paste real store links later to go live.
+- NOTE: testimonial quotes (Marcus/Dana/Priya) are illustrative placeholders — user should replace with real reviews before launch.
+
 ## ⚠️ BLOCKER/ACTION: backend/.env PERPLEXITY_API_KEY is EMPTY. Perplexity is NOT active — guide generation has been silently using the Emergent fallback (gpt-4o-mini, no web search), and Code Check returns 503. User must paste a real Perplexity API key into backend/.env PERPLEXITY_API_KEY to activate both accurate guides and local code lookup.
