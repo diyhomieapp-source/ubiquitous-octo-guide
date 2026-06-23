@@ -89,3 +89,13 @@ Goal: solve the real pain points of existing DIY platforms with solutions people
 - AI cites community stats in guides ("Based on N installations…"); journals auto-publish toggle (user chose: keep manual for now).
 
 ## Backlog (unchanged): split server.py (~2135 lines) into routers; migrate base64 images → S3/CDN; Facebook auth; password reset email; LiveKit voice avatar.
+
+## Shipped (continued 4) — Internal CRM + Vendor/Subscription DB (admin, web-only)
+- **User CRM (Contacts)** module in /admin: auto-profile per user enriched live (plan, membership/billing status, LTV from payment_transactions, projects created/completed, last login/activity, community contributions, location). Dashboard stat cards. Auto **smart segments** (New/Trial/Monthly/Annual/Expired/Canceled, Inactive 30/60/90, Highly Active, Community Contributors, High Value, Power Users, + category-interest Plumbing/HVAC/Electrical/Appliance/Bathroom/Deck/Painting from project titles). Search + segment filter + sort. Contact drawer: PROFILE (editable phone/country/state + tags), TIMELINE (chronological events), NOTES (add/delete internal notes).
+- **Vendor & Subscription DB** module: full CRUD + documentation repository per vendor (purpose, api-keys location, internal notes, warnings, dependencies). Vendor dashboard (monthly/annual spend, critical count, by-category, upcoming renewals). Pre-seeded 7 real vendors (Perplexity, OpenAI, Anthropic, Stripe, MongoDB, WeatherAPI.com, Emergent) via vendor_seed.json, idempotent on startup.
+- Endpoints (all admin-gated, 401/403 enforced): GET /admin/crm/stats, GET/PUT /admin/crm/contacts(+/{id}), POST /admin/crm/contacts/{id}/tags, POST /admin/crm/contacts/{id}/notes, DELETE /admin/crm/notes/{id}; GET/POST/PUT/DELETE /admin/vendors(+/{id}), GET /admin/vendors/stats.
+- Lightweight **last-login tracking** added to /auth/login, /auth/register, /auth/google. Marketing automation = architecture-ready only (not sending).
+- Tested iter_12: 23/23 backend pytest + full frontend E2E. Files: src/components/admin/CrmModule.tsx, VendorsModule.tsx; app/admin/index.tsx (sidebar +CRM +Vendors).
+
+## CRM/Vendor roadmap (future): email/SMS campaign sending (needs Resend/SendGrid), drip/onboarding sequences, sales pipelines, affiliate management, support-ticket deep integration, BI dashboards, revenue forecasting.
+## Tech-debt (growing): server.py now ~2572 lines — split into routers (auth/projects/ai/billing/admin/blog/community/crm/vendors) is now high priority.

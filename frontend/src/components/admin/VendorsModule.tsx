@@ -90,7 +90,7 @@ export function VendorsModule() {
 
         {loading ? <ActivityIndicator color={colors.brandPrimary} style={{ marginTop: spacing.xl }} /> : (
           vendors.map((v) => (
-            <Pressable key={v.id} testID={`vendor-${v.id}`} style={styles.row} onPress={() => setEditing(v)}>
+            <Pressable key={v.id} testID={`vendor-row-${v.id}`} style={styles.row} onPress={() => setEditing(v)}>
               <View style={[styles.vIcon, { borderColor: IMP_COLOR[v.importance] || "#888" }]}>
                 <Text style={[styles.vIconText, { color: IMP_COLOR[v.importance] || "#888" }]}>{(v.company || "?").charAt(0)}</Text>
               </View>
