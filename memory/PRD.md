@@ -130,4 +130,11 @@ Goal: solve the real pain points of existing DIY platforms with solutions people
 - Frontend src/components/CodeCheckCard.tsx: shown ONLY on project guides whose title needs code compliance (projectNeedsCode keyword match). Question input, spinning-wrench loading ("Searching <city> codes…"), result with code-basis chip, confidence badge, requirements, permit badge, clickable source citations, and a verify-with-building-dept disclaimer. Handles 503 gracefully ("turns on once Perplexity is connected").
 - Wired into app/project/[id].tsx after the calculator banner.
 
+## Shipped (continued 9) — User Profile & Dashboard + Self-Serve Billing
+- Profile tab redesigned into a dashboard: credits/voice counters, ACTIVE/COMPLETED project stat cards, MANAGE ACCOUNT menu (Billing & Plan, My Projects, My Support, Share & Earn, Language, Help & FAQ), profile facts, tool shed, location editor, upgrade banner (free tier only), logout.
+- New /settings/billing screen: current plan + status + renewal date, "Manage billing & card" → Stripe-hosted Customer Portal (card/invoices/cancel), referral credit balance, plan comparison, payment history. New /support/tickets screen: user's own tickets w/ status pills + new-ticket CTA.
+- Backend: GET /api/billing/summary (tier/status/renews_at/cancel_at_period_end/credit_cents/payments/plans), POST /api/billing/customer-portal (Stripe billing_portal session; _ensure_customer creates/reuses stripe_customer_id; 503 if portal not activated), GET /api/support/tickets (per-user scoped). Stripe Customer Portal confirmed ACTIVE (returns live billing.stripe.com URL).
+- Landing/onboarding sub-headline copy updated to the "trusted contractor on call 24/7" message.
+- Tested iter_16: 10/10 backend pytest + frontend E2E (all PASS, Stripe LIVE constraint respected — no checkout triggered).
+
 ## ⚠️ BLOCKER/ACTION: backend/.env PERPLEXITY_API_KEY is EMPTY. Perplexity is NOT active — guide generation has been silently using the Emergent fallback (gpt-4o-mini, no web search), and Code Check returns 503. User must paste a real Perplexity API key into backend/.env PERPLEXITY_API_KEY to activate both accurate guides and local code lookup.
