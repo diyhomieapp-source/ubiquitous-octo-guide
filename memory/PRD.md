@@ -145,4 +145,12 @@ Goal: solve the real pain points of existing DIY platforms with solutions people
 - Tested iter_17: 15/15 backend pytest PASS (auth gating, CRUD, segments, suppression skip, welcome-on-signup enqueue, open pixel, unsubscribe, SES bounce webhook). FIXED real Motor bug: `if not _db` → `if _db is None` (was silently disabling all transactional triggers).
 - ⚠️ ACTION: user to (1) buy domain (Route 53 recommended), (2) verify domain DKIM in SES + request production access, (3) paste AWS IAM keys + SENDER_EMAIL into backend/.env to go live.
 
+## Shipped (continued 11) — Intelligent Affiliate Product Widget (blog monetization)
+- New `affiliate_engine.py` module: AI categorizes each auto-generated blog article into Main Product / Materials / Tools / Optional Upgrades / Replacement Parts / Frequently Bought Together, then builds affiliate deep-search links across 7 retailers (Amazon, Home Depot, Lowe's, Walmart, Ace, Tractor Supply, Harbor Freight). Zero manual linking.
+- Auto-generates on blog creation (instant quick list + background AI enrich); admin can Regenerate per-post and Backfill all. Links built at read time so changing affiliate IDs needs no regeneration.
+- Widget renders in BOTH the SEO SSR HTML (`/api/blog/{slug}/html`, rel="nofollow sponsored") and the in-app blog reader (`AffiliateWidget` via `GET /api/blog/{slug}/materials`).
+- Admin "Affiliate Widget" module (`AffiliateModule.tsx`): Settings (enable, title, optional sections, preferred brands, blacklist, disclosure), Retailers (per-store enable/priority/affiliate tag/Impact deeplink template), Articles (regenerate + backfill). Amazon tag injects as `&tag=`; others support Impact/CJ `{url}` deeplink templates.
+- Phase 1 = affiliate SEARCH links (works now, no gated APIs). Phase 2 (later) = live price/image/rating via Amazon PA-API / Impact once user has approvals.
+- Tested iter_18: 11/11 backend pytest + frontend admin & blog reader verified. App onboarding redesigned with custom DiyBackdrop (orange glow + faint blueprint grid + scattered tool icons), removed photo bg.
+
 ## ⚠️ BLOCKER/ACTION: backend/.env PERPLEXITY_API_KEY is EMPTY. Perplexity is NOT active — guide generation has been silently using the Emergent fallback (gpt-4o-mini, no web search), and Code Check returns 503. User must paste a real Perplexity API key into backend/.env PERPLEXITY_API_KEY to activate both accurate guides and local code lookup.
