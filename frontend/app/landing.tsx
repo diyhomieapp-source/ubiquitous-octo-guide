@@ -18,7 +18,7 @@ export default function Landing() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
-  const start = () => { Haptics.selectionAsync(); router.push("/onboarding"); };
+  const start = () => { Haptics.selectionAsync(); router.push("/survey"); };
   const openStore = (url: string) => {
     if (url) Linking.openURL(url).catch(() => {});
     else start();
@@ -58,11 +58,30 @@ export default function Landing() {
             Personalized, step-by-step guidance for every home repair and project — like a trusted contractor on call 24/7.
           </Text>
 
+          <View style={styles.pills}>
+            <View style={styles.pill}>
+              <MaterialCommunityIcons name="check-decagram" size={14} color={colors.brandPrimary} />
+              <Text style={styles.pillText}>Personalized guides</Text>
+            </View>
+            <View style={styles.pill}>
+              <MaterialCommunityIcons name="gesture-tap" size={14} color={colors.brandPrimary} />
+              <Text style={styles.pillText}>Step-by-step</Text>
+            </View>
+            <View style={styles.pill}>
+              <MaterialCommunityIcons name="shield-check" size={14} color={colors.brandPrimary} />
+              <Text style={styles.pillText}>Local codes</Text>
+            </View>
+          </View>
+
           <Pressable testID="landing-start" style={styles.primaryBtn} onPress={start}>
             <Text style={styles.primaryText}>Get started</Text>
           </Pressable>
 
           <Text style={styles.trust}>Free to start · No credit card</Text>
+
+          <Pressable testID="landing-signin" style={styles.signin} onPress={() => router.push("/auth?mode=login")}>
+            <Text style={styles.signinText}>I already have an account</Text>
+          </Pressable>
 
           <View style={styles.badges}>
             <Pressable testID="badge-appstore" style={styles.badge} onPress={() => openStore(APP_STORE_URL)}>
@@ -98,9 +117,15 @@ const styles = StyleSheet.create({
   h1: { color: colors.onSurface, fontFamily: font.display, fontSize: 50, lineHeight: 50, textAlign: "center", marginTop: spacing.xl },
   sub: { color: colors.onSurfaceSecondary, fontFamily: font.regular, fontSize: type.lg, lineHeight: 26, textAlign: "center", marginTop: spacing.lg },
 
-  primaryBtn: { backgroundColor: colors.brandPrimary, paddingHorizontal: spacing["2xl"], paddingVertical: spacing.lg, borderRadius: radius.md, marginTop: spacing["2xl"], minWidth: 220, alignItems: "center" },
+  primaryBtn: { backgroundColor: colors.brandPrimary, paddingHorizontal: spacing["2xl"], paddingVertical: spacing.lg, borderRadius: radius.md, marginTop: spacing.xl, minWidth: 220, alignItems: "center" },
   primaryText: { color: colors.onBrandPrimary, fontFamily: font.bold, fontSize: type.lg, letterSpacing: 0.3 },
   trust: { color: colors.onSurfaceTertiary, fontFamily: font.medium, fontSize: type.sm, marginTop: spacing.md },
+
+  pills: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: spacing.sm, marginTop: spacing.xl },
+  pill: { flexDirection: "row", alignItems: "center", gap: spacing.xs, backgroundColor: "rgba(255,255,255,0.06)", borderColor: colors.borderStrong, borderWidth: 1, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.pill },
+  pillText: { color: colors.onSurface, fontFamily: font.bold, fontSize: type.sm },
+  signin: { paddingVertical: spacing.md, marginTop: spacing.xs },
+  signinText: { color: colors.onSurfaceTertiary, fontFamily: font.medium, fontSize: type.base },
 
   badges: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: spacing.md, marginTop: spacing["2xl"] },
   badge: { flexDirection: "row", alignItems: "center", gap: spacing.sm, backgroundColor: "#000", borderColor: "#333", borderWidth: 1, borderRadius: radius.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, minWidth: 150 },
