@@ -99,3 +99,11 @@ Goal: solve the real pain points of existing DIY platforms with solutions people
 
 ## CRM/Vendor roadmap (future): email/SMS campaign sending (needs Resend/SendGrid), drip/onboarding sequences, sales pipelines, affiliate management, support-ticket deep integration, BI dashboards, revenue forecasting.
 ## Tech-debt (growing): server.py now ~2572 lines — split into routers (auth/projects/ai/billing/admin/blog/community/crm/vendors) is now high priority.
+
+## Shipped (continued 5) — Paint/Finish Visualizer (Decor8 AI)
+- New **Paint Studio** screen (/app/frontend/app/paint-studio.tsx): upload/snap a room or exterior photo → AI recolors it. Features: Walls, Exterior, Cabinets, Flooring. Color selection = curated Sherwin-Williams / Benjamin Moore / Behr palettes + custom hex; Flooring uses finish swatches (mahogany/oak/laminate/walnut/marble/slate). Press-and-hold "before" compare. Room-type selector for walls. Affiliate-ready "Everything you'll need" shopping list (Home Depot/Lowe's — coming soon, user will add those APIs later for commission).
+- Backend (server.py, Decor8 section): POST /api/visualize (auth), GET /api/visualize/history. Proxies Decor8 (key in backend/.env DECOR8_API_KEY, never exposed to client). Endpoints: /change_wall_color (param wall_color_hex_code — note: live API differs from public docs), /change_kitchen_cabinets_color (cabinet_color_hex_code), /generate_designs_for_room (prompt-based) for flooring/exterior. Accepts base64 data URI OR public URL; response parsed from info.images[0].url. httpx async, 90s timeout. **First render free per user, then 4 credits**; 402 when out. Stores visualizations collection.
+- Entry points: Home 'PAINT STUDIO' banner + hamburger menu. app.json: added camera/photo permissions + expo-image-picker plugin.
+- Integrated strictly via integration_playbook_expert. Tested iter_13 (9/9 backend pytest live + frontend E2E). Decor8 calls cost ~$0.20 each (real money).
+
+## Decor8 roadmap: exterior/flooring quality tuning; Home Depot + Lowe's affiliate product hookup on the shopping list (user-provided APIs) for commission; tie visualizations to a project/Home Memory.
