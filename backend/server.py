@@ -2759,6 +2759,102 @@ async def maintenance_delete(task_id: str, user: dict = Depends(get_current_user
     return {"ok": True}
 
 
+# ---------------------------------------------------------------- Local Code Check (Perplexity, location-aware)
+CODE_KEYWORDS = [
+    "deck", "footing", "foundation", "electrical", "wiring", "outlet", "gfci", "breaker", "panel",
+    "circuit", "subpanel", "conduit", "plumbing", "drain", "vent", "gas", "water heater", "structural",
+    "beam", "joist", "span", "egress", "stair", "railing", "handrail", "permit", "setback", "fence",
+    "retaining wall", "load bearing", "roof", "framing", "septic", "grading", "frost", "amperage", "rewire",
+]
+
+
+def project_needs_code(text: Optional[str]) -> bool:
+    if not text:
+        return False
+    t = text.lower()
+    return any(k in t for k in CODE_KEYWORDS)
+
+
+class CodeCheckReq(BaseModel):
+    query: str
+    location: Optional[str] = None
+    project_id: Optional[str] = None
+
+
+CODE_DISCLAIMER = "AI-assisted estimate from live sources. Always confirm with your local building department before you pour concrete, cut wires, or run pipe — and pull required permits."
+
+
+@api_router.post("/code-check")
+async def code_check(req: CodeCheckReq, user: dict = Depends(get_current_user)):
+    location = (req.location or user.get("location") or "").strip()
+    if not location:
+        raise HTTPException(status_code=400, detail="Add your city or ZIP in Profile (or enable location) so we can check your local code.")
+    query = (req.query or "").strip()
+    if not query:
+        raise HTTPException(status_code=400, detail="Ask a code question.")
+
+    system = (
+        "You are a master municipal building inspector assistant. The user is located in {loc}. "
+        "FIRST, search the web to identify exactly which version/cycle of the International Residential Code (IRC), "
+        "International Building Code (IBC), National Electrical Code (NEC), and/or plumbing code (UPC/IPC) this specific "
+        "municipality has adopted. SECOND, search for local municipal amendments, city ordinances, frost-line depth, and "
+        "permit/inspection requirements for THIS exact city. THEN answer the user's question with the EXACT regulation that "
+        "applies to their local laws — be specific with numbers (depths, sizes, spacing, amperage). Cite official city/county "
+        "code sources. If the municipality can't be pinned down, give the most likely applicable state/IRC default and mark "
+        "confidence lower. Respond in STRICT JSON only, no prose: "
+        '{{"code_basis": "e.g. 2021 IRC + City of Austin amendments", "answer": "clear DIYer explanation with exact numbers", '
+        '"requirements": ["short bullet", "short bullet"], "permit_required": true, "confidence": "high|medium|low"}}'
+    ).format(loc=location)
+
+    if not PERPLEXITY_API_KEY:
+        raise HTTPException(status_code=503, detail="Code lookup is not configured.")
+
+    citations: list = []
+    try:
+        from openai import AsyncOpenAI
+        pplx = AsyncOpenAI(api_key=PERPLEXITY_API_KEY, base_url="https://api.perplexity.ai")
+        resp = await pplx.chat.completions.create(
+            model="sonar-pro",
+            messages=[{"role": "system", "content": system}, {"role": "user", "content": query}],
+            max_tokens=900,
+        )
+        content = resp.choices[0].message.content
+        cit = getattr(resp, "citations", None)
+        if not cit:
+            try:
+                cit = resp.model_dump().get("citations")
+            except Exception:
+                cit = None
+        citations = cit or []
+        parsed = _strip_json(content)
+    except Exception as e:
+        logger.error(f"code-check failed: {e}")
+        raise HTTPException(status_code=502, detail="Couldn't reach the code library. Try again in a moment.")
+
+    if not isinstance(parsed, dict):
+        parsed = {"answer": str(parsed), "code_basis": "", "requirements": [], "permit_required": None, "confidence": "low"}
+
+    result = {
+        "location": location,
+        "query": query,
+        "code_basis": parsed.get("code_basis", ""),
+        "answer": parsed.get("answer", ""),
+        "requirements": parsed.get("requirements", []) or [],
+        "permit_required": parsed.get("permit_required"),
+        "confidence": parsed.get("confidence", "medium"),
+        "citations": [c for c in citations if isinstance(c, str)][:8],
+        "disclaimer": CODE_DISCLAIMER,
+    }
+    try:
+        await db.code_checks.insert_one({
+            "id": new_id(), "user_id": user["id"], "project_id": req.project_id,
+            **result, "created_at": now_iso(),
+        })
+    except Exception:
+        pass
+    return result
+
+
 app.include_router(api_router)
 
 app.add_middleware(

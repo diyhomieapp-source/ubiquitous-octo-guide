@@ -15,6 +15,7 @@ import { useAuth } from "@/src/auth";
 import { storage } from "@/src/utils/storage";
 import { AvatarThinking } from "@/src/components/AvatarThinking";
 import { CalculatorSheet } from "@/src/components/CalculatorSheet";
+import { CodeCheckCard, projectNeedsCode } from "@/src/components/CodeCheckCard";
 import { calculatorForProject } from "@/src/calculators/registry";
 
 type Step = { id: string; index: number; title: string; instruction: string; visual_description: string; image_base64: string | null; done: boolean; added?: boolean };
@@ -296,6 +297,10 @@ export default function Workspace() {
             </Pressable>
           )}
           <CalculatorSheet calcId={calculatorForProject(project?.title)} visible={calcOpen} onClose={() => setCalcOpen(false)} />
+
+          {projectNeedsCode(project?.title) && (
+            <CodeCheckCard projectTitle={project?.title} projectId={id} />
+          )}
 
           {(g?.safety_warnings?.length || 0) > 0 && (
             <Section title="SAFETY FIRST" icon="shield-alert-outline">

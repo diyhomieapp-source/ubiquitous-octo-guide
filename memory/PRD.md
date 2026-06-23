@@ -124,3 +124,10 @@ Goal: solve the real pain points of existing DIY platforms with solutions people
 - Tested iter_15: 16/16 backend pytest + full frontend E2E. Schedule is template-driven (deterministic, free) — AI-personalization (climate/home-age aware + auto-add from completed projects) is the next layer.
 
 ## Maintenance roadmap: AI-personalize the plan (use Core Magic intake: home age, systems, climate/location) and auto-create tasks from completed projects; reminders; tie task costs into annual budget forecasting in the CRM/admin.
+
+## Shipped (continued 8) — Location-aware Local Code Check (Perplexity)
+- Backend POST /api/code-check (auth): injects user's location into a structured "municipal building inspector" system prompt, calls Perplexity sonar-pro (live web search) to find the adopted IRC/IBC/NEC/plumbing code cycle + local amendments + permit rules, returns STRICT JSON {code_basis, answer, requirements[], permit_required, confidence, citations[], disclaimer}. Saves to code_checks collection. project_needs_code() keyword gate. Returns 503 if PERPLEXITY_API_KEY missing (does NOT fall back to non-search LLM — avoids hallucinating legal codes).
+- Frontend src/components/CodeCheckCard.tsx: shown ONLY on project guides whose title needs code compliance (projectNeedsCode keyword match). Question input, spinning-wrench loading ("Searching <city> codes…"), result with code-basis chip, confidence badge, requirements, permit badge, clickable source citations, and a verify-with-building-dept disclaimer. Handles 503 gracefully ("turns on once Perplexity is connected").
+- Wired into app/project/[id].tsx after the calculator banner.
+
+## ⚠️ BLOCKER/ACTION: backend/.env PERPLEXITY_API_KEY is EMPTY. Perplexity is NOT active — guide generation has been silently using the Emergent fallback (gpt-4o-mini, no web search), and Code Check returns 503. User must paste a real Perplexity API key into backend/.env PERPLEXITY_API_KEY to activate both accurate guides and local code lookup.
