@@ -9,7 +9,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors, spacing, radius, font, type } from "@/src/theme";
 import { Logo } from "@/src/components/Logo";
 
-const HERO = require("../assets/hero-home.png");
+const BLUEPRINT = require("../assets/blueprint-bg.png");
 
 export default function Onboarding() {
   const router = useRouter();
@@ -18,14 +18,13 @@ export default function Onboarding() {
   return (
     <View style={styles.root}>
       <View style={styles.bg}>
-        <View style={styles.topImageWrap} pointerEvents="none">
-          <Image source={HERO} style={[StyleSheet.absoluteFill, { opacity: 0.85 }]} contentFit="cover" />
-          <LinearGradient
-            colors={["rgba(18,18,18,0)", "rgba(18,18,18,0.45)", "rgba(18,18,18,1)"]}
-            locations={[0, 0.62, 1]}
-            style={StyleSheet.absoluteFill}
-          />
-        </View>
+        <Image source={BLUEPRINT} style={[StyleSheet.absoluteFill, { opacity: 0.16 }]} contentFit="cover" pointerEvents="none" />
+        <LinearGradient
+          colors={["rgba(18,18,18,0.55)", "rgba(18,18,18,0.2)", "rgba(18,18,18,0.7)", "rgba(18,18,18,0.97)"]}
+          locations={[0, 0.35, 0.7, 1]}
+          style={StyleSheet.absoluteFill}
+          pointerEvents="none"
+        />
         <View style={[styles.content, { paddingTop: insets.top + spacing["2xl"], paddingBottom: insets.bottom + spacing.lg }]}>
           <Logo size="md" />
 
@@ -74,7 +73,6 @@ export default function Onboarding() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.surface },
   bg: { flex: 1 },
-  topImageWrap: { position: "absolute", top: 0, left: 0, right: 0, height: 230, opacity: 0.35, overflow: "hidden" },
   content: { flex: 1, paddingHorizontal: spacing.xl },
   eyebrowRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginBottom: spacing.md },
   eyebrowBar: { width: 28, height: 4, borderRadius: radius.pill, backgroundColor: colors.brandPrimary },
