@@ -116,3 +116,11 @@ Goal: solve the real pain points of existing DIY platforms with solutions people
 - Tested iter_14 (frontend). Fixed post-test: restored SAFETY conditional JSX wrapper in project/[id].tsx, tightened cabinet-hardware keyword (was matching 'doorknob'), fixed invalid deck icon (-> floor-plan). All lint-clean.
 
 ## Calculators roadmap: add long-tail/engineering calcs (electrical load NEC, beam/joist span, septic, refrigerant, paver patio, retaining wall, BTU/HVAC sizing, etc.); AI chat/avatar auto-trigger the right calculator at the right step; pipe calculator qty into HD/Lowe's affiliate cart.
+
+## Shipped (continued 7) — Home Maintenance Scheduler (HomeZada-inspired)
+- New /maintenance screen: "Generate my plan" populates a curated recurring seasonal schedule (~20 tasks across HVAC/Plumbing/Exterior/Safety/Appliances/Electrical/Lawn) with frequency, due dates, est. cost. Tasks grouped OVERDUE / DUE THIS MONTH / UPCOMING. Complete (circle check) logs spend + rolls recurring tasks forward by frequency (once-tasks delete). Add/edit/delete custom tasks (FAB + edit sheet). Budget summary: on-track status, overdue/due counts, annual maintenance budget (sum of est_cost × occurrences/yr) vs spent-YTD progress bar.
+- Backend (server.py Home Maintenance section): /api/maintenance/generate (idempotent), /tasks (GET/POST), /tasks/{id} (PUT/DELETE), /tasks/{id}/complete, /summary. Collections: maintenance_tasks, maintenance_log. Added `from pymongo import ReturnDocument`. FREQ_PER_YEAR/FREQ_DAYS + MAINTENANCE_TEMPLATE (20 tasks). Status computed from next_due (overdue/due_soon<=30d/upcoming).
+- Entry points: Home 'MAINTENANCE SCHEDULE' banner + hamburger menu 'Maintenance Schedule'.
+- Tested iter_15: 16/16 backend pytest + full frontend E2E. Schedule is template-driven (deterministic, free) — AI-personalization (climate/home-age aware + auto-add from completed projects) is the next layer.
+
+## Maintenance roadmap: AI-personalize the plan (use Core Magic intake: home age, systems, climate/location) and auto-create tasks from completed projects; reminders; tie task costs into annual budget forecasting in the CRM/admin.

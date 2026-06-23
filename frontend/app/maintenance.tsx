@@ -124,7 +124,7 @@ export default function Maintenance() {
           {tasks.length === 0 ? (
             <View style={styles.empty}>
               <MaterialCommunityIcons name="calendar-check-outline" size={48} color={colors.brandPrimary} />
-              <Text style={styles.emptyTitle}>Build your home's maintenance plan</Text>
+              <Text style={styles.emptyTitle}>Build your home maintenance plan</Text>
               <Text style={styles.emptySub}>Get a personalized, recurring schedule of seasonal tasks — so nothing slips and you stay on budget.</Text>
               <Pressable testID="generate-plan" style={styles.genBtn} onPress={generate} disabled={generating}>
                 {generating ? <ActivityIndicator color={colors.onBrandPrimary} /> : (
@@ -174,9 +174,9 @@ export default function Maintenance() {
             <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
               <Text style={styles.sheetTitle}>{editing?.id ? "Edit Task" : "New Task"}</Text>
               <Text style={styles.fieldLabel}>TITLE</Text>
-              <TextInput testID="task-title" style={styles.input} value={editing?.title} onChangeText={(t) => setEditing((p: any) => ({ ...p, title: t }))} placeholder="e.g. Clean dryer vent" placeholderTextColor={colors.onSurfaceTertiary} />
+              <TextInput testID="task-title" style={styles.input} value={editing?.title ?? ""} onChangeText={(t) => setEditing((p: any) => ({ ...p, title: t }))} placeholder="e.g. Clean dryer vent" placeholderTextColor={colors.onSurfaceTertiary} />
               <Text style={styles.fieldLabel}>CATEGORY</Text>
-              <TextInput testID="task-category" style={styles.input} value={editing?.category} onChangeText={(t) => setEditing((p: any) => ({ ...p, category: t }))} placeholder="HVAC, Plumbing, Safety…" placeholderTextColor={colors.onSurfaceTertiary} />
+              <TextInput testID="task-category" style={styles.input} value={editing?.category ?? ""} onChangeText={(t) => setEditing((p: any) => ({ ...p, category: t }))} placeholder="HVAC, Plumbing, Safety…" placeholderTextColor={colors.onSurfaceTertiary} />
               <Text style={styles.fieldLabel}>FREQUENCY</Text>
               <View style={styles.freqWrap}>
                 {FREQS.map((f) => (
@@ -188,11 +188,11 @@ export default function Maintenance() {
               <View style={{ flexDirection: "row", gap: spacing.md }}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.fieldLabel}>EST. COST ($)</Text>
-                  <TextInput testID="task-cost" style={styles.input} value={editing?.est_cost} onChangeText={(t) => setEditing((p: any) => ({ ...p, est_cost: t }))} placeholder="0" placeholderTextColor={colors.onSurfaceTertiary} keyboardType="numeric" />
+                  <TextInput testID="task-cost" style={styles.input} value={editing?.est_cost ?? ""} onChangeText={(t) => setEditing((p: any) => ({ ...p, est_cost: t }))} placeholder="0" placeholderTextColor={colors.onSurfaceTertiary} keyboardType="numeric" />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.fieldLabel}>NEXT DUE</Text>
-                  <TextInput testID="task-due" style={styles.input} value={editing?.next_due} onChangeText={(t) => setEditing((p: any) => ({ ...p, next_due: t }))} placeholder="YYYY-MM-DD" placeholderTextColor={colors.onSurfaceTertiary} />
+                  <TextInput testID="task-due" style={styles.input} value={editing?.next_due ?? ""} onChangeText={(t) => setEditing((p: any) => ({ ...p, next_due: t }))} placeholder="YYYY-MM-DD" placeholderTextColor={colors.onSurfaceTertiary} />
                 </View>
               </View>
               <Pressable testID="task-save" style={styles.saveBtn} onPress={save} disabled={busy}>
