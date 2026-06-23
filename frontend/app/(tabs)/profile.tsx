@@ -1,23 +1,40 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import {
   View, Text, StyleSheet, Pressable, ScrollView, TextInput, KeyboardAvoidingView, Platform,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 
 import { colors, spacing, radius, font, type } from "@/src/theme";
 import { useAuth } from "@/src/auth";
+import { api } from "@/src/api";
 
 const TIER_LABEL: Record<string, string> = { free: "FREE TRIAL", pro: "PRO", master: "MASTER" };
+
+type ProjStat = { active: number; completed: number };
 
 export default function Profile() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { user, signOut, updateProfile } = useAuth();
+  const { user, signOut, updateProfile, refresh } = useAuth();
   const [location, setLocation] = useState(user?.location || "");
   const [savingLoc, setSavingLoc] = useState(false);
+  const [stats, setStats] = useState<ProjStat>({ active: 0, completed: 0 });
+
+  useFocusEffect(useCallback(() => {
+    refresh();
+    (async () => {
+      try {
+        const ps = await api<{ status: string }[]>("/projects");
+        setStats({
+          active: ps.filter((p) => p.status !== "completed").length,
+          completed: ps.filter((p) => p.status === "completed").length,
+        });
+      } catch { /* ignore */ }
+    })();
+  }, [refresh]));
 
   if (!user) return null;
 
@@ -66,6 +83,35 @@ export default function Profile() {
           </View>
         </View>
 
+        {/* quick project stats */}
+        <View style={styles.statsRow}>
+          <Pressable style={styles.statCard} onPress={() => router.push("/")}>
+            <Text style={styles.statNum}>{stats.active}</Text>
+            <Text style={styles.statLabel}>ACTIVE PROJECTS</Text>
+          </Pressable>
+          <Pressable style={styles.statCard} onPress={() => router.push("/")}>
+            <Text style={styles.statNum}>{stats.completed}</Text>
+            <Text style={styles.statLabel}>COMPLETED</Text>
+          </Pressable>
+        </View>
+
+        {/* manage account menu */}
+        <Text style={styles.sectionLabel}>MANAGE ACCOUNT</Text>
+        <View style={styles.menuCard}>
+          <MenuRow icon="credit-card-outline" label="Billing & Plan" sub="Card, invoices, subscription"
+            testID="profile-billing" onPress={() => router.push("/settings/billing")} />
+          <MenuRow icon="folder-multiple-outline" label="My Projects" sub={`${stats.active} active · ${stats.completed} done`}
+            testID="profile-projects" onPress={() => router.push("/")} />
+          <MenuRow icon="lifebuoy" label="My Support" sub="Tickets & help"
+            testID="profile-support" onPress={() => router.push("/support/tickets")} />
+          <MenuRow icon="gift-outline" label="Share & Earn $5" sub="Invite friends — you both get credit"
+            testID="profile-referrals" onPress={() => router.push("/referrals")} />
+          <MenuRow icon="translate" label="Language" sub="App & guide language"
+            testID="profile-language" onPress={() => router.push("/settings/language")} />
+          <MenuRow icon="frequently-asked-questions" label="Help & FAQ" sub="Answers to common questions"
+            testID="profile-faq" onPress={() => router.push("/support/faq")} last />
+        </View>
+
         {/* profile facts */}
         <Text style={styles.sectionLabel}>YOUR PROFILE</Text>
         <View style={styles.factList}>
@@ -101,24 +147,16 @@ export default function Profile() {
           </Pressable>
         </View>
 
-        {/* share & earn */}
-        <Pressable testID="profile-referrals" style={styles.refer} onPress={() => router.push("/referrals")}>
-          <View style={styles.referIcon}><MaterialCommunityIcons name="gift-outline" size={22} color={colors.brandPrimary} /></View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.referTitle}>SHARE & EARN $5</Text>
-            <Text style={styles.referSub}>Invite friends — you both get credit.</Text>
-          </View>
-          <MaterialCommunityIcons name="chevron-right" size={22} color={colors.onSurfaceTertiary} />
-        </Pressable>
-
-        {/* upgrade */}
-        <Pressable testID="profile-upgrade" style={styles.upgrade} onPress={() => router.push("/paywall")}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.upgradeTitle}>UPGRADE YOUR PLAN</Text>
-            <Text style={styles.upgradeSub}>More credits, more voice minutes, priority Homie.</Text>
-          </View>
-          <MaterialCommunityIcons name="rocket-launch-outline" size={26} color={colors.onBrandPrimary} />
-        </Pressable>
+        {/* upgrade — only for free users */}
+        {user.subscription_tier === "free" && (
+          <Pressable testID="profile-upgrade" style={styles.upgrade} onPress={() => router.push("/paywall")}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.upgradeTitle}>UPGRADE YOUR PLAN</Text>
+              <Text style={styles.upgradeSub}>More credits, more voice minutes, priority Homie.</Text>
+            </View>
+            <MaterialCommunityIcons name="rocket-launch-outline" size={26} color={colors.onBrandPrimary} />
+          </Pressable>
+        )}
 
         <Pressable testID="profile-logout" style={styles.logout} onPress={logout}>
           <MaterialCommunityIcons name="logout" size={18} color={colors.error} />
@@ -146,6 +184,29 @@ const factStyles = StyleSheet.create({
   value: { flex: 1, color: colors.onSurface, fontFamily: font.bold, fontSize: type.base, textAlign: "right" },
 });
 
+function MenuRow({ icon, label, sub, onPress, testID, last }: { icon: any; label: string; sub?: string; onPress: () => void; testID?: string; last?: boolean }) {
+  return (
+    <Pressable testID={testID} onPress={onPress} style={({ pressed }) => [menuStyles.row, !last && menuStyles.border, pressed && { opacity: 0.6 }]}>
+      <View style={menuStyles.iconWrap}>
+        <MaterialCommunityIcons name={icon} size={20} color={colors.brandPrimary} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={menuStyles.label}>{label}</Text>
+        {!!sub && <Text style={menuStyles.sub} numberOfLines={1}>{sub}</Text>}
+      </View>
+      <MaterialCommunityIcons name="chevron-right" size={22} color={colors.onSurfaceTertiary} />
+    </Pressable>
+  );
+}
+
+const menuStyles = StyleSheet.create({
+  row: { flexDirection: "row", alignItems: "center", gap: spacing.md, paddingVertical: spacing.md },
+  border: { borderBottomColor: colors.border, borderBottomWidth: 1 },
+  iconWrap: { width: 38, height: 38, borderRadius: radius.sm, backgroundColor: colors.brandTertiary, alignItems: "center", justifyContent: "center" },
+  label: { color: colors.onSurface, fontFamily: font.bold, fontSize: type.base },
+  sub: { color: colors.onSurfaceTertiary, fontFamily: font.regular, fontSize: type.sm, marginTop: 1 },
+});
+
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.surface },
   headerRow: { flexDirection: "row", alignItems: "center", gap: spacing.md, marginBottom: spacing.xl },
@@ -160,6 +221,11 @@ const styles = StyleSheet.create({
   counterNum: { color: colors.onSurface, fontFamily: font.display, fontSize: 44, lineHeight: 46 },
   counterLabel: { color: colors.onSurfaceTertiary, fontFamily: font.bold, fontSize: 10, letterSpacing: 1, marginTop: 2 },
   counterDivider: { width: 1, height: 48, backgroundColor: colors.borderStrong },
+  statsRow: { flexDirection: "row", gap: spacing.md, marginBottom: spacing.xl },
+  statCard: { flex: 1, alignItems: "center", backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, paddingVertical: spacing.lg, borderColor: colors.border, borderWidth: 1 },
+  statNum: { color: colors.brandPrimary, fontFamily: font.display, fontSize: 36, lineHeight: 38 },
+  statLabel: { color: colors.onSurfaceTertiary, fontFamily: font.bold, fontSize: 10, letterSpacing: 1, marginTop: 2 },
+  menuCard: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, paddingHorizontal: spacing.lg, borderColor: colors.border, borderWidth: 1, marginBottom: spacing.xl },
   sectionLabel: { color: colors.onSurfaceTertiary, fontFamily: font.bold, fontSize: type.sm, letterSpacing: 1.5, marginBottom: spacing.sm },
   factList: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, paddingHorizontal: spacing.lg, borderColor: colors.border, borderWidth: 1, marginBottom: spacing.xl },
   toolWrap: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginBottom: spacing.xl },

@@ -1127,6 +1127,14 @@ async def create_ticket(req: TicketReq, user: dict = Depends(get_current_user)):
     return {"id": doc["id"], "status": "open"}
 
 
+@api_router.get("/support/tickets")
+async def my_tickets(user: dict = Depends(get_current_user)):
+    docs = await db.support_tickets.find(
+        {"user_id": user["id"]}, {"_id": 0}
+    ).sort("created_at", -1).to_list(200)
+    return docs
+
+
 # ---------------------------------------------------------------- weather (WeatherAPI.com)
 @api_router.get("/weather")
 async def get_weather(q: Optional[str] = None, user: dict = Depends(get_current_user)):
@@ -1350,7 +1358,100 @@ async def subscribe(req: SubscribeReq, user: dict = Depends(get_current_user)):
     return public_user(fresh)
 
 
-# ---------------------------------------------------------------- Share & Earn (referrals)
+class PortalReq(BaseModel):
+    origin_url: str
+
+
+async def _ensure_customer(user: dict) -> Optional[str]:
+    """Return the user's Stripe customer id, creating one if missing."""
+    customer_id = user.get("stripe_customer_id")
+    if customer_id:
+        return customer_id
+    if not STRIPE_SECRET_KEY:
+        return None
+    try:
+        customer = await asyncio.to_thread(
+            lambda: stripe.Customer.create(email=user.get("email"), metadata={"user_id": user["id"]})
+        )
+    except Exception as e:
+        logger.error(f"stripe customer create error: {e}")
+        return None
+    await db.users.update_one({"id": user["id"]}, {"$set": {"stripe_customer_id": customer.id}})
+    return customer.id
+
+
+@api_router.post("/billing/customer-portal")
+async def customer_portal(req: PortalReq, user: dict = Depends(get_current_user)):
+    """Open the Stripe-hosted billing portal so users can manage their card,
+    invoices and subscription. Requires the portal to be enabled once in the
+    Stripe Dashboard (Settings → Billing → Customer portal)."""
+    if not STRIPE_SECRET_KEY:
+        raise HTTPException(status_code=500, detail="Payments not configured")
+    customer_id = await _ensure_customer(user)
+    if not customer_id:
+        raise HTTPException(status_code=502, detail="Could not open billing. Try again.")
+    return_url = (req.origin_url or "").rstrip("/") + "/profile"
+    try:
+        session = await asyncio.to_thread(lambda: stripe.billing_portal.Session.create(
+            customer=customer_id, return_url=return_url,
+        ))
+    except stripe.error.InvalidRequestError as e:
+        logger.error(f"stripe portal config error: {e}")
+        raise HTTPException(
+            status_code=503,
+            detail="Billing portal isn't activated yet. The owner must enable it in the Stripe Dashboard (Settings → Billing → Customer portal).",
+        )
+    except Exception as e:
+        logger.error(f"stripe portal error: {e}")
+        raise HTTPException(status_code=502, detail="Could not open billing. Try again.")
+    return {"url": session.url}
+
+
+@api_router.get("/billing/summary")
+async def billing_summary(user: dict = Depends(get_current_user)):
+    tier = user.get("subscription_tier", "free")
+    plan = PLAN_TIERS.get(tier)
+    out = {
+        "tier": tier,
+        "tier_label": plan["label"] if plan else "Free",
+        "status": user.get("subscription_status", "none" if tier == "free" else "active"),
+        "credits": user.get("credits", 0),
+        "voice_minutes": user.get("voice_minutes", 0),
+        "amount": plan["amount"] if plan else 0,
+        "renews_at": None,
+        "cancel_at_period_end": False,
+        "credit_cents": 0,
+        "payments": [],
+        "plans": [
+            {"tier": k, "label": v["label"], "amount": v["amount"],
+             "credits": v["credits"], "voice_minutes": v["voice_minutes"]}
+            for k, v in PLAN_TIERS.items()
+        ],
+        "has_customer": bool(user.get("stripe_customer_id")),
+    }
+    # Live subscription state (renewal date / cancellation) + referral credit balance.
+    if STRIPE_SECRET_KEY and user.get("stripe_subscription_id"):
+        try:
+            sub = await asyncio.to_thread(lambda: stripe.Subscription.retrieve(user["stripe_subscription_id"]))
+            cpe = sub.get("current_period_end")
+            if cpe:
+                out["renews_at"] = datetime.fromtimestamp(cpe, tz=timezone.utc).isoformat()
+            out["cancel_at_period_end"] = bool(sub.get("cancel_at_period_end"))
+            out["status"] = sub.get("status") or out["status"]
+        except Exception as e:
+            logger.warning(f"billing summary sub fetch: {e}")
+    if STRIPE_SECRET_KEY and user.get("stripe_customer_id"):
+        try:
+            cust = await asyncio.to_thread(lambda: stripe.Customer.retrieve(user["stripe_customer_id"]))
+            out["credit_cents"] = max(0, -(cust.get("balance") or 0))
+        except Exception as e:
+            logger.warning(f"billing summary balance: {e}")
+    # Recent successful payments.
+    txs = await db.payment_transactions.find(
+        {"user_id": user["id"], "fulfilled": True}, {"_id": 0, "amount": 1, "tier": 1, "created_at": 1, "currency": 1}
+    ).sort("created_at", -1).to_list(12)
+    out["payments"] = txs
+    return out
 REFERRAL_REWARD_CENTS = 500  # $5.00 account credit per converted referral
 
 

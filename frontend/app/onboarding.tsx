@@ -37,8 +37,8 @@ export default function Onboarding() {
           </View>
           <Text style={styles.headline}>YOU’VE{"\n"}GOT THIS.</Text>
           <Text style={styles.sub}>
-            Clear, step-by-step guides for home repairs, maintenance and improvement projects — built around your
-            tools, your budget and your local codes. Like a master contractor right in your pocket.
+            Like having a trusted contractor on call 24/7, DIYHomie provides personalized guidance for every
+            repair, maintenance, and home improvement project—helping you tackle each job with confidence.
           </Text>
           <View style={styles.pillsRow}>
             <View style={styles.pill}><MaterialCommunityIcons name="shield-check" size={14} color={colors.brandPrimary} /><Text style={styles.pillText}>Local codes</Text></View>

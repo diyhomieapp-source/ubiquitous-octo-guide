@@ -1,0 +1,40 @@
+{
+  "summary": "Tested the new User Profile & Dashboard end-to-end (backend + frontend). Backend: 10/10 pytest cases passed in /app/backend/tests/test_profile_dashboard.py covering (a) GET /api/billing/summary auth gating + full payload shape (tier/tier_label/status/credits/voice_minutes/amount/renews_at/cancel_at_period_end/credit_cents/payments[]/plans[]/has_customer) with pro+master plans present, (b) POST /api/billing/customer-portal auth gating + LIVE billing.stripe.com URL returned + stripe_customer_id is created on first call and reused on subsequent calls (has_customer flips false->true), and (c) GET /api/support/tickets per-user scoping — User A and User B each create a ticket, A's GET returns A's ticket only and NOT B's (and vice versa), response excludes mongo _id, and tickets are sorted newest-first. Frontend (mobile viewport 390x844): Profile tab at /profile renders header (name/email/FREE TRIAL badge), counters (60 TEXT CREDITS / 3 VOICE MIN), ACTIVE/COMPLETED stat cards (1/0), and the MANAGE ACCOUNT card with all six rows — testIDs profile-billing, profile-projects, profile-support, profile-referrals, profile-language, profile-faq are present and labels match spec ('Billing & Plan', 'My Projects', 'My Support', 'Share & Earn $5', 'Language', 'Help & FAQ'). Tapping profile-billing -> /settings/billing renders CURRENT PLAN/FREE/NONE status, 60 credits / 3 voice min, Manage billing & card primary button (testID billing-portal), Upgrade your plan secondary (testID billing-upgrade), PLANS list with Pro $12.00/mo + Master $29.00/mo, PAYMENT HISTORY 'No payments yet'. Tapping billing-portal triggered POST /api/billing/customer-portal -> 200, the page then attempted window.location.href to a LIVE billing.stripe.com/p/session/live_... URL (intercepted in test — checkout was NOT completed). Profile -> My Support (/support/tickets) renders empty state ('No tickets yet' + lifebuoy icon + orange NEW TICKET CTA testID tickets-empty-new), and the header has the plus-circle testID tickets-new. End-to-end ticket creation also verified: filled subject + message on /support/ticket -> SEND TICKET -> 'TICKET SENT' confirmation with reference #746CE1BF -> the new ticket appeared in My Support list with OPEN status pill, category 'Billing & subscription', and correct date.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_profile_dashboard.py",
+    "/app/test_reports/pytest/profile_dashboard_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "All three new endpoints exclude mongo _id (projection {'_id': 0}); no ObjectId leak.",
+    "/api/billing/summary correctly composes server-side from PLAN_TIERS so prices/credits are never client-trusted.",
+    "/api/billing/customer-portal handles Stripe InvalidRequestError (portal not activated) with a clear 503 message and a generic 502 for other failures — good UX.",
+    "Auth-gated endpoints return 403 (HTTPBearer default) instead of 401 when the Authorization header is missing. Functionally fine and tests accept both; convention would be 401 but this matches the rest of the codebase.",
+    "settings/billing.tsx primaryBtn (testID billing-portal) is wired correctly to POST /api/billing/customer-portal with origin_url = window.location.origin on web (and EXPO_PUBLIC_BACKEND_URL fallback on native). Result is opened via window.location.href on web and WebBrowser.openBrowserAsync on native.",
+    "profile.tsx uses Pressable + correct testIDs for every menu row; uses MaterialCommunityIcons icons that all resolve (credit-card-outline, folder-multiple-outline, lifebuoy, gift-outline, translate, frequently-asked-questions, chevron-right).",
+    "tickets.tsx empty state CTA testID is tickets-empty-new (distinct from the header tickets-new) — both navigate to /support/ticket and both rendered/clickable.",
+    "Stripe LIVE constraint respected — only billing_portal.Session.create() was triggered during testing; no Subscription/Checkout was invoked."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_profile_dashboard.py (created)"
+  ],
+  "success_rate": {
+    "backend": "100% (10/10)",
+    "frontend": "100% (Profile dashboard, Billing screen, billing-portal click -> Stripe URL, Support tickets empty-state + create + list-with-OPEN-pill all PASS)"
+  },
+  "seed_data_creation": "Two ephemeral users TEST_profA_*/TEST_profB_* registered via /api/auth/register for the scoping test; both now have a stripe_customer_id (cus_*) created on Stripe LIVE. demo_home@diyhomie.com gained one extra support ticket #746CE1BF subject 'TEST UI ticket from playwright' from the UI flow.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Login testIDs are auth-email-input / auth-password-input / auth-submit-button (NOT auth-submit). Profile tab is at /profile (under (tabs)). Billing portal flow on web does window.location.href to billing.stripe.com — to test without actually leaving the app, intercept page.route('**/*') and abort requests to billing.stripe.com. Stripe is LIVE — never trigger /api/billing/checkout in tests; only /api/billing/customer-portal is safe (read-only portal session). EXPO_PUBLIC_BACKEND_URL must be passed when running pytest from CLI since /app/backend/.env doesn't set it.",
+  "rca_of_issue": ""
+}
