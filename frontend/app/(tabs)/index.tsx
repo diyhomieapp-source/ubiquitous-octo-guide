@@ -115,6 +115,15 @@ export default function Home() {
           <WeatherBanner location={user?.location} />
         </View>
 
+        <Pressable testID="home-paint-studio" style={styles.paintBanner} onPress={() => router.push("/paint-studio")}>
+          <View style={styles.paintIcon}><MaterialCommunityIcons name="format-paint" size={24} color={colors.onBrandPrimary} /></View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.paintTitle}>PAINT STUDIO</Text>
+            <Text style={styles.paintSub}>Snap a room → see it in any color, instantly</Text>
+          </View>
+          <MaterialCommunityIcons name="arrow-right" size={22} color={colors.brandPrimary} />
+        </Pressable>
+
         <Text style={styles.sectionLabel}>{t("home.popularProjects")}</Text>
         <View style={styles.suggestWrap}>
           {suggestions.map((s) => (
@@ -178,4 +187,8 @@ const styles = StyleSheet.create({
   resumeTrack: { height: 6, borderRadius: radius.pill, backgroundColor: colors.surfaceTertiary, overflow: "hidden" },
   resumeFill: { height: 6, borderRadius: radius.pill, backgroundColor: colors.brandPrimary },
   resumePct: { color: colors.onSurfaceSecondary, fontFamily: font.bold, fontSize: type.sm },
+  paintBanner: { flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: colors.surfaceSecondary, borderColor: colors.brandPrimary, borderWidth: 1.5, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.xl },
+  paintIcon: { width: 44, height: 44, borderRadius: radius.sm, backgroundColor: colors.brandPrimary, alignItems: "center", justifyContent: "center" },
+  paintTitle: { color: colors.onSurface, fontFamily: font.bold, fontSize: type.base, letterSpacing: 0.5 },
+  paintSub: { color: colors.onSurfaceTertiary, fontFamily: font.regular, fontSize: type.sm, marginTop: 1 },
 });

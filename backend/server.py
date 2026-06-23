@@ -42,6 +42,8 @@ security = HTTPBearer(auto_error=True)
 
 STRIPE_API_KEY = os.environ.get('STRIPE_API_KEY', '')
 WEATHER_API_KEY = os.environ.get('WEATHER_API_KEY', '').strip()
+DECOR8_API_KEY = os.environ.get('DECOR8_API_KEY', '').strip()
+DECOR8_BASE_URL = "https://api.decor8.ai"
 STRIPE_SECRET_KEY = os.environ.get('STRIPE_SECRET_KEY', '').strip() or STRIPE_API_KEY
 STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET', '').strip()
 if STRIPE_SECRET_KEY:
@@ -2484,6 +2486,109 @@ async def update_vendor(vendor_id: str, req: VendorReq, admin: dict = Depends(re
 async def delete_vendor(vendor_id: str, admin: dict = Depends(require_admin)):
     await db.vendors.delete_one({"id": vendor_id})
     return {"ok": True}
+
+
+# ---------------------------------------------------------------- Decor8 Paint Visualizer
+DECOR8_ENDPOINTS = {
+    "wall": "/change_wall_color",
+    "cabinet": "/change_kitchen_cabinets_color",
+}
+VISUALIZE_COST = 4
+
+
+class VisualizeReq(BaseModel):
+    image_base64: str
+    feature_type: str = "wall"  # wall | cabinet | flooring | exterior
+    color_hex: Optional[str] = None
+    color_name: Optional[str] = None
+    room_type: str = "livingroom"
+    prompt: Optional[str] = None
+    project_id: Optional[str] = None
+
+
+@api_router.post("/visualize")
+async def visualize_finish(req: VisualizeReq, user: dict = Depends(get_current_user)):
+    if not DECOR8_API_KEY:
+        raise HTTPException(status_code=503, detail="Paint visualizer is not configured.")
+    img = (req.image_base64 or "").strip()
+    if not img:
+        raise HTTPException(status_code=400, detail="Please upload a photo first.")
+    if not (img.startswith("data:image") or img.startswith("http")):
+        img = f"data:image/jpeg;base64,{img}"
+
+    feature = req.feature_type if req.feature_type in ("wall", "cabinet", "flooring", "exterior") else "wall"
+    # First visualization ever is free (conversion moment), then charge credits.
+    prior = await db.visualizations.count_documents({"user_id": user["id"]})
+    cost = 0 if prior == 0 else VISUALIZE_COST
+    if user.get("credits", 0) < cost:
+        raise HTTPException(status_code=402, detail="Out of credits. Upgrade to keep visualizing.")
+
+    if feature in ("wall", "cabinet"):
+        if not req.color_hex or not req.color_hex.startswith("#"):
+            raise HTTPException(status_code=400, detail="Pick a color first.")
+        endpoint = DECOR8_ENDPOINTS[feature]
+        if feature == "wall":
+            payload: dict = {"input_image_url": img, "wall_color_hex_code": req.color_hex, "color_hex": req.color_hex, "room_type": req.room_type}
+        else:
+            payload = {"input_image_url": img, "cabinet_color_hex_code": req.color_hex, "color_hex": req.color_hex, "room_type": "kitchen"}
+    else:
+        # flooring / exterior -> prompt-based design endpoint
+        endpoint = "/generate_designs_for_room"
+        if req.prompt:
+            prompt = req.prompt
+        elif feature == "flooring":
+            prompt = f"replace the flooring with {req.color_name or 'new'} flooring, keep everything else the same"
+        else:
+            prompt = f"repaint the exterior walls/siding {req.color_name or req.color_hex or 'a new color'}, keep everything else the same"
+        payload = {"input_image_url": img, "prompt": prompt, "room_type": req.room_type, "design_style": "modern"}
+
+    headers = {"Authorization": f"Bearer {DECOR8_API_KEY}", "Content-Type": "application/json"}
+    try:
+        async with httpx.AsyncClient(timeout=90.0) as http_client:
+            resp = await http_client.post(f"{DECOR8_BASE_URL}{endpoint}", json=payload, headers=headers)
+    except Exception as e:
+        logger.error(f"decor8 request failed: {e}")
+        raise HTTPException(status_code=504, detail="Visualizer timed out. Try again.")
+
+    if resp.status_code != 200:
+        logger.error(f"decor8 {resp.status_code}: {resp.text[:300]}")
+        if resp.status_code == 422:
+            raise HTTPException(status_code=422, detail="That photo or color didn't work — try a clearer room photo.")
+        if resp.status_code == 429:
+            raise HTTPException(status_code=429, detail="Visualizer is busy. Try again in a moment.")
+        raise HTTPException(status_code=502, detail="Visualizer error. Try again.")
+
+    try:
+        body = resp.json()
+        info = body.get("info", {}) or {}
+        if info.get("images"):
+            result_url = info["images"][0]["url"]
+        else:
+            result_url = info.get("url") or body.get("url")
+        if not result_url:
+            raise ValueError("no url")
+    except Exception:
+        logger.error(f"decor8 unexpected response: {resp.text[:300]}")
+        raise HTTPException(status_code=502, detail="Visualizer returned no image.")
+
+    rec = {
+        "id": new_id(), "user_id": user["id"], "feature_type": feature,
+        "color_hex": req.color_hex, "color_name": req.color_name, "room_type": req.room_type,
+        "result_url": result_url, "project_id": req.project_id, "created_at": now_iso(),
+    }
+    await db.visualizations.insert_one(dict(rec))
+    rec.pop("_id", None)
+    new_credits = user.get("credits", 0) - cost
+    await db.users.update_one({"id": user["id"]}, {"$set": {"credits": new_credits}})
+    rec["credits"] = new_credits
+    rec["cost"] = cost
+    return rec
+
+
+@api_router.get("/visualize/history")
+async def visualize_history(limit: int = 20, user: dict = Depends(get_current_user)):
+    items = await db.visualizations.find({"user_id": user["id"]}, {"_id": 0}).sort("created_at", -1).to_list(limit)
+    return items
 
 
 app.include_router(api_router)

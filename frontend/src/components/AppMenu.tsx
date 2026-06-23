@@ -55,6 +55,11 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
               <Text style={[styles.itemText, { color: colors.brandPrimary }]}>Share & Earn $5</Text>
               <MaterialCommunityIcons name="chevron-right" size={20} color={colors.brandPrimary} />
             </Pressable>
+            <Pressable testID="menu-paint-studio" style={[styles.item, { borderColor: colors.border, borderWidth: 1, borderRadius: radius.sm, paddingHorizontal: spacing.md, marginBottom: spacing.sm }]} onPress={() => go("/paint-studio")}>
+              <MaterialCommunityIcons name="format-paint" size={20} color={colors.brandPrimary} />
+              <Text style={styles.itemText}>Paint Studio</Text>
+              <MaterialCommunityIcons name="chevron-right" size={20} color={colors.onSurfaceTertiary} />
+            </Pressable>
             <Text style={styles.section}>{t("menu.language").toUpperCase()}</Text>
             <Pressable testID="menu-blog" style={styles.item} onPress={() => go("/blog")}>
               <MaterialCommunityIcons name="book-open-page-variant" size={20} color={colors.brandPrimary} />

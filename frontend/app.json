@@ -11,7 +11,9 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Show weather-aware tips for your outdoor projects"
+        "NSLocationWhenInUseUsageDescription": "Show weather-aware tips for your outdoor projects",
+        "NSCameraUsageDescription": "Take a room photo to preview new paint colors",
+        "NSPhotoLibraryUsageDescription": "Choose a room photo to preview new paint colors"
       }
     },
     "android": {
@@ -22,7 +24,10 @@
       "edgeToEdgeEnabled": true,
       "permissions": [
         "ACCESS_COARSE_LOCATION",
-        "ACCESS_FINE_LOCATION"
+        "ACCESS_FINE_LOCATION",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "READ_MEDIA_IMAGES"
       ]
     },
     "web": {
@@ -41,7 +46,14 @@
           "backgroundColor": "#000"
         }
       ],
-      "expo-localization"
+      "expo-localization",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Choose a room photo to preview new paint colors",
+          "cameraPermission": "Take a room photo to preview new paint colors"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
