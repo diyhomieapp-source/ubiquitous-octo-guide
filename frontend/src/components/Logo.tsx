@@ -81,7 +81,7 @@ export function Logo({ size = "md", showWordmark = true, animated = true }: { si
           pointerEvents="none"
           style={[
             styles.mascotWrap,
-            { width: mW, height: mH, left: (dim - mW) / 2, bottom: 0, transform: [{ translateY }] },
+            { width: mW, height: mH, left: (dim - mW) / 2, bottom: -dim * 0.1, transform: [{ translateY }] },
           ]}
         >
           <Image source={MASCOT} style={styles.mascot} contentFit="contain" />
