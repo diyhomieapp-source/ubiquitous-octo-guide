@@ -1357,12 +1357,110 @@ async def public_journey(user_id: str):
     }
 
 
+# ---------------------------------------------------------------- Knowledge Search & Pro Referral (Sheet #12)
+def _kw_regex(q: str):
+    terms = [re.escape(t) for t in re.findall(r"[a-zA-Z0-9]+", q.lower()) if len(t) > 2 and t not in STOP_WORDS]
+    if not terms:
+        terms = [re.escape(q.strip())]
+    return {"$regex": "|".join(terms), "$options": "i"}
+
+
+async def _expand_query(q: str) -> dict:
+    try:
+        system = ("You expand a homeowner's DIY search query to help them find the right guide. "
+                  "Return ONLY JSON (no markdown): "
+                  '{"related": ["3-6 short related DIY search phrases"], "did_you_mean": "spelling-corrected query or null"}')
+        data = await _llm_json(system, f"Query: {q}", max_tokens=200)
+        if isinstance(data, dict):
+            return {"related": [str(x) for x in (data.get("related") or [])][:6], "did_you_mean": data.get("did_you_mean")}
+    except Exception as e:
+        logger.warning(f"query expand failed: {e}")
+    return {"related": [], "did_you_mean": None}
+
+
+@api_router.get("/knowledge/search")
+async def knowledge_search(q: str, expand: bool = True, user: dict = Depends(get_current_user)):
+    q = (q or "").strip()
+    if len(q) < 2:
+        return {"query": q, "results": [], "related": [], "did_you_mean": None, "counts": {}}
+    rx = _kw_regex(q)
+    results = []
+    async for b in db.blog_posts.find({"published": True, "$or": [{"title": rx}, {"excerpt": rx}, {"keywords": rx}, {"category": rx}]}, {"_id": 0}).limit(20):
+        results.append({"type": "guide", "title": b.get("title"), "snippet": (b.get("excerpt") or "")[:160], "route": f"/blog/{b.get('slug')}", "category": b.get("category")})
+    async for p in db.community_projects.find({"$or": [{"title": rx}, {"blurb": rx}, {"category": rx}]}, {"_id": 0}).limit(10):
+        results.append({"type": "community", "title": p.get("title"), "snippet": (p.get("blurb") or "")[:160], "route": f"/community/{p.get('slug')}", "category": p.get("category")})
+    async for e in db.community_experiences.find({"$or": [{"title": rx}, {"body": rx}]}, {"_id": 0}).limit(15):
+        results.append({"type": "tip", "title": e.get("title"), "snippet": (e.get("body") or "")[:160], "route": f"/community/{e.get('project_slug')}", "author": e.get("author")})
+    async for t in db.community_threads.find({"question": rx}, {"_id": 0}).limit(10):
+        reps = t.get("replies") or []
+        snip = reps[0].get("body", "")[:160] if reps else "Unanswered — be the first to help."
+        results.append({"type": "question", "title": t.get("question"), "snippet": snip, "route": f"/community/{t.get('project_slug')}"})
+    counts = {}
+    for r in results:
+        counts[r["type"]] = counts.get(r["type"], 0) + 1
+    exp = await _expand_query(q) if expand else {"related": [], "did_you_mean": None}
+    return {"query": q, "results": results[:40], "related": exp["related"], "did_you_mean": exp["did_you_mean"], "counts": counts}
+
+
+PRO_TRADES = ["Plumbing", "Electrical", "HVAC", "Structural / Framing", "Roofing", "Concrete / Masonry", "General Contractor", "Other"]
+
+
+@api_router.get("/pro-referrals/trades")
+async def pro_trades():
+    return {"trades": PRO_TRADES}
+
+
+class ProLeadReq(BaseModel):
+    trade: str
+    issue: str
+    location: Optional[str] = None
+    project_id: Optional[str] = None
+    urgency: str = "standard"
+
+
+@api_router.post("/pro-referrals")
+async def create_pro_lead(req: ProLeadReq, user: dict = Depends(get_current_user)):
+    lead = {
+        "id": new_id(), "user_id": user["id"],
+        "name": user.get("name") or user["email"].split("@")[0], "email": user.get("email"),
+        "trade": req.trade[:60], "issue": req.issue.strip()[:1000],
+        "location": (req.location or user.get("location") or "").strip(),
+        "project_id": req.project_id,
+        "urgency": req.urgency if req.urgency in ("emergency", "standard", "planning") else "standard",
+        "status": "new", "created_at": now_iso(),
+    }
+    await db.pro_leads.insert_one(dict(lead))
+    return lead
+
+
+@api_router.get("/pro-referrals/me")
+async def my_pro_leads(user: dict = Depends(get_current_user)):
+    return await db.pro_leads.find({"user_id": user["id"]}, {"_id": 0}).sort("created_at", -1).to_list(100)
+
+
+@api_router.get("/admin/pro-leads")
+async def admin_pro_leads(admin: dict = Depends(require_admin)):
+    items = await db.pro_leads.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
+    return {"items": items}
+
+
+class ProLeadPatch(BaseModel):
+    status: str
+
+
+@api_router.patch("/admin/pro-leads/{lead_id}")
+async def admin_update_pro_lead(lead_id: str, req: ProLeadPatch, admin: dict = Depends(require_admin)):
+    if req.status not in ("new", "contacted", "matched", "closed"):
+        raise HTTPException(status_code=400, detail="Invalid status")
+    await db.pro_leads.update_one({"id": lead_id}, {"$set": {"status": req.status}})
+    return {"ok": True}
+
+
 # ---------------------------------------------------------------- community (Pro-Earn)
 class PostReq(BaseModel):
     title: str
     body: str
     image_base64: Optional[str] = None
-
 
 class ReplyReq(BaseModel):
     body: str

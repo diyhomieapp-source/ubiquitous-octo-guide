@@ -43,6 +43,10 @@ export default function Community() {
         <Text style={styles.sub}>
           AI guides you first — then learn from {compact(totalDone)}+ homeowners who've actually done it.
         </Text>
+        <Pressable testID="community-search-bar" style={styles.searchBar} onPress={() => router.push("/search")}>
+          <MaterialCommunityIcons name="magnify" size={20} color={colors.onSurfaceTertiary} />
+          <Text style={styles.searchPlaceholder}>Search guides, tips & fixes…</Text>
+        </Pressable>
       </View>
 
       {loading ? (
@@ -135,6 +139,8 @@ const styles = StyleSheet.create({
   header: { paddingHorizontal: spacing.lg, marginBottom: spacing.lg },
   h1: { color: colors.onSurface, fontFamily: font.display, fontSize: 38, lineHeight: 40 },
   sub: { color: colors.onSurfaceTertiary, fontFamily: font.regular, fontSize: type.base, marginTop: 2, lineHeight: 19 },
+  searchBar: { flexDirection: "row", alignItems: "center", gap: spacing.sm, backgroundColor: colors.surfaceSecondary, borderColor: colors.border, borderWidth: 1, borderRadius: radius.md, paddingHorizontal: spacing.md, height: 44, marginTop: spacing.md },
+  searchPlaceholder: { color: colors.onSurfaceTertiary, fontFamily: font.medium, fontSize: type.base },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   feedHead: { flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingHorizontal: spacing.lg, marginBottom: spacing.sm },
   livePulse: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.success },

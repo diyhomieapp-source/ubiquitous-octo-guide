@@ -1,0 +1,46 @@
+{
+  "summary": "Full validation of Info Sheet #12: Knowledge Search + Pro-Referral hand-off. Backend: 15/15 pytest tests pass covering GET /api/knowledge/search (grouped results across guide/community/tip/question, AI query-expansion via gpt-4o-mini populates related[], short/nonsense queries return zero results safely, expand=false skips LLM, auth required), GET /api/pro-referrals/trades (returns 8 trades incl. Plumbing/Electrical/HVAC), POST /api/pro-referrals (persists lead, invalid urgency coerced to 'standard', requires auth, verifiable via /pro-referrals/me), GET /api/admin/pro-leads (admin gated: 403 for standard user), PATCH /api/admin/pro-leads/{id} (status transitions persist, invalid status → 400). Frontend (Expo web): (1) User flow — /(tabs)/community → tap testID community-search-bar navigates to /search; search-input loads with autofocus, popular chips render (search-suggest-Leaky faucet etc.). Typing 'leaky faucet' + Enter returns 5 results grouped by type (Guide, Community, Tip, Q&A) rendered as search-result-{i} cards with type icons + snippets + author byline where applicable; 4 AI 'RELATED SEARCHES' chips render (search-related-*) and tapping one re-runs the search with the chosen term. Nonsense query 'zxzxzxqqppqqzzzz' returns 0 results and shows 'Nothing matched — get unstuck' escalation block with search-ask-community and search-get-pro. Popular chip 'Paint a room' re-runs search returning 7 results. Result card tap navigates to /blog/replace-a-kitchen-faucet-moen-adler-87233. search-ask-community navigates to /community. (2) ProReferralModal — all form testIDs present and interactive: pro-trade-Electrical, pro-issue, pro-location, pro-urgency-standard, pro-submit; after submit success screen 'Request received' renders with pro-done. (3) Admin — /auth login as Diyhomieapp@gmail.com → /admin → admin-nav-proleads renders 'Pro Referral Leads' page with headline count ('4 total · 3 new · escalated jobs above DIY.'), 5 filter chips (proleads-filter-{all,new,contacted,matched,closed}), leads list showing trade badge / issue / urgency badge / contact name+email / location, 4 status chips per lead (proleads-{id}-{status}); clicking a status chip optimistically updates UI and PATCHes backend; filter chips correctly narrow list. Search AI expansion latency ~2-4s; 30s timeout is generous. No deprecated packages (expo-av/expo-barcode-scanner/expo-background-fetch) in new files. Minor cosmetic: MaterialCommunityIcons warnings for invalid icon names 'deck' and 'sink' (pre-existing seed data, not from this iteration).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_knowledge_pro_referral.py",
+    "/app/test_reports/pytest/knowledge_pro_referral_results.xml"
+  ],
+  "action_items": [
+    "(Optional / cosmetic) Pre-existing warning noise: MaterialCommunityIcons complains that 'deck' and 'sink' are not valid icon names — these come from seeded community/project category icons, not new code. Consider mapping to valid icons (e.g. 'deck-outline' does not exist — 'floor-plan' or 'home-outline' as fallback; 'sink' → 'faucet' or 'water-pump'). Not from this iteration."
+  ],
+  "critical_code_review_comments": [
+    "server.py:1361 _kw_regex correctly filters STOP_WORDS + short tokens (<3 chars) before regex OR-join; falls back to raw query if terms empty.",
+    "server.py:1368 _expand_query wraps _llm_json in try/except and always returns a safe {related:[], did_you_mean:None} default → search never fails due to LLM.",
+    "server.py:1382 knowledge_search: short-query guard (len<2) returns cleanly with empty payload. Auth-gated via Depends(get_current_user).",
+    "server.py:1388-1397 4 collection searches with proper $or filters and (_id:0) projection — no MongoDB ObjectId leakage. Reasonable limits (20/10/15/10).",
+    "server.py:1422 create_pro_lead validates urgency enum on the server side (coerces bad values to 'standard') — matches Pydantic model default.",
+    "server.py:1442 admin_pro_leads correctly uses require_admin dep; returns {items:[]} shape matching ProLeadsModule expectations.",
+    "server.py:1452 admin_update_pro_lead validates status enum before UPDATE, returns 400 on invalid — matches test suite expectation.",
+    "search.tsx uses 30s timeout on the /knowledge/search call which is appropriate given the ~2-4s AI expansion latency.",
+    "ProReferralModal disables submit until trade selected AND issue.trim().length >= 5 — good UX guard mirrored server-side.",
+    "ProLeadsModule uses optimistic UI update on setStatus with load() fallback on PATCH error — resilient.",
+    "All 3 new components use React Native primitives (View/Text/Pressable/TextInput/ScrollView/Modal/KeyboardAvoidingView), StyleSheet.create, and MaterialCommunityIcons only — no HTML tags, no expo-av."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_knowledge_pro_referral.py (NEW)",
+    "/app/test_reports/pytest/knowledge_pro_referral_results.xml (NEW)"
+  ],
+  "success_rate": {
+    "backend": "100% (15/15 tests pass in 5.84s)",
+    "frontend": "100% — search flow, escalation modal, ask-community nav, result nav, related/popular chips re-run search, admin Pro Leads list + filter + status PATCH all work"
+  },
+  "seed_data_creation": "Created 3 TEST pro-referral leads during pytest + 1 during UI test (TEST_UI leaky faucet under sink → then moved to Contacted). Admin can safely leave or clean up via /api/admin/pro-leads if desired; they are clearly prefixed with 'TEST'.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Knowledge Search + Pro Referral (Sheet #12) fully validated end-to-end. Auth response uses 'access_token'. Standard user flow: /auth (toggle to login mode via testID auth-toggle-mode) → email+password fields are auth-email-input / auth-password-input / auth-submit-button (not auth-email/password/submit). Admin is web-only at /admin. Search AI expansion via gpt-4o-mini adds ~2-4s latency; use ≥10s waits after Enter. The search input has autoFocus which is convenient. Every result renders as [data-testid=\"search-result-{i}\"] and every AI-related chip as [data-testid=\"search-related-{term}\"]. ProReferralModal is opened from search-get-pro on /search and from wherever else E1 wires it in — it has full testID coverage. Admin ProLeadsModule uses testIDs: proleads-filter-{all|new|contacted|matched|closed} and proleads-{leadId}-{status}.",
+  "rca_of_issue": "N/A — no bugs found. All 4 items in the review request pass: (1) Knowledge Search from Community tab → typed 'leaky faucet' → 5 grouped results (Guide/Community/Tip/Q&A) with snippets + AI-generated 'Related searches' chips; tapping result navigates; tapping chip re-runs search. (2) Pro-Referral escalation: search-get-pro opens ProReferralModal, all fields functional, submission returns 'Request received' success screen; search-ask-community navigates to /community. (3) Admin Pro Leads: admin-nav-proleads renders 4 leads with trade/issue/urgency/contact; filter chips work; status transitions PATCH successfully. (4) Empty/nonsense query safety: 0 results + 'Nothing matched — get unstuck' block with both escalation buttons still visible. Backend curl-verified 200s from E1 all confirmed by automated pytest (15/15)."
+}
