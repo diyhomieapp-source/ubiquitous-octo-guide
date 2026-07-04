@@ -52,6 +52,10 @@ export function AutomationModule() {
 
   const save = async () => {
     if (!name.trim() || actions.length === 0) { Alert.alert("Automation", "Add a name and at least one action."); return; }
+    const badCredit = actions.some((a) => a.type === "award_credits" && (!a.amount || a.amount <= 0));
+    if (badCredit) { Alert.alert("Automation", "Set a credit amount greater than 0."); return; }
+    const badTag = actions.some((a) => a.type === "add_tag" && !(a.tag || "").trim());
+    if (badTag) { Alert.alert("Automation", "Enter a tag name for the tag action."); return; }
     try {
       await api("/admin/automations", { method: "POST", body: { name: name.trim(), trigger, conditions: conds, actions, enabled: true } });
       reset(); load();
