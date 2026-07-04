@@ -16,6 +16,7 @@ import { storage } from "@/src/utils/storage";
 import { AvatarThinking } from "@/src/components/AvatarThinking";
 import { CalculatorSheet } from "@/src/components/CalculatorSheet";
 import { SupplyDrawer } from "@/src/components/SupplyDrawer";
+import { CompletionModal } from "@/src/components/CompletionModal";
 import { CodeCheckCard, projectNeedsCode } from "@/src/components/CodeCheckCard";
 import { calculatorForProject } from "@/src/calculators/registry";
 
@@ -58,6 +59,7 @@ export default function Workspace() {
   const [mode, setMode] = useState<"text" | "voice">("text");
   const [calcOpen, setCalcOpen] = useState(false);
   const [supplyOpen, setSupplyOpen] = useState(false);
+  const [completeOpen, setCompleteOpen] = useState(false);
   const askRef = useRef<ScrollView>(null);
   const [intake, setIntake] = useState<IntakeQ[] | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -348,8 +350,41 @@ export default function Workspace() {
               {g!.inspection_checklist.map((m, i) => (<View key={i} style={styles.listRow}><MaterialCommunityIcons name="check" size={16} color={colors.success} /><Text style={styles.listText}>{m}</Text></View>))}
             </Section>
           )}
+
+          {/* Finish & log — Homeowner Journey (Sheet #7/#11) */}
+          {g && (
+            project.status === "completed" ? (
+              <Pressable testID="project-view-journey" style={styles.doneBanner} onPress={() => router.push("/journey")}>
+                <MaterialCommunityIcons name="trophy" size={22} color={colors.success} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.doneTitle}>Project complete 🎉</Text>
+                  <Text style={styles.doneSub}>It's in your Homeowner Timeline. Tap to view your journey.</Text>
+                </View>
+                <MaterialCommunityIcons name="arrow-right" size={20} color={colors.success} />
+              </Pressable>
+            ) : (
+              <Pressable testID="project-finish" style={styles.finishBanner} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setCompleteOpen(true); }}>
+                <MaterialCommunityIcons name="flag-checkered" size={22} color={colors.onBrandPrimary} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.finishTitle}>{progress === 100 ? "All steps done — finish it!" : "Finish & log this project"}</Text>
+                  <Text style={styles.finishSub}>Get your story, savings & achievements.</Text>
+                </View>
+              </Pressable>
+            )
+          )}
         </ScrollView>
       )}
+
+      {project && (
+        <CompletionModal
+          visible={completeOpen}
+          projectId={project.id}
+          projectTitle={project.title}
+          onClose={() => setCompleteOpen(false)}
+          onDone={() => { setCompleteOpen(false); router.push("/journey"); }}
+        />
+      )}
+
 
       {/* Ask Homie FAB */}
       {!generating && project && (
@@ -426,6 +461,12 @@ const styles = StyleSheet.create({
   calcBannerSub: { color: colors.onSurfaceTertiary, fontFamily: font.regular, fontSize: type.sm, marginTop: 1 },
   bullet: { color: colors.brandPrimary, fontFamily: font.bold, fontSize: type.lg, width: 14 },
   stepsHeading: { color: colors.onSurfaceTertiary, fontFamily: font.bold, fontSize: type.sm, letterSpacing: 2, marginTop: spacing.sm },
+  finishBanner: { flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: colors.brandPrimary, borderRadius: radius.md, padding: spacing.lg, marginTop: spacing.md },
+  finishTitle: { color: colors.onBrandPrimary, fontFamily: font.bold, fontSize: type.lg },
+  finishSub: { color: colors.onBrandPrimary, fontFamily: font.regular, fontSize: type.sm, opacity: 0.9, marginTop: 1 },
+  doneBanner: { flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: colors.surfaceSecondary, borderColor: colors.success, borderWidth: 1.5, borderRadius: radius.md, padding: spacing.lg, marginTop: spacing.md },
+  doneTitle: { color: colors.onSurface, fontFamily: font.bold, fontSize: type.lg },
+  doneSub: { color: colors.onSurfaceTertiary, fontFamily: font.regular, fontSize: type.sm, marginTop: 1 },
   stepCard: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, padding: spacing.lg, borderColor: colors.border, borderWidth: 1, gap: spacing.sm },
   stepCardDone: { borderColor: colors.success, opacity: 0.85 },
   stepTop: { flexDirection: "row", alignItems: "center", gap: spacing.sm },

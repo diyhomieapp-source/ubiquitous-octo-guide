@@ -89,6 +89,9 @@ def public_user(u: dict) -> dict:
         "subscription_tier": u.get("subscription_tier", "free"),
         "onboarded": u.get("onboarded", False),
         "is_admin": u.get("is_admin", False),
+        "avatar_base64": u.get("avatar_base64"),
+        "bio": u.get("bio", ""),
+        "share_public": u.get("share_public", False),
     }
 
 
@@ -143,6 +146,9 @@ class ProfileReq(BaseModel):
     location: Optional[str] = None
     language: Optional[str] = None
     onboarded: Optional[bool] = None
+    avatar_base64: Optional[str] = None
+    bio: Optional[str] = None
+    share_public: Optional[bool] = None
 
 
 class StartProjectReq(BaseModel):
@@ -1139,6 +1145,218 @@ async def set_cash(req: CashReq, admin: dict = Depends(require_admin)):
     return {"ok": True}
 
 
+# ---------------------------------------------------------------- Homeowner Journey (Achievement & Progression Engine)
+SKILL_MAP = {
+    "bathroom": ("Bathroom Pro", "shower-head"),
+    "kitchen": ("Kitchen Craftsman", "countertop"),
+    "outdoor": ("Outdoor Specialist", "tree-outline"),
+    "basement": ("Basement Builder", "home-floor-b"),
+    "garage": ("Garage Guru", "garage"),
+    "laundry": ("Laundry Fixer", "washing-machine"),
+    "bedroom": ("Room Refresher", "bed-outline"),
+    "living": ("Living-Space Designer", "sofa-outline"),
+}
+
+
+async def brain_completion_story(profile: dict, title: str, context: dict, cost_cents: Optional[int], hours: Optional[float], reflection: str) -> dict:
+    """Generate a warm testimonial-style story + estimate what a pro would have charged."""
+    system = (
+        "You are Homie, celebrating a homeowner who just FINISHED a DIY project. Write a short, "
+        "authentic first-person testimonial story of their accomplishment — proud but grounded, no hype. "
+        "Also estimate what a licensed professional/contractor would realistically have charged for this "
+        "exact job in the US (labor + typical markup), as an integer number of US CENTS. "
+        "Pick a short skill tag that best labels the expertise they just demonstrated "
+        "(e.g. 'Leak Fixer', 'Deck Specialist', 'Tile Setter', 'Painter'). "
+        "Respond ONLY with valid JSON (no markdown) with EXACTLY these keys: "
+        '{"story_title": "3-6 word proud headline", '
+        '"story": "2-4 sentence first-person story under 60 words", '
+        '"pro_cost_cents": <integer US cents a pro would charge>, '
+        '"skill_tag": "1-3 word skill label"}'
+    ) + lang_note(profile)
+    details = "; ".join(f"{k}: {v}" for k, v in (context or {}).items() if v)
+    user_text = (
+        f"Project finished: '{title}'."
+        + (f"\nDetails: {details}." if details else "")
+        + (f"\nThey spent about ${(cost_cents or 0)/100:.0f} on materials." if cost_cents else "")
+        + (f"\nIt took them about {hours} hours." if hours else "")
+        + (f"\nTheir own words: \"{reflection}\"." if reflection else "")
+        + "\nWrite the JSON now."
+    )
+    try:
+        data = await _llm_json(system, user_text, max_tokens=500)
+    except Exception as e:
+        logger.warning(f"completion story failed: {e}")
+        data = {}
+    if not isinstance(data, dict):
+        data = {}
+    return {
+        "story_title": (data.get("story_title") or f"{title} — Done!")[:80],
+        "story": (data.get("story") or "Another project done right. On to the next one.")[:400],
+        "pro_cost_cents": int(data.get("pro_cost_cents") or 0),
+        "skill_tag": (data.get("skill_tag") or "DIYer")[:32],
+    }
+
+
+def _achievements(entries: List[dict], money_saved: int, helpful_answers: int) -> List[dict]:
+    completed = len(entries)
+    shared = any(e.get("shared") for e in entries)
+    has_before_after = any(e.get("before_photo") and e.get("after_photo") for e in entries)
+    defs = [
+        {"id": "first_project", "title": "First Project", "icon": "hammer", "desc": "Finished your first DIY project", "earned": completed >= 1},
+        {"id": "getting_handy", "title": "Getting Handy", "icon": "tools", "desc": "Completed 3 projects", "earned": completed >= 3},
+        {"id": "seasoned_diyer", "title": "Seasoned DIYer", "icon": "medal-outline", "desc": "Completed 5 projects", "earned": completed >= 5},
+        {"id": "home_master", "title": "Home Master", "icon": "crown-outline", "desc": "Completed 10 projects", "earned": completed >= 10},
+        {"id": "money_saver", "title": "Money Saver", "icon": "cash", "desc": "Saved $500 vs hiring a pro", "earned": money_saved >= 50000},
+        {"id": "big_saver", "title": "Big Saver", "icon": "cash-multiple", "desc": "Saved $1,000 vs hiring a pro", "earned": money_saved >= 100000},
+        {"id": "storyteller", "title": "Storyteller", "icon": "bullhorn-outline", "desc": "Shared a project with the community", "earned": shared},
+        {"id": "before_after", "title": "Before & After", "icon": "image-multiple-outline", "desc": "Posted a before/after transformation", "earned": has_before_after},
+        {"id": "community_mentor", "title": "Community Mentor", "icon": "account-heart-outline", "desc": "Gave 3 verified helpful answers", "earned": helpful_answers >= 3},
+    ]
+    return defs
+
+
+async def _journey_data(user: dict) -> dict:
+    uid = user["id"]
+    entries = await db.timeline.find({"user_id": uid}, {"_id": 0}).sort("created_at", -1).to_list(500)
+    money_saved = sum(int(e.get("money_saved_cents") or 0) for e in entries)
+    total_hours = sum(float(e.get("hours") or 0) for e in entries)
+    # skills: aggregate by skill_tag
+    skills: dict = {}
+    for e in entries:
+        tag = e.get("skill_tag") or "DIYer"
+        skills[tag] = skills.get(tag, 0) + 1
+    helpful_answers = await db.posts.count_documents(
+        {"replies": {"$elemMatch": {"user_id": uid, "verified": True}}}
+    )
+    experiences = await db.community_experiences.count_documents({"user_id": uid})
+    achievements = _achievements(entries, money_saved, helpful_answers)
+    return {
+        "projects_completed": len(entries),
+        "money_saved_cents": money_saved,
+        "total_hours": round(total_hours, 1),
+        "helpful_answers": helpful_answers,
+        "community_experiences": experiences,
+        "skills": [{"tag": k, "count": v} for k, v in sorted(skills.items(), key=lambda x: -x[1])],
+        "achievements": achievements,
+        "achievements_earned": sum(1 for a in achievements if a["earned"]),
+        "timeline": entries,
+    }
+
+
+class CompleteProjectReq(BaseModel):
+    cost_cents: Optional[int] = None
+    hours: Optional[float] = None
+    rating: Optional[int] = None
+    reflection: Optional[str] = ""
+    before_photo: Optional[str] = None
+    after_photo: Optional[str] = None
+    share_community: bool = False
+
+
+@api_router.post("/projects/{project_id}/complete")
+async def complete_project(project_id: str, req: CompleteProjectReq, user: dict = Depends(get_current_user)):
+    project = await db.projects.find_one({"id": project_id, "user_id": user["id"]}, {"_id": 0})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    if await db.timeline.find_one({"project_id": project_id}):
+        raise HTTPException(status_code=400, detail="This project is already in your timeline.")
+
+    # achievements earned BEFORE this completion (to detect the new ones)
+    before = await _journey_data(user)
+    before_ids = {a["id"] for a in before["achievements"] if a["earned"]}
+
+    context = project.get("context") or {}
+    story = await brain_completion_story(
+        user, project["title"], context, req.cost_cents, req.hours, (req.reflection or "").strip()
+    )
+    pro_cost = max(0, story["pro_cost_cents"])
+    money_saved = max(0, pro_cost - (req.cost_cents or 0))
+    room = detect_room(project["title"] + " " + " ".join(str(v) for v in context.values()))
+    skill_label, skill_icon = SKILL_MAP.get(room, (story["skill_tag"], "star-four-points-outline"))
+
+    entry = {
+        "id": new_id(),
+        "user_id": user["id"],
+        "project_id": project_id,
+        "title": project["title"],
+        "story_title": story["story_title"],
+        "story": story["story"],
+        "room": room,
+        "skill_tag": skill_label,
+        "skill_icon": skill_icon,
+        "cost_cents": req.cost_cents or 0,
+        "pro_cost_cents": pro_cost,
+        "money_saved_cents": money_saved,
+        "hours": req.hours or 0,
+        "rating": req.rating,
+        "before_photo": req.before_photo,
+        "after_photo": req.after_photo,
+        "shared": bool(req.share_community),
+        "created_at": now_iso(),
+    }
+    await db.timeline.insert_one(dict(entry))
+    await db.projects.update_one({"id": project_id}, {"$set": {"status": "completed", "completed_at": now_iso()}})
+
+    # Auto-post the accomplishment to the community feed (Sheet #2).
+    if req.share_community:
+        body = story["story"]
+        if money_saved:
+            body += f"\n\n💰 Saved about ${money_saved/100:,.0f} vs hiring a pro."
+        mine = await db.community_experiences.count_documents({"user_id": user["id"]})
+        photos = [p for p in (req.after_photo, req.before_photo) if p][:2]
+        exp = {
+            "id": new_id(), "project_slug": slugify(project["title"]), "user_id": user["id"],
+            "author": user.get("name") or user["email"].split("@")[0],
+            "badge": _community_badge(mine + 1), "location": user.get("location", ""),
+            "title": story["story_title"], "body": body, "tools": [],
+            "cost_cents": req.cost_cents, "minutes": int((req.hours or 0) * 60) or None,
+            "cheers": 0, "photos": photos, "seeded": False, "is_completion": True,
+            "created_at": now_iso(),
+        }
+        await db.community_experiences.insert_one(dict(exp))
+
+    after = await _journey_data(user)
+    new_achievements = [a for a in after["achievements"] if a["earned"] and a["id"] not in before_ids]
+    return {
+        "entry": entry,
+        "money_saved_cents": money_saved,
+        "pro_cost_cents": pro_cost,
+        "new_achievements": new_achievements,
+        "journey": after,
+    }
+
+
+@api_router.get("/journey")
+async def my_journey(user: dict = Depends(get_current_user)):
+    data = await _journey_data(user)
+    data["name"] = user.get("name") or user["email"].split("@")[0]
+    data["avatar_base64"] = user.get("avatar_base64")
+    data["bio"] = user.get("bio", "")
+    data["share_public"] = user.get("share_public", False)
+    data["member_since"] = user.get("created_at")
+    return data
+
+
+@api_router.get("/journey/u/{user_id}")
+async def public_journey(user_id: str):
+    u = await db.users.find_one({"id": user_id}, {"_id": 0})
+    if not u or not u.get("share_public"):
+        raise HTTPException(status_code=404, detail="This homeowner's journey is private.")
+    data = await _journey_data(u)
+    return {
+        "name": u.get("name") or u["email"].split("@")[0],
+        "avatar_base64": u.get("avatar_base64"),
+        "bio": u.get("bio", ""),
+        "member_since": u.get("created_at"),
+        "projects_completed": data["projects_completed"],
+        "money_saved_cents": data["money_saved_cents"],
+        "total_hours": data["total_hours"],
+        "skills": data["skills"],
+        "achievements": [a for a in data["achievements"] if a["earned"]],
+        "timeline": [{k: e.get(k) for k in ("id", "title", "story_title", "story", "skill_tag", "skill_icon", "money_saved_cents", "hours", "after_photo", "created_at")} for e in data["timeline"]],
+    }
+
+
 # ---------------------------------------------------------------- community (Pro-Earn)
 class PostReq(BaseModel):
     title: str
@@ -1776,7 +1994,7 @@ async def community_feed(limit: int = 30):
     out = []
     for e in exps:
         d = _exp_public(e)
-        d["project_title"] = titles.get(e["project_slug"], "")
+        d["project_title"] = titles.get(e["project_slug"], "") or e.get("title", "")
         out.append(d)
     return out
 

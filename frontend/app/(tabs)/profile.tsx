@@ -1,7 +1,9 @@
 import { useCallback, useState } from "react";
 import {
-  View, Text, StyleSheet, Pressable, ScrollView, TextInput, KeyboardAvoidingView, Platform,
+  View, Text, StyleSheet, Pressable, ScrollView, TextInput, KeyboardAvoidingView, Platform, Alert, Switch,
 } from "react-native";
+import { Image } from "expo-image";
+import * as ImagePicker from "expo-image-picker";
 import { useRouter, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -22,6 +24,8 @@ export default function Profile() {
   const [location, setLocation] = useState(user?.location || "");
   const [savingLoc, setSavingLoc] = useState(false);
   const [stats, setStats] = useState<ProjStat>({ active: 0, completed: 0 });
+  const [bio, setBio] = useState(user?.bio || "");
+  const [savingBio, setSavingBio] = useState(false);
 
   useFocusEffect(useCallback(() => {
     refresh();
@@ -46,6 +50,31 @@ export default function Profile() {
     } finally { setSavingLoc(false); }
   };
 
+  const pickAvatar = async () => {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      if (!perm.canAskAgain) Alert.alert("Photos", "Enable photo access in Settings to set a profile photo.");
+      return;
+    }
+    const res = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.5, base64: true, allowsEditing: true, aspect: [1, 1],
+    });
+    if (!res.canceled && res.assets?.[0]?.base64) {
+      await updateProfile({ avatar_base64: res.assets[0].base64 } as any);
+    }
+  };
+
+  const saveBio = async () => {
+    setSavingBio(true);
+    Haptics.selectionAsync();
+    try { await updateProfile({ bio: bio.trim() } as any); } finally { setSavingBio(false); }
+  };
+
+  const toggleShare = async (v: boolean) => {
+    Haptics.selectionAsync();
+    await updateProfile({ share_public: v } as any);
+  };
+
   const logout = async () => {
     await signOut();
     router.replace("/onboarding");
@@ -58,9 +87,14 @@ export default function Profile() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.headerRow}>
-          <View style={styles.bigAvatar}>
-            <Text style={styles.bigAvatarText}>{(user.name || user.email).charAt(0).toUpperCase()}</Text>
-          </View>
+          <Pressable testID="profile-avatar-pick" style={styles.bigAvatar} onPress={pickAvatar}>
+            {user.avatar_base64 ? (
+              <Image source={{ uri: `data:image/jpeg;base64,${user.avatar_base64}` }} style={styles.avatarImg} contentFit="cover" />
+            ) : (
+              <Text style={styles.bigAvatarText}>{(user.name || user.email).charAt(0).toUpperCase()}</Text>
+            )}
+            <View style={styles.avatarEdit}><MaterialCommunityIcons name="camera" size={12} color={colors.onBrandPrimary} /></View>
+          </Pressable>
           <View style={{ flex: 1 }}>
             <Text style={styles.name} numberOfLines={1}>{user.name || "DIYer"}</Text>
             <Text style={styles.email} numberOfLines={1}>{user.email}</Text>
@@ -68,6 +102,24 @@ export default function Profile() {
           <View style={styles.tierBadge}>
             <Text style={styles.tierText}>{TIER_LABEL[user.subscription_tier] || "FREE"}</Text>
           </View>
+        </View>
+
+        {/* one-line bio */}
+        <View style={styles.bioRow}>
+          <TextInput
+            testID="profile-bio-input"
+            style={styles.bioInput}
+            placeholder="Add a one-line bio (e.g. Weekend warrior in Austin)"
+            placeholderTextColor={colors.onSurfaceTertiary}
+            value={bio}
+            onChangeText={setBio}
+            maxLength={80}
+          />
+          {bio.trim() !== (user.bio || "") && (
+            <Pressable testID="profile-save-bio" style={styles.bioSave} onPress={saveBio} disabled={savingBio}>
+              <Text style={styles.bioSaveText}>{savingBio ? "…" : "SAVE"}</Text>
+            </Pressable>
+          )}
         </View>
 
         {/* counters */}
@@ -98,6 +150,8 @@ export default function Profile() {
         {/* manage account menu */}
         <Text style={styles.sectionLabel}>MANAGE ACCOUNT</Text>
         <View style={styles.menuCard}>
+          <MenuRow icon="trophy-outline" label="My Journey" sub={`${stats.completed} completed · achievements & savings`}
+            testID="profile-journey" onPress={() => router.push("/journey")} />
           <MenuRow icon="credit-card-outline" label="Billing & Plan" sub="Card, invoices, subscription"
             testID="profile-billing" onPress={() => router.push("/settings/billing")} />
           <MenuRow icon="folder-multiple-outline" label="My Projects" sub={`${stats.active} active · ${stats.completed} done`}
@@ -145,6 +199,22 @@ export default function Profile() {
           <Pressable testID="profile-save-location" style={styles.locSave} onPress={saveLocation} disabled={savingLoc}>
             <Text style={styles.locSaveText}>{savingLoc ? "…" : "SAVE"}</Text>
           </Pressable>
+        </View>
+
+        {/* public journey toggle (Sheet #11) */}
+        <View style={styles.shareCard}>
+          <MaterialCommunityIcons name="earth" size={22} color={colors.brandPrimary} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.shareCardTitle}>Public journey</Text>
+            <Text style={styles.shareCardSub}>Let others view your timeline & achievements.</Text>
+          </View>
+          <Switch
+            testID="profile-share-toggle"
+            value={!!user.share_public}
+            onValueChange={toggleShare}
+            trackColor={{ true: colors.brandPrimary, false: colors.borderStrong }}
+            thumbColor={colors.onBrandPrimary}
+          />
         </View>
 
         {/* upgrade — only for free users */}
@@ -210,8 +280,17 @@ const menuStyles = StyleSheet.create({
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.surface },
   headerRow: { flexDirection: "row", alignItems: "center", gap: spacing.md, marginBottom: spacing.xl },
-  bigAvatar: { width: 56, height: 56, borderRadius: radius.pill, backgroundColor: colors.brandPrimary, alignItems: "center", justifyContent: "center" },
+  bigAvatar: { width: 56, height: 56, borderRadius: radius.pill, backgroundColor: colors.brandPrimary, alignItems: "center", justifyContent: "center", overflow: "hidden" },
   bigAvatarText: { color: colors.onBrandPrimary, fontFamily: font.display, fontSize: 28 },
+  avatarImg: { width: "100%", height: "100%" },
+  avatarEdit: { position: "absolute", bottom: 0, right: 0, width: 20, height: 20, borderRadius: 10, backgroundColor: colors.brandPrimary, borderColor: colors.surface, borderWidth: 2, alignItems: "center", justifyContent: "center" },
+  bioRow: { flexDirection: "row", gap: spacing.sm, alignItems: "center", marginTop: -spacing.md, marginBottom: spacing.xl },
+  bioInput: { flex: 1, backgroundColor: colors.surfaceSecondary, borderColor: colors.border, borderWidth: 1, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, color: colors.onSurface, fontFamily: font.medium, fontSize: type.sm },
+  bioSave: { backgroundColor: colors.brandPrimary, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.md },
+  bioSaveText: { color: colors.onBrandPrimary, fontFamily: font.bold, fontSize: type.sm },
+  shareCard: { flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: colors.surfaceSecondary, borderColor: colors.border, borderWidth: 1, borderRadius: radius.md, padding: spacing.lg, marginBottom: spacing.xl },
+  shareCardTitle: { color: colors.onSurface, fontFamily: font.bold, fontSize: type.base },
+  shareCardSub: { color: colors.onSurfaceTertiary, fontFamily: font.regular, fontSize: type.sm, marginTop: 1 },
   name: { color: colors.onSurface, fontFamily: font.bold, fontSize: type.xl },
   email: { color: colors.onSurfaceTertiary, fontFamily: font.regular, fontSize: type.sm },
   tierBadge: { backgroundColor: colors.brandTertiary, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.pill },

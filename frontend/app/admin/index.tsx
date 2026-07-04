@@ -9,10 +9,12 @@ import { CrmModule } from "@/src/components/admin/CrmModule";
 import { VendorsModule } from "@/src/components/admin/VendorsModule";
 import { EmailModule } from "@/src/components/admin/EmailModule";
 import { AffiliateModule } from "@/src/components/admin/AffiliateModule";
+import { FinanceModule } from "@/src/components/admin/FinanceModule";
 
-type Mod = "overview" | "crm" | "vendors" | "email" | "affiliate" | "feedback" | "tickets" | "blog";
+type Mod = "overview" | "finance" | "crm" | "vendors" | "email" | "affiliate" | "feedback" | "tickets" | "blog";
 const MODULES: { key: Mod; label: string; icon: string }[] = [
   { key: "overview", label: "Overview", icon: "view-dashboard-outline" },
+  { key: "finance", label: "CFO Dashboard", icon: "finance" },
   { key: "crm", label: "CRM / Contacts", icon: "account-multiple-outline" },
   { key: "email", label: "Email Marketing", icon: "email-fast-outline" },
   { key: "affiliate", label: "Affiliate Widget", icon: "cart-percent" },
@@ -81,6 +83,7 @@ export default function AdminWorkstation() {
       {/* Content */}
       <View style={{ flex: 1 }}>
         {mod === "overview" && <Overview />}
+        {mod === "finance" && <FinanceModule />}
         {mod === "crm" && <CrmModule />}
         {mod === "email" && <EmailModule />}
         {mod === "affiliate" && <AffiliateModule />}

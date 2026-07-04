@@ -36,6 +36,9 @@ export type User = {
   subscription_tier: string;
   onboarded: boolean;
   is_admin?: boolean;
+  avatar_base64?: string | null;
+  bio?: string;
+  share_public?: boolean;
 };
 
 type AuthCtx = {
