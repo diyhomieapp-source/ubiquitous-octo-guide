@@ -1069,6 +1069,76 @@ async def toggle_supply(project_id: str, req: SupplyToggleReq, user: dict = Depe
     return {"ok": True, "name": req.name, "owned": req.owned}
 
 
+# ---------------------------------------------------------------- Financial Intelligence (CFO)
+async def _finance_config():
+    c = await db.finance_config.find_one({"id": "singleton"}, {"_id": 0})
+    if not c:
+        c = {"id": "singleton", "cash_on_hand_cents": 0}
+        await db.finance_config.insert_one(dict(c))
+    return c
+
+
+@api_router.get("/admin/finance/summary")
+async def finance_summary(admin: dict = Depends(require_admin)):
+    mrr = 0
+    tier_counts: dict = {}
+    async for u in db.users.find({"subscription_status": "active"}, {"subscription_tier": 1}):
+        p = PLAN_TIERS.get(u.get("subscription_tier"))
+        if p and p.get("amount"):
+            mrr += p["amount"]
+            tier_counts[u["subscription_tier"]] = tier_counts.get(u["subscription_tier"], 0) + 1
+    start = datetime.now(timezone.utc).replace(day=1, hour=0, minute=0, second=0, microsecond=0).isoformat()
+    rev_month = 0
+    async for tx in db.payment_transactions.find({"fulfilled": True, "created_at": {"$gte": start}}, {"amount": 1}):
+        rev_month += tx.get("amount", 0) or 0
+    exps = await db.finance_expenses.find({}, {"_id": 0}).to_list(500)
+    monthly_exp = sum(e["amount_cents"] for e in exps if e.get("cadence") == "monthly")
+    net = mrr - monthly_exp
+    margin = round(net / mrr * 100, 1) if mrr else 0.0
+    cfg = await _finance_config()
+    cash = cfg.get("cash_on_hand_cents", 0)
+    runway = round(cash / abs(net), 1) if net < 0 and cash > 0 else None
+    paying = sum(tier_counts.values())
+    return {
+        "mrr": mrr, "revenue_month": rev_month, "monthly_expenses": monthly_exp,
+        "net_monthly": net, "margin": margin, "cash_on_hand": cash, "runway_months": runway,
+        "tier_counts": tier_counts, "paying_users": paying,
+        "total_users": await db.users.count_documents({}),
+        "arpu": round(mrr / paying) if paying else 0,
+        "expenses": sorted(exps, key=lambda e: e.get("amount_cents", 0), reverse=True),
+    }
+
+
+class ExpenseReq(BaseModel):
+    label: str
+    amount_cents: int
+    cadence: str = "monthly"
+
+
+@api_router.post("/admin/finance/expenses")
+async def add_expense(req: ExpenseReq, admin: dict = Depends(require_admin)):
+    doc = {"id": new_id(), "label": req.label[:80], "amount_cents": max(0, req.amount_cents),
+           "cadence": "monthly" if req.cadence != "once" else "once", "created_at": now_iso()}
+    await db.finance_expenses.insert_one(dict(doc))
+    return doc
+
+
+@api_router.delete("/admin/finance/expenses/{eid}")
+async def del_expense(eid: str, admin: dict = Depends(require_admin)):
+    await db.finance_expenses.delete_one({"id": eid})
+    return {"ok": True}
+
+
+class CashReq(BaseModel):
+    cash_on_hand_cents: int
+
+
+@api_router.put("/admin/finance/cash")
+async def set_cash(req: CashReq, admin: dict = Depends(require_admin)):
+    await db.finance_config.update_one({"id": "singleton"}, {"$set": {"cash_on_hand_cents": max(0, req.cash_on_hand_cents)}}, upsert=True)
+    return {"ok": True}
+
+
 # ---------------------------------------------------------------- community (Pro-Earn)
 class PostReq(BaseModel):
     title: str
