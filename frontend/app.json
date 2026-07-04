@@ -14,7 +14,8 @@
         "NSLocationWhenInUseUsageDescription": "Show weather-aware tips for your outdoor projects",
         "NSCameraUsageDescription": "Take a room photo to preview new paint colors",
         "NSPhotoLibraryUsageDescription": "Choose a room photo to preview new paint colors"
-      }
+      },
+      "bundleIdentifier": "com.emergent.stepbystepdiy.tk6h8s"
     },
     "android": {
       "adaptiveIcon": {
@@ -28,7 +29,8 @@
         "CAMERA",
         "READ_EXTERNAL_STORAGE",
         "READ_MEDIA_IMAGES"
-      ]
+      ],
+      "package": "com.emergent.stepbystepdiy.tk6h8s"
     },
     "web": {
       "bundler": "metro",
