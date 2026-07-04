@@ -194,7 +194,15 @@ Goal: solve the real pain points of existing DIY platforms with solutions people
 - **Logo**: `Logo.tsx` now shows the DIYhomie mascot (`assets/homie-mascot.png`) popping out of the orange square (cap above top edge, shirt covering bottom, `bottom:-10%`), kept pulse-ring animation + idle float. Removed old `logo-contractor.png` (unused). Global across all screens.
 - **#18 Marketplace** (payments DEFERRED, referral-tracking only, per user): provider directory + partner onboarding + deep handoff + contextual trigger. New `pro_partners` collection (6 seeded verified pros). Endpoints: `GET /pros?trade=&q=&location=`, `GET /pros/{id}`, `POST /pros/apply` (→ pending unverified), `GET /projects/{id}/handoff` (auto project+home summary), `GET /projects/{id}/pro-suggestion` (risky-keyword/code-alert trigger), admin `GET/POST/PATCH/DELETE /admin/pros`. Extended `POST /pro-referrals` with `pro_id` + `project_summary` (increments partner leads_count, joins pro_name). Screens: `/pros` (directory, entry: Profile 'Find a Pro' `profile-pros`), `/pros-apply` (partner onboarding). ProReferralModal extended (proId/proName + 'Share my project details' consent). Project screen contextual `project-get-pro` banner → `/pros?trade=&projectId=`. Admin ProLeadsModule now has Leads + Partners tabs (verify/list/delete). Email-to-pro notify waits on AWS SES. Tested: 14/14 pytest + Playwright, no bugs. NO Stripe scheduling/payments yet (deferred).
 
-## Roadmap status update (post continued-16)
+## Shipped (continued 17) — #19 Smart Maintenance, Asset & Warranty
+- Extended home-twin systems with asset/warranty fields: brand, model, serial, purchase_date, warranty_expires, support_url, receipt, serviced{} map. Auto-maintenance schedules per system type via MAINT_RULES (HVAC filter 90d + tune-up 180d, water heater flush 365d, roof inspect 365d, etc.). Endpoints: `GET /home/maintenance` (due/overdue/soon items + interval, next due from purchase/install/last-serviced, plus warranty statuses), `POST /home/systems/{id}/serviced` (resets that task's interval). `POST /home/systems` accepts new fields.
+- Frontend: "My Home" (/home-profile) now shows a MAINTENANCE section (overdue/soon count, color-coded task cards with DONE buttons `maint-done-{id}`) and the add-system form captures serial (`home-add-serial`) + warranty-expires (`home-add-warranty`). Verified: backend curl (schedule gen, mark-serviced resets interval to green) + screenshot smoke (3 overdue cards render, DONE works). Recall feed (CPSC) DEFERRED (new API). Reminder emails wait on AWS SES.
+
+## Roadmap status update (post continued-17)
+- DONE: #2, #7, #10, #11, #12, #13, #14, #18, #19 + logo refresh.
+- Backlog queued: #20 Analytics, #21 Trust Center, #22 Feature Flags/DevOps, #5 referral popup, #6 Gantt scheduler, #15 Accessibility, #17 RAG feedback. #1/#4 native-blocked.
+- Pending user keys: AWS SES, Perplexity. Note: TEST_UI systems/projects from testing agent exist on admin account (harmless demo data).
+
 - DONE: #2, #7, #10, #11, #12, #13, #14, #18 (buildable slice) + logo refresh.
 
 - DONE: #2, #7, #10, #11, #12, #13, #14.

@@ -1910,6 +1910,13 @@ class SystemReq(BaseModel):
     install_year: Optional[int] = None
     warranty: Optional[str] = ""
     notes: Optional[str] = ""
+    brand: Optional[str] = ""
+    model: Optional[str] = ""
+    serial: Optional[str] = ""
+    purchase_date: Optional[str] = ""
+    warranty_expires: Optional[str] = ""
+    support_url: Optional[str] = ""
+    receipt: Optional[str] = None
 
 
 @api_router.post("/home/systems")
@@ -1917,9 +1924,100 @@ async def add_system(req: SystemReq, user: dict = Depends(get_current_user)):
     await _home_profile(user["id"])
     sysd = {"id": new_id(), "name": req.name[:60], "type": req.type[:40],
             "install_year": req.install_year, "warranty": (req.warranty or "")[:80],
-            "notes": (req.notes or "")[:300], "created_at": now_iso()}
+            "notes": (req.notes or "")[:300], "brand": (req.brand or "")[:60],
+            "model": (req.model or "")[:60], "serial": (req.serial or "")[:80],
+            "purchase_date": (req.purchase_date or "")[:20], "warranty_expires": (req.warranty_expires or "")[:20],
+            "support_url": (req.support_url or "")[:200], "receipt": req.receipt,
+            "serviced": {}, "created_at": now_iso()}
     await db.home_profiles.update_one({"user_id": user["id"]}, {"$push": {"systems": sysd}})
     return sysd
+
+
+# Recommended maintenance intervals (days) per system type — auto-scheduled (Sheet #19)
+MAINT_RULES = {
+    "HVAC": [("Replace air filter", 90), ("Seasonal HVAC tune-up", 180)],
+    "Water Heater": [("Flush the water heater", 365)],
+    "Roof": [("Roof & gutter inspection", 365)],
+    "Appliance": [("Clean & descale", 180)],
+    "Plumbing": [("Check fixtures for leaks", 365)],
+    "Electrical Panel": [("Test breakers & inspect panel", 365)],
+    "Windows / Doors": [("Re-seal & weatherstrip", 365)],
+    "Other": [("General check-up", 365)],
+}
+
+
+def _base_date(sysd: dict) -> datetime:
+    pd = sysd.get("purchase_date")
+    if pd:
+        try:
+            return datetime.fromisoformat(pd[:10])
+        except ValueError:
+            pass
+    yr = sysd.get("install_year")
+    if yr:
+        try:
+            return datetime(int(yr), 1, 1)
+        except (ValueError, TypeError):
+            pass
+    try:
+        return datetime.fromisoformat((sysd.get("created_at") or now_iso())[:19])
+    except ValueError:
+        return datetime.utcnow()
+
+
+@api_router.get("/home/maintenance")
+async def home_maintenance(user: dict = Depends(get_current_user)):
+    home = await db.home_profiles.find_one({"user_id": user["id"]}, {"_id": 0}) or {}
+    now = datetime.utcnow()
+    items = []
+    for s in home.get("systems", []):
+        rules = MAINT_RULES.get(s.get("type"), MAINT_RULES["Other"])
+        serviced = s.get("serviced", {}) or {}
+        for task, interval in rules:
+            last = serviced.get(task)
+            base = datetime.fromisoformat(last[:19]) if last else _base_date(s)
+            due = base + timedelta(days=interval)
+            days = (due - now).days
+            status = "overdue" if days < 0 else ("soon" if days <= 21 else "ok")
+            items.append({
+                "system_id": s["id"], "system_name": s["name"], "system_type": s.get("type"),
+                "task": task, "interval_days": interval, "due_date": due.date().isoformat(),
+                "days_until": days, "status": status,
+            })
+    items.sort(key=lambda x: x["days_until"])
+    # warranty status per system
+    warranties = []
+    for s in home.get("systems", []):
+        we = s.get("warranty_expires")
+        if we:
+            try:
+                exp = datetime.fromisoformat(we[:10])
+                d = (exp - now).days
+                warranties.append({"system_id": s["id"], "system_name": s["name"], "expires": we[:10],
+                                   "days_until": d, "status": "expired" if d < 0 else ("expiring" if d <= 60 else "active")})
+            except ValueError:
+                pass
+    return {
+        "items": items,
+        "overdue": sum(1 for i in items if i["status"] == "overdue"),
+        "soon": sum(1 for i in items if i["status"] == "soon"),
+        "warranties": warranties,
+    }
+
+
+class ServicedReq(BaseModel):
+    task: str
+
+
+@api_router.post("/home/systems/{system_id}/serviced")
+async def mark_serviced(system_id: str, req: ServicedReq, user: dict = Depends(get_current_user)):
+    res = await db.home_profiles.update_one(
+        {"user_id": user["id"], "systems.id": system_id},
+        {"$set": {f"systems.$.serviced.{req.task}": now_iso()}},
+    )
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail="System not found")
+    return {"ok": True}
 
 
 @api_router.delete("/home/systems/{system_id}")

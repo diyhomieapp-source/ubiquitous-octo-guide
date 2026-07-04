@@ -35,14 +35,28 @@ export default function HomeProfile() {
   const [ftype, setFtype] = useState("");
   const [year, setYear] = useState("");
   const [notes, setNotes] = useState("");
+  const [warrantyExp, setWarrantyExp] = useState("");
+  const [serial, setSerial] = useState("");
+  const [maint, setMaint] = useState<{ items: any[]; overdue: number; soon: number; warranties: any[] } | null>(null);
 
   const load = useCallback(async () => {
-    try { setD(await api<Home>("/home")); } catch {} finally { setLoading(false); }
+    try {
+      const [home, m] = await Promise.all([
+        api<Home>("/home"),
+        api<{ items: any[]; overdue: number; soon: number; warranties: any[] }>("/home/maintenance"),
+      ]);
+      setD(home); setMaint(m);
+    } catch {} finally { setLoading(false); }
   }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
+  const markDone = async (systemId: string, task: string) => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    try { await api(`/home/systems/${systemId}/serviced`, { method: "POST", body: { task } }); load(); } catch {}
+  };
+
   const openAdd = (kind: "room" | "system") => {
-    setAddKind(kind); setName(""); setYear(""); setNotes("");
+    setAddKind(kind); setName(""); setYear(""); setNotes(""); setWarrantyExp(""); setSerial("");
     setFtype(kind === "room" ? (d?.room_types[0] || "Other") : (d?.system_types[0] || "Other"));
   };
 
@@ -53,7 +67,7 @@ export default function HomeProfile() {
       if (addKind === "room") {
         await api("/home/rooms", { method: "POST", body: { name: name.trim(), type: ftype, notes: notes.trim() } });
       } else {
-        await api("/home/systems", { method: "POST", body: { name: name.trim(), type: ftype, install_year: year ? parseInt(year) : null, notes: notes.trim() } });
+        await api("/home/systems", { method: "POST", body: { name: name.trim(), type: ftype, install_year: year ? parseInt(year) : null, notes: notes.trim(), warranty_expires: warrantyExp.trim(), serial: serial.trim() } });
       }
       setAddKind(null); load();
     } catch {}
@@ -83,8 +97,8 @@ export default function HomeProfile() {
       <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + spacing["3xl"], gap: spacing.lg }} showsVerticalScrollIndicator={false}>
         <View style={styles.hero}>
           <MaterialCommunityIcons name="home-heart" size={26} color={colors.brandPrimary} />
-          <Text style={styles.heroTitle}>Your home's living record</Text>
-          <Text style={styles.heroSub}>Everything you've done, saved, and learned — building over your whole homeownership journey.</Text>
+          <Text style={styles.heroTitle}>Your home’s living record</Text>
+          <Text style={styles.heroSub}>Everything you’ve done, saved, and learned — building over your whole homeownership journey.</Text>
         </View>
 
         <View style={styles.statGrid}>
@@ -93,6 +107,29 @@ export default function HomeProfile() {
           <Stat icon="wallet-outline" label="INVESTED" value={money(d.stats.invested_cents)} color={colors.info} />
           <Stat icon="calendar-check" label="YEARS" value={String(d.stats.years_active)} color={colors.warning} />
         </View>
+
+        {/* Maintenance due (Sheet #19) */}
+        {maint && maint.items.length > 0 && (
+          <View>
+            <Text style={styles.section}>MAINTENANCE {maint.overdue > 0 ? `· ${maint.overdue} OVERDUE` : maint.soon > 0 ? `· ${maint.soon} DUE SOON` : ""}</Text>
+            {maint.items.slice(0, 8).map((m) => {
+              const c = m.status === "overdue" ? colors.error : m.status === "soon" ? colors.warning : colors.success;
+              return (
+                <View key={m.system_id + m.task} style={styles.mCard}>
+                  <View style={[styles.mDot, { backgroundColor: c }]} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.mTask}>{m.task}</Text>
+                    <Text style={styles.mMeta}>{m.system_name} · {m.status === "overdue" ? `${Math.abs(m.days_until)}d overdue` : m.status === "soon" ? `due in ${m.days_until}d` : `due ${m.due_date}`}</Text>
+                  </View>
+                  <Pressable testID={`maint-done-${m.system_id}`} style={styles.mDone} onPress={() => markDone(m.system_id, m.task)}>
+                    <MaterialCommunityIcons name="check" size={16} color={colors.onBrandPrimary} />
+                    <Text style={styles.mDoneText}>DONE</Text>
+                  </Pressable>
+                </View>
+              );
+            })}
+          </View>
+        )}
 
         {/* Year in Review */}
         {d.years.length > 0 && (
@@ -150,7 +187,7 @@ export default function HomeProfile() {
         {/* Lifetime log */}
         <View>
           <Text style={styles.section}>LIFETIME KNOWLEDGE LOG</Text>
-          {d.log.length === 0 ? <Text style={styles.emptyLine}>Complete a project and it's recorded here forever.</Text> :
+          {d.log.length === 0 ? <Text style={styles.emptyLine}>Complete a project and it’s recorded here forever.</Text> :
             d.log.map((e) => (
               <View key={e.id} style={styles.logRow}>
                 <View style={[styles.logDot, { backgroundColor: e.kind === "project" ? colors.brandPrimary : colors.surfaceSecondary, borderColor: colors.brandPrimary }]}>
@@ -183,6 +220,8 @@ export default function HomeProfile() {
               ))}
             </ScrollView>
             {addKind === "system" && <TextInput testID="home-add-year" style={[styles.input, { marginTop: spacing.md }]} value={year} onChangeText={setYear} keyboardType="numeric" placeholder="Install year (optional)" placeholderTextColor={colors.onSurfaceTertiary} />}
+            {addKind === "system" && <TextInput testID="home-add-serial" style={[styles.input, { marginTop: spacing.md }]} value={serial} onChangeText={setSerial} placeholder="Brand / model / serial (optional)" placeholderTextColor={colors.onSurfaceTertiary} />}
+            {addKind === "system" && <TextInput testID="home-add-warranty" style={[styles.input, { marginTop: spacing.md }]} value={warrantyExp} onChangeText={setWarrantyExp} placeholder="Warranty expires — YYYY-MM-DD (optional)" placeholderTextColor={colors.onSurfaceTertiary} />}
             <TextInput testID="home-add-notes" style={[styles.input, { marginTop: spacing.md }]} value={notes} onChangeText={setNotes} placeholder="Notes (optional)" placeholderTextColor={colors.onSurfaceTertiary} />
             <View style={styles.sheetBtns}>
               <Pressable style={styles.cancelBtn} onPress={() => setAddKind(null)}><Text style={styles.cancelText}>Cancel</Text></Pressable>
@@ -237,6 +276,12 @@ const styles = StyleSheet.create({
   section: { color: colors.onSurfaceTertiary, fontFamily: font.bold, fontSize: type.sm, letterSpacing: 1.5, marginBottom: spacing.sm },
   sectionRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   emptyLine: { color: colors.onSurfaceTertiary, fontFamily: font.regular, fontSize: type.base, fontStyle: "italic" },
+  mCard: { flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: colors.surfaceSecondary, borderColor: colors.border, borderWidth: 1, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.sm },
+  mDot: { width: 10, height: 10, borderRadius: 5 },
+  mTask: { color: colors.onSurface, fontFamily: font.bold, fontSize: type.base },
+  mMeta: { color: colors.onSurfaceTertiary, fontFamily: font.regular, fontSize: type.sm, marginTop: 1 },
+  mDone: { flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: colors.brandPrimary, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.pill },
+  mDoneText: { color: colors.onBrandPrimary, fontFamily: font.bold, fontSize: type.sm },
   yearRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
   yearChip: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: colors.brandTertiary, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.pill },
   yearText: { color: colors.onBrandTertiary, fontFamily: font.bold, fontSize: type.base },
