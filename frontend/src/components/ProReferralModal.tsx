@@ -17,10 +17,11 @@ const URGENCY: { key: string; label: string; icon: string }[] = [
 ];
 
 export function ProReferralModal({
-  visible, onClose, presetTrade, presetIssue, projectId,
+  visible, onClose, presetTrade, presetIssue, projectId, proId, proName,
 }: {
   visible: boolean; onClose: () => void;
   presetTrade?: string; presetIssue?: string; projectId?: string;
+  proId?: string; proName?: string;
 }) {
   const { user } = useAuth();
   const [trades, setTrades] = useState<string[]>([]);
@@ -30,6 +31,8 @@ export function ProReferralModal({
   const [urgency, setUrgency] = useState("standard");
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
+  const [handoff, setHandoff] = useState<{ summary: string } | null>(null);
+  const [consent, setConsent] = useState(true);
 
   useEffect(() => {
     if (visible) {
@@ -37,6 +40,10 @@ export function ProReferralModal({
         .then((r) => setTrades(r.trades)).catch(() => {});
       setTrade(presetTrade || ""); setIssue(presetIssue || "");
       setLocation(user?.location || ""); setUrgency("standard"); setDone(false);
+      setConsent(true); setHandoff(null);
+      if (projectId) {
+        api<{ summary: string }>(`/projects/${projectId}/handoff`).then(setHandoff).catch(() => {});
+      }
     }
   }, [visible]);
 
@@ -47,7 +54,11 @@ export function ProReferralModal({
     try {
       await api("/pro-referrals", {
         method: "POST",
-        body: { trade, issue: issue.trim(), location: location.trim(), urgency, project_id: projectId || null },
+        body: {
+          trade, issue: issue.trim(), location: location.trim(), urgency,
+          project_id: projectId || null, pro_id: proId || null,
+          project_summary: consent && handoff ? handoff.summary : null,
+        },
       });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setDone(true);
@@ -73,8 +84,8 @@ export function ProReferralModal({
               <View style={styles.head}>
                 <View style={styles.headIcon}><MaterialCommunityIcons name="account-hard-hat" size={22} color={colors.brandPrimary} /></View>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.title}>Get a local pro</Text>
-                  <Text style={styles.subtitle}>Some jobs are safer with an expert. We'll find one.</Text>
+                  <Text style={styles.title}>{proName ? `Request a quote` : "Get a local pro"}</Text>
+                  <Text style={styles.subtitle}>{proName ? `From ${proName} — we'll pass along your details.` : "Some jobs are safer with an expert. We'll find one."}</Text>
                 </View>
                 <Pressable testID="pro-close" hitSlop={10} onPress={onClose}>
                   <MaterialCommunityIcons name="close" size={24} color={colors.onSurfaceTertiary} />
@@ -82,6 +93,15 @@ export function ProReferralModal({
               </View>
 
               <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+                {handoff && (
+                  <Pressable testID="pro-consent" style={styles.consent} onPress={() => setConsent((c) => !c)}>
+                    <MaterialCommunityIcons name={consent ? "checkbox-marked" : "checkbox-blank-outline"} size={22} color={consent ? colors.brandPrimary : colors.onSurfaceTertiary} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.consentTitle}>Share my project details</Text>
+                      <Text style={styles.consentSub}>Auto-fills your project, materials & measurements so you type almost nothing.</Text>
+                    </View>
+                  </Pressable>
+                )}
                 <Text style={styles.label}>TRADE NEEDED</Text>
                 <View style={styles.chips}>
                   {trades.map((t) => (
@@ -141,6 +161,9 @@ const styles = StyleSheet.create({
   ctaDisabled: { opacity: 0.4 },
   ctaText: { color: colors.onBrandPrimary, fontFamily: font.bold, fontSize: type.lg, letterSpacing: 0.5 },
   fine: { color: colors.onSurfaceTertiary, fontFamily: font.regular, fontSize: type.sm, textAlign: "center", marginTop: spacing.sm },
+  consent: { flexDirection: "row", alignItems: "center", gap: spacing.sm, backgroundColor: colors.brandTertiary + "44", borderColor: colors.brandPrimary, borderWidth: 1, borderRadius: radius.md, padding: spacing.md, marginTop: spacing.sm },
+  consentTitle: { color: colors.onSurface, fontFamily: font.bold, fontSize: type.base },
+  consentSub: { color: colors.onSurfaceSecondary, fontFamily: font.regular, fontSize: type.sm, marginTop: 1 },
   doneWrap: { padding: spacing.xl, alignItems: "center", gap: spacing.sm, paddingBottom: spacing["3xl"] },
   doneIcon: { width: 76, height: 76, borderRadius: 38, backgroundColor: colors.surfaceSecondary, alignItems: "center", justifyContent: "center" },
   doneTitle: { color: colors.onSurface, fontFamily: font.display, fontSize: 24 },

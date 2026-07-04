@@ -1429,16 +1429,25 @@ class ProLeadReq(BaseModel):
     location: Optional[str] = None
     project_id: Optional[str] = None
     urgency: str = "standard"
+    pro_id: Optional[str] = None
+    project_summary: Optional[str] = None
 
 
 @api_router.post("/pro-referrals")
 async def create_pro_lead(req: ProLeadReq, user: dict = Depends(get_current_user)):
+    pro_name = None
+    if req.pro_id:
+        pro = await db.pro_partners.find_one({"id": req.pro_id}, {"_id": 0})
+        if pro:
+            pro_name = pro.get("name")
+            await db.pro_partners.update_one({"id": req.pro_id}, {"$inc": {"leads_count": 1}})
     lead = {
         "id": new_id(), "user_id": user["id"],
         "name": user.get("name") or user["email"].split("@")[0], "email": user.get("email"),
         "trade": req.trade[:60], "issue": req.issue.strip()[:1000],
         "location": (req.location or user.get("location") or "").strip(),
-        "project_id": req.project_id,
+        "project_id": req.project_id, "project_summary": (req.project_summary or "")[:2000],
+        "pro_id": req.pro_id, "pro_name": pro_name,
         "urgency": req.urgency if req.urgency in ("emergency", "standard", "planning") else "standard",
         "status": "new", "created_at": now_iso(),
     }
@@ -1466,6 +1475,178 @@ async def admin_update_pro_lead(lead_id: str, req: ProLeadPatch, admin: dict = D
     if req.status not in ("new", "contacted", "matched", "closed"):
         raise HTTPException(status_code=400, detail="Invalid status")
     await db.pro_leads.update_one({"id": lead_id}, {"$set": {"status": req.status}})
+    return {"ok": True}
+
+
+# ---------------------------------------------------------------- Marketplace & Pro Service (Sheet #18)
+RISKY_KEYWORDS = ["electric", "wiring", "panel", "breaker", "gas ", "structural", "load-bearing", "load bearing", "roof", "foundation", "sewer", "furnace", "chimney", "main line"]
+
+
+def _pro_public(p: dict) -> dict:
+    return {k: p.get(k) for k in ("id", "name", "trades", "specialties", "location", "rating", "reviews_count", "verified", "bio", "logo", "website", "phone", "email")}
+
+
+async def seed_pros():
+    if await db.pro_partners.count_documents({}) > 0:
+        return
+    base = [
+        {"name": "Lone Star Plumbing Co.", "trades": ["Plumbing"], "specialties": ["Repipes", "Water heaters", "Leak detection"], "location": "Austin, TX", "rating": 4.9, "reviews_count": 214, "bio": "Licensed, insured plumbers serving Central Texas for 18 years."},
+        {"name": "BrightSpark Electric", "trades": ["Electrical"], "specialties": ["Panel upgrades", "EV chargers", "Rewiring"], "location": "Austin, TX", "rating": 4.8, "reviews_count": 167, "bio": "Master electricians. Permitted work, code-compliant, upfront pricing."},
+        {"name": "Summit HVAC & Air", "trades": ["HVAC"], "specialties": ["AC install", "Furnace repair", "Duct sealing"], "location": "Round Rock, TX", "rating": 4.7, "reviews_count": 132, "bio": "Same-week HVAC service, financing available."},
+        {"name": "Hill Country Roofing", "trades": ["Roofing"], "specialties": ["Storm damage", "Re-roofs", "Inspections"], "location": "Austin, TX", "rating": 4.9, "reviews_count": 98, "bio": "Free roof inspections and insurance claim help."},
+        {"name": "Apex General Contractors", "trades": ["General Contractor", "Structural / Framing"], "specialties": ["Additions", "Bathroom remodels", "Load-bearing walls"], "location": "Cedar Park, TX", "rating": 4.6, "reviews_count": 76, "bio": "Full-service remodels and permitted structural work."},
+        {"name": "SolidBase Concrete", "trades": ["Concrete / Masonry"], "specialties": ["Driveways", "Patios", "Foundation repair"], "location": "Austin, TX", "rating": 4.7, "reviews_count": 54, "bio": "Flatwork and foundation specialists."},
+    ]
+    docs = [{**b, "id": new_id(), "verified": True, "active": True, "logo": None, "website": "", "phone": "", "email": "", "payout_cents": 0, "leads_count": 0, "created_at": now_iso()} for b in base]
+    await db.pro_partners.insert_many(docs)
+    logger.info("pros seeded")
+
+
+@api_router.get("/pros")
+async def list_pros(trade: Optional[str] = None, q: Optional[str] = None, location: Optional[str] = None, user: dict = Depends(get_current_user)):
+    query: dict = {"active": True, "verified": True}
+    if trade:
+        query["trades"] = trade
+    if location:
+        query["location"] = {"$regex": re.escape(location), "$options": "i"}
+    if q:
+        rx = {"$regex": re.escape(q), "$options": "i"}
+        query["$or"] = [{"name": rx}, {"specialties": rx}, {"bio": rx}]
+    pros = await db.pro_partners.find(query, {"_id": 0}).sort("rating", -1).to_list(100)
+    return {"pros": [_pro_public(p) for p in pros], "trades": PRO_TRADES}
+
+
+@api_router.get("/pros/{pro_id}")
+async def get_pro(pro_id: str, user: dict = Depends(get_current_user)):
+    p = await db.pro_partners.find_one({"id": pro_id, "active": True}, {"_id": 0})
+    if not p:
+        raise HTTPException(status_code=404, detail="Pro not found")
+    return _pro_public(p)
+
+
+class ProApplyReq(BaseModel):
+    name: str
+    trades: List[str] = []
+    specialties: List[str] = []
+    location: str = ""
+    bio: str = ""
+    phone: str = ""
+    email: str = ""
+    website: str = ""
+
+
+@api_router.post("/pros/apply")
+async def apply_pro(req: ProApplyReq):
+    partner = {
+        "id": new_id(), "name": req.name[:100], "trades": req.trades[:8], "specialties": req.specialties[:12],
+        "location": req.location[:80], "bio": req.bio[:600], "phone": req.phone[:40], "email": req.email[:120],
+        "website": req.website[:200], "logo": None, "rating": 0, "reviews_count": 0,
+        "verified": False, "active": False, "payout_cents": 0, "leads_count": 0, "created_at": now_iso(),
+    }
+    await db.pro_partners.insert_one(dict(partner))
+    return {"ok": True, "id": partner["id"], "message": "Application received — our team will review and verify your listing."}
+
+
+@api_router.get("/projects/{project_id}/handoff")
+async def project_handoff(project_id: str, user: dict = Depends(get_current_user)):
+    project = await db.projects.find_one({"id": project_id, "user_id": user["id"]}, {"_id": 0})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    guide = project.get("guide") or {}
+    steps = project.get("steps", [])
+    done = sum(1 for s in steps if s.get("done"))
+    ctx = project.get("context") or {}
+    home = await db.home_profiles.find_one({"user_id": user["id"]}, {"_id": 0}) or {}
+    rooms = home.get("rooms", [])
+    materials = guide.get("materials") or []
+    mat_names = [m.get("name") if isinstance(m, dict) else str(m) for m in materials][:12]
+    lines = [f"Project: {project['title']}"]
+    if ctx:
+        detail = "; ".join(f"{k}: {v}" for k, v in ctx.items() if v)
+        if detail:
+            lines.append(f"Details the homeowner provided: {detail}")
+    if steps:
+        lines.append(f"Progress: {done}/{len(steps)} DIY steps done before deciding to hire out.")
+    if mat_names:
+        lines.append(f"Materials already scoped: {', '.join(mat_names)}")
+    if guide.get("code_alert"):
+        lines.append(f"Code note: {guide['code_alert']}")
+    if rooms:
+        lines.append(f"Home rooms on file: {', '.join(r.get('name', '') for r in rooms[:6])}")
+    return {
+        "project_title": project["title"],
+        "summary": "\n".join(lines),
+        "code_alert": guide.get("code_alert"),
+        "materials": mat_names,
+        "location": user.get("location", ""),
+    }
+
+
+@api_router.get("/projects/{project_id}/pro-suggestion")
+async def pro_suggestion(project_id: str, user: dict = Depends(get_current_user)):
+    project = await db.projects.find_one({"id": project_id, "user_id": user["id"]}, {"_id": 0})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    guide = project.get("guide") or {}
+    steps = project.get("steps", [])
+    title = (project.get("title") or "").lower()
+    reason = None
+    trade = "General Contractor"
+    code_alert = guide.get("code_alert") or next((s.get("code_alert") for s in steps if s.get("code_alert")), None)
+    if code_alert:
+        reason = "This project may need a permit or licensed pro — do it safely."
+    elif any(k in title for k in RISKY_KEYWORDS):
+        reason = "This type of work is often safest with a licensed pro."
+    if "electric" in title or "wiring" in title or "panel" in title:
+        trade = "Electrical"
+    elif "plumb" in title or "pipe" in title or "leak" in title or "drain" in title:
+        trade = "Plumbing"
+    elif "roof" in title:
+        trade = "Roofing"
+    elif "hvac" in title or "furnace" in title or "ac " in title:
+        trade = "HVAC"
+    return {"suggest": bool(reason), "reason": reason, "suggested_trade": trade}
+
+
+@api_router.get("/admin/pros")
+async def admin_list_pros(admin: dict = Depends(require_admin)):
+    items = await db.pro_partners.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
+    return {"items": items}
+
+
+class ProPartnerReq(BaseModel):
+    name: str
+    trades: List[str] = []
+    specialties: List[str] = []
+    location: str = ""
+    bio: str = ""
+    phone: str = ""
+    email: str = ""
+    website: str = ""
+    rating: float = 0
+    verified: bool = False
+    active: bool = False
+    payout_cents: int = 0
+
+
+@api_router.post("/admin/pros")
+async def admin_create_pro(req: ProPartnerReq, admin: dict = Depends(require_admin)):
+    p = {**req.dict(), "id": new_id(), "logo": None, "reviews_count": 0, "leads_count": 0, "created_at": now_iso()}
+    await db.pro_partners.insert_one(dict(p))
+    return {k: v for k, v in p.items() if k != "_id"}
+
+
+@api_router.patch("/admin/pros/{pro_id}")
+async def admin_update_pro(pro_id: str, req: ProPartnerReq, admin: dict = Depends(require_admin)):
+    res = await db.pro_partners.update_one({"id": pro_id}, {"$set": req.dict()})
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Pro not found")
+    return await db.pro_partners.find_one({"id": pro_id}, {"_id": 0})
+
+
+@api_router.delete("/admin/pros/{pro_id}")
+async def admin_delete_pro(pro_id: str, admin: dict = Depends(require_admin)):
+    await db.pro_partners.delete_one({"id": pro_id})
     return {"ok": True}
 
 
@@ -3829,6 +4010,7 @@ async def _ensure_indexes():
 async def _startup_seed_community():
     await seed_community()
     await seed_vendors()
+    await seed_pros()
 
 
 @app.on_event("startup")

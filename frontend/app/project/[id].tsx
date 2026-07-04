@@ -60,6 +60,7 @@ export default function Workspace() {
   const [calcOpen, setCalcOpen] = useState(false);
   const [supplyOpen, setSupplyOpen] = useState(false);
   const [completeOpen, setCompleteOpen] = useState(false);
+  const [proSug, setProSug] = useState<{ suggest: boolean; reason: string | null; suggested_trade: string } | null>(null);
   const askRef = useRef<ScrollView>(null);
   const [intake, setIntake] = useState<IntakeQ[] | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -102,6 +103,9 @@ export default function Workspace() {
   }, [id, isNew, buildGuide, startIntake]);
 
   useEffect(() => { if (id) load(); }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (id) api<{ suggest: boolean; reason: string | null; suggested_trade: string }>(`/projects/${id}/pro-suggestion`).then(setProSug).catch(() => {});
+  }, [id]);
 
   useEffect(() => { setTimeout(() => askRef.current?.scrollToEnd({ animated: true }), 60); }, [chat]);
 
@@ -351,6 +355,18 @@ export default function Workspace() {
             </Section>
           )}
 
+          {/* Contextual "above-DIY" pro suggestion (Sheet #18) */}
+          {proSug?.suggest && project?.status !== "completed" && (
+            <Pressable testID="project-get-pro" style={styles.proBanner} onPress={() => router.push(`/pros?trade=${encodeURIComponent(proSug.suggested_trade)}&projectId=${id}`)}>
+              <MaterialCommunityIcons name="account-hard-hat" size={22} color={colors.warning} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.proTitle}>{proSug.reason}</Text>
+                <Text style={styles.proSub}>Browse vetted {proSug.suggested_trade} pros — we'll pre-fill your project.</Text>
+              </View>
+              <MaterialCommunityIcons name="chevron-right" size={20} color={colors.onSurfaceTertiary} />
+            </Pressable>
+          )}
+
           {/* Finish & log — Homeowner Journey (Sheet #7/#11) */}
           {g && (
             project.status === "completed" ? (
@@ -467,6 +483,9 @@ const styles = StyleSheet.create({
   doneBanner: { flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: colors.surfaceSecondary, borderColor: colors.success, borderWidth: 1.5, borderRadius: radius.md, padding: spacing.lg, marginTop: spacing.md },
   doneTitle: { color: colors.onSurface, fontFamily: font.bold, fontSize: type.lg },
   doneSub: { color: colors.onSurfaceTertiary, fontFamily: font.regular, fontSize: type.sm, marginTop: 1 },
+  proBanner: { flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: colors.surfaceSecondary, borderColor: colors.warning, borderWidth: 1.5, borderRadius: radius.md, padding: spacing.lg, marginTop: spacing.md },
+  proTitle: { color: colors.onSurface, fontFamily: font.bold, fontSize: type.base },
+  proSub: { color: colors.onSurfaceTertiary, fontFamily: font.regular, fontSize: type.sm, marginTop: 1 },
   stepCard: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, padding: spacing.lg, borderColor: colors.border, borderWidth: 1, gap: spacing.sm },
   stepCardDone: { borderColor: colors.success, opacity: 0.85 },
   stepTop: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
