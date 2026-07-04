@@ -185,7 +185,17 @@ Goal: solve the real pain points of existing DIY platforms with solutions people
 - **Community auto-post [#2]**: on completion with share=true, writes a `community_experiences` doc (shows in `/community/feed` "JUST COMPLETED"); feed title falls back to experience title.
 - Verified: backend 12/12 pytest pass + curl (story/savings/badges/dup-block/feed); frontend Playwright all flows pass. Test file: /app/backend/tests/test_finance_journey.py.
 
-## Roadmap status update (post continued-14)
+## Shipped (continued 15) — #12 Knowledge Search + Pro-Referral, #13 Automation Rules Engine, #14 Home Digital Twin
+- **#12 Knowledge Search** (agreed approach: Mongo regex search + AI query-expansion via gpt-4o-mini, NO vector DB): `GET /knowledge/search?q=` spans blog guides, community projects, experiences/tips, Q&A threads; returns grouped results + related terms + did-you-mean. Screen `/search` (entry: Community search bar `community-search-bar`), popular/related chips, escalation block. **Pro-Referral**: `GET /pro-referrals/trades`, `POST /pro-referrals` (lead capture), `GET /pro-referrals/me`; admin `GET /admin/pro-leads` + `PATCH /admin/pro-leads/{id}`. ProReferralModal (trade/issue/location/urgency). Admin ProLeadsModule (`admin-nav-proleads`). Email notify to pro deferred until AWS SES keys. NO vector DB yet (future upgrade). Tested: 15/15 pytest + Playwright, no bugs.
+- **#13 Automation Rules Engine** (mostly internal): `emit_event(trigger,user,data)` runs enabled rules. Triggers: signup, project_completed (both wired), subscription_started, referral_completed. Actions: award_credits, add_tag, send_email (queues via email_engine, degrades w/o SES), webhook (httpx), log. Endpoints: `/admin/automations` CRUD + `/meta` (triggers/actions/recipes) + `/{id}/toggle` + `/{id}/test` + `/logs`. 4 prebuilt recipes. AutomationModule (`admin-nav-automations`): form-based builder, recipe library, toggle, test-run, activity log. Backend curl-verified (create/test/toggle/logs/delete).
+- **#14 Home Digital Twin & Lifetime Log** (100% internal, reuses timeline + home_memory): `GET /home` returns rooms, systems, stats (projects/saved/invested/hours/years), years[], merged lifetime log (completed projects + home notes — metadata only, no blobs). CRUD: `/home/rooms`, `/home/systems` (POST/DELETE). `GET /home/year-review/{year}`. Screen `/home-profile` "My Home" (entry: profile `profile-home`): hero, stat grid, Year-in-Review modal, Rooms & Systems registry (add/delete), lifetime knowledge log timeline. AR scan capture stays native-deferred (#1). Backend curl-verified.
+
+## Roadmap status update (post continued-15)
+- DONE: #2, #7, #10, #11, #12, #13, #14.
+- Backlog (queued, not built): #5 referral gear-popup, #6 Gantt dependency scheduler, #15 Accessibility/Aging-in-place planner (needs AR + code tables), #17 RAG training/feedback loop (needs vector DB; feasible slice = guide "flag as wrong" + admin AI-quality dashboard). #1/#4 native-build-blocked.
+- Pending user keys: AWS SES (email + automation email action + pro-lead notify), Perplexity (Code Check + web-search guides).
+
+
 - #2 Profiles/Community: DONE (photo, bio, public toggle, auto-post on completion). Remaining: report/flag moderation.
 - #7 Completion Story/Testimonial: DONE.
 - #10 CFO Finance Dashboard: DONE.

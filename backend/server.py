@@ -569,6 +569,10 @@ async def register(req: RegisterReq):
     await db.users.insert_one(user)
     await link_referral(req.ref, user["id"])
     await email_engine.trigger_event("welcome", user)
+    try:
+        await emit_event("signup", user["id"], {})
+    except Exception as e:
+        logger.warning(f"automation signup failed: {e}")
     token = create_token(user["id"])
     return {"access_token": token, "token_type": "bearer", "user": public_user(user)}
 
@@ -1317,6 +1321,15 @@ async def complete_project(project_id: str, req: CompleteProjectReq, user: dict 
 
     after = await _journey_data(user)
     new_achievements = [a for a in after["achievements"] if a["earned"] and a["id"] not in before_ids]
+    try:
+        await emit_event("project_completed", user["id"], {
+            "projects_completed": after["projects_completed"],
+            "money_saved_cents": money_saved,
+            "cost_cents": req.cost_cents or 0,
+            "hours": req.hours or 0,
+        })
+    except Exception as e:
+        logger.warning(f"automation project_completed failed: {e}")
     return {
         "entry": entry,
         "money_saved_cents": money_saved,
@@ -1454,6 +1467,303 @@ async def admin_update_pro_lead(lead_id: str, req: ProLeadPatch, admin: dict = D
         raise HTTPException(status_code=400, detail="Invalid status")
     await db.pro_leads.update_one({"id": lead_id}, {"$set": {"status": req.status}})
     return {"ok": True}
+
+
+# ---------------------------------------------------------------- Automation & Workflow Engine (Sheet #9/#13)
+AUTOMATION_TRIGGERS = [
+    {"key": "signup", "label": "New user signs up", "fields": []},
+    {"key": "project_completed", "label": "User completes a project", "fields": ["projects_completed", "money_saved_cents", "cost_cents", "hours"]},
+    {"key": "subscription_started", "label": "User starts a paid plan", "fields": ["tier"]},
+    {"key": "referral_completed", "label": "A referral converts", "fields": []},
+]
+AUTOMATION_ACTIONS = [
+    {"key": "award_credits", "label": "Award credits", "param": "amount", "param_type": "number"},
+    {"key": "add_tag", "label": "Tag the user", "param": "tag", "param_type": "text"},
+    {"key": "send_email", "label": "Send email (template)", "param": "template", "param_type": "text"},
+    {"key": "webhook", "label": "Call a webhook", "param": "url", "param_type": "text"},
+    {"key": "log", "label": "Log event only", "param": None, "param_type": None},
+]
+AUTOMATION_RECIPES = [
+    {"name": "5th project → bonus credits + badge email", "trigger": "project_completed",
+     "conditions": [{"field": "projects_completed", "op": "gte", "value": 5}],
+     "actions": [{"type": "award_credits", "amount": 50}, {"type": "send_email", "template": "milestone"}, {"type": "add_tag", "tag": "power-user"}]},
+    {"name": "Welcome new signups", "trigger": "signup", "conditions": [],
+     "actions": [{"type": "award_credits", "amount": 10}, {"type": "add_tag", "tag": "new"}]},
+    {"name": "Big saver → testimonial ask", "trigger": "project_completed",
+     "conditions": [{"field": "money_saved_cents", "op": "gte", "value": 100000}],
+     "actions": [{"type": "add_tag", "tag": "big-saver"}, {"type": "send_email", "template": "testimonial_ask"}]},
+    {"name": "New subscriber → thank-you", "trigger": "subscription_started", "conditions": [],
+     "actions": [{"type": "add_tag", "tag": "paying"}, {"type": "send_email", "template": "thank_you"}]},
+]
+
+
+def _cond_ok(conditions: list, data: dict) -> bool:
+    for c in conditions or []:
+        val = data.get(c.get("field"))
+        op, target = c.get("op"), c.get("value")
+        try:
+            if op == "gte" and not (val is not None and float(val) >= float(target)):
+                return False
+            elif op == "lte" and not (val is not None and float(val) <= float(target)):
+                return False
+            elif op == "eq" and str(val) != str(target):
+                return False
+            elif op == "contains" and str(target).lower() not in str(val or "").lower():
+                return False
+        except (TypeError, ValueError):
+            return False
+    return True
+
+
+async def _run_action(action: dict, user: dict, data: dict) -> dict:
+    t = action.get("type")
+    try:
+        if t == "award_credits":
+            amt = int(action.get("amount") or 0)
+            await db.users.update_one({"id": user["id"]}, {"$inc": {"credits": amt}})
+            return {"type": t, "ok": True, "detail": f"+{amt} credits"}
+        if t == "add_tag":
+            tag = str(action.get("tag") or "").strip()
+            if tag:
+                await db.users.update_one({"id": user["id"]}, {"$addToSet": {"tags": tag}})
+            return {"type": t, "ok": True, "detail": f"tag '{tag}'"}
+        if t == "send_email":
+            tmpl = str(action.get("template") or "").strip()
+            await email_engine.trigger_event(tmpl, user, data)
+            note = "queued" if email_engine.keys_present() else "queued (SES keys missing — will send once configured)"
+            return {"type": t, "ok": True, "detail": f"email '{tmpl}' {note}"}
+        if t == "webhook":
+            url = str(action.get("url") or "")
+            async with httpx.AsyncClient(timeout=8) as client:
+                await client.post(url, json={"user_id": user["id"], "email": user.get("email"), "data": data})
+            return {"type": t, "ok": True, "detail": f"POST {url[:50]}"}
+        return {"type": t, "ok": True, "detail": "logged"}
+    except Exception as e:
+        return {"type": t, "ok": False, "detail": str(e)[:120]}
+
+
+async def emit_event(trigger: str, user_id: str, data: dict = None, test_rule: dict = None):
+    """Run all enabled automation rules matching a business trigger."""
+    data = data or {}
+    user = await db.users.find_one({"id": user_id}, {"_id": 0})
+    if not user:
+        return []
+    rules = [test_rule] if test_rule else await db.automation_rules.find({"trigger": trigger, "enabled": True}, {"_id": 0}).to_list(200)
+    fired = []
+    for rule in rules:
+        if not _cond_ok(rule.get("conditions"), data):
+            continue
+        results = [await _run_action(a, user, data) for a in rule.get("actions", [])]
+        log = {"id": new_id(), "rule_id": rule.get("id"), "rule_name": rule.get("name"),
+               "trigger": trigger, "user_email": user.get("email"), "data": data,
+               "results": results, "success": all(r["ok"] for r in results),
+               "test": bool(test_rule), "created_at": now_iso()}
+        await db.automation_logs.insert_one(dict(log))
+        if not test_rule:
+            await db.automation_rules.update_one({"id": rule["id"]}, {"$inc": {"runs": 1}, "$set": {"last_run": now_iso()}})
+        log.pop("_id", None)
+        fired.append(log)
+    return fired
+
+
+class RuleReq(BaseModel):
+    name: str
+    trigger: str
+    conditions: List[dict] = []
+    actions: List[dict] = []
+    enabled: bool = True
+
+
+@api_router.get("/admin/automations/meta")
+async def automation_meta(admin: dict = Depends(require_admin)):
+    return {"triggers": AUTOMATION_TRIGGERS, "actions": AUTOMATION_ACTIONS, "recipes": AUTOMATION_RECIPES}
+
+
+@api_router.get("/admin/automations")
+async def list_automations(admin: dict = Depends(require_admin)):
+    rules = await db.automation_rules.find({}, {"_id": 0}).sort("created_at", -1).to_list(200)
+    return {"rules": rules}
+
+
+@api_router.post("/admin/automations")
+async def create_automation(req: RuleReq, admin: dict = Depends(require_admin)):
+    if req.trigger not in [t["key"] for t in AUTOMATION_TRIGGERS]:
+        raise HTTPException(status_code=400, detail="Unknown trigger")
+    rule = {"id": new_id(), "name": req.name[:120], "trigger": req.trigger,
+            "conditions": req.conditions, "actions": req.actions, "enabled": req.enabled,
+            "runs": 0, "last_run": None, "created_at": now_iso()}
+    await db.automation_rules.insert_one(dict(rule))
+    return rule
+
+
+@api_router.patch("/admin/automations/{rule_id}")
+async def update_automation(rule_id: str, req: RuleReq, admin: dict = Depends(require_admin)):
+    patch = {"name": req.name[:120], "trigger": req.trigger, "conditions": req.conditions,
+             "actions": req.actions, "enabled": req.enabled}
+    res = await db.automation_rules.update_one({"id": rule_id}, {"$set": patch})
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Rule not found")
+    return await db.automation_rules.find_one({"id": rule_id}, {"_id": 0})
+
+
+class ToggleReq(BaseModel):
+    enabled: bool
+
+
+@api_router.patch("/admin/automations/{rule_id}/toggle")
+async def toggle_automation(rule_id: str, req: ToggleReq, admin: dict = Depends(require_admin)):
+    await db.automation_rules.update_one({"id": rule_id}, {"$set": {"enabled": req.enabled}})
+    return {"ok": True}
+
+
+@api_router.delete("/admin/automations/{rule_id}")
+async def delete_automation(rule_id: str, admin: dict = Depends(require_admin)):
+    await db.automation_rules.delete_one({"id": rule_id})
+    return {"ok": True}
+
+
+@api_router.post("/admin/automations/{rule_id}/test")
+async def test_automation(rule_id: str, admin: dict = Depends(require_admin)):
+    rule = await db.automation_rules.find_one({"id": rule_id}, {"_id": 0})
+    if not rule:
+        raise HTTPException(status_code=404, detail="Rule not found")
+    sample = {"projects_completed": 5, "money_saved_cents": 120000, "cost_cents": 5000, "hours": 6, "tier": "pro"}
+    fired = await emit_event(rule["trigger"], admin["id"], sample, test_rule=rule)
+    return {"tested": True, "fired": bool(fired), "log": fired[0] if fired else None}
+
+
+@api_router.get("/admin/automations/logs")
+async def automation_logs(admin: dict = Depends(require_admin)):
+    logs = await db.automation_logs.find({}, {"_id": 0}).sort("created_at", -1).to_list(100)
+    return {"logs": logs}
+
+
+# ---------------------------------------------------------------- Home Digital Twin & Lifetime Log (Sheet #14)
+ROOM_TYPES = ["Kitchen", "Bathroom", "Bedroom", "Living Room", "Basement", "Garage", "Outdoor / Yard", "Laundry", "Attic", "Whole House", "Other"]
+SYSTEM_TYPES = ["HVAC", "Water Heater", "Electrical Panel", "Plumbing", "Roof", "Appliance", "Windows / Doors", "Other"]
+
+
+async def _home_profile(user_id: str) -> dict:
+    p = await db.home_profiles.find_one({"user_id": user_id}, {"_id": 0})
+    if not p:
+        p = {"user_id": user_id, "rooms": [], "systems": []}
+        await db.home_profiles.insert_one(dict(p))
+    p.setdefault("rooms", [])
+    p.setdefault("systems", [])
+    return p
+
+
+def _year(iso: Optional[str]) -> Optional[int]:
+    try:
+        return int((iso or "")[:4])
+    except (ValueError, TypeError):
+        return None
+
+
+@api_router.get("/home")
+async def get_home(user: dict = Depends(get_current_user)):
+    profile = await _home_profile(user["id"])
+    timeline = await db.timeline.find({"user_id": user["id"]}, {"_id": 0}).sort("created_at", -1).to_list(500)
+    memory = user.get("home_memory", []) or []
+
+    total_saved = sum(int(e.get("money_saved_cents") or 0) for e in timeline)
+    total_invested = sum(int(e.get("cost_cents") or 0) for e in timeline)
+    total_hours = sum(float(e.get("hours") or 0) for e in timeline)
+    years = sorted({y for y in (_year(e.get("created_at")) for e in timeline) if y}, reverse=True)
+
+    # Lifetime knowledge log: completed projects + home facts (lightweight event log — no blobs)
+    log = []
+    for e in timeline:
+        log.append({
+            "kind": "project", "id": e.get("id"), "title": e.get("story_title") or e.get("title"),
+            "detail": e.get("title"), "room": e.get("room"), "skill_tag": e.get("skill_tag"),
+            "money_saved_cents": e.get("money_saved_cents"), "cost_cents": e.get("cost_cents"),
+            "hours": e.get("hours"), "created_at": e.get("created_at"),
+        })
+    for m in memory:
+        log.append({
+            "kind": "note", "id": m.get("id"), "title": "Home note",
+            "detail": m.get("text"), "room": m.get("room"), "created_at": m.get("created_at"),
+        })
+    log.sort(key=lambda x: x.get("created_at") or "", reverse=True)
+
+    return {
+        "rooms": profile["rooms"], "systems": profile["systems"],
+        "stats": {
+            "projects_completed": len(timeline),
+            "money_saved_cents": total_saved,
+            "invested_cents": total_invested,
+            "total_hours": round(total_hours, 1),
+            "years_active": len(years) or (1 if timeline else 0),
+            "rooms": len(profile["rooms"]), "systems": len(profile["systems"]),
+        },
+        "years": years,
+        "log": log[:200],
+        "room_types": ROOM_TYPES, "system_types": SYSTEM_TYPES,
+    }
+
+
+class RoomReq(BaseModel):
+    name: str
+    type: str = "Other"
+    notes: Optional[str] = ""
+
+
+@api_router.post("/home/rooms")
+async def add_room(req: RoomReq, user: dict = Depends(get_current_user)):
+    await _home_profile(user["id"])
+    room = {"id": new_id(), "name": req.name[:60], "type": req.type[:40], "notes": (req.notes or "")[:300], "created_at": now_iso()}
+    await db.home_profiles.update_one({"user_id": user["id"]}, {"$push": {"rooms": room}})
+    return room
+
+
+@api_router.delete("/home/rooms/{room_id}")
+async def del_room(room_id: str, user: dict = Depends(get_current_user)):
+    await db.home_profiles.update_one({"user_id": user["id"]}, {"$pull": {"rooms": {"id": room_id}}})
+    return {"ok": True}
+
+
+class SystemReq(BaseModel):
+    name: str
+    type: str = "Other"
+    install_year: Optional[int] = None
+    warranty: Optional[str] = ""
+    notes: Optional[str] = ""
+
+
+@api_router.post("/home/systems")
+async def add_system(req: SystemReq, user: dict = Depends(get_current_user)):
+    await _home_profile(user["id"])
+    sysd = {"id": new_id(), "name": req.name[:60], "type": req.type[:40],
+            "install_year": req.install_year, "warranty": (req.warranty or "")[:80],
+            "notes": (req.notes or "")[:300], "created_at": now_iso()}
+    await db.home_profiles.update_one({"user_id": user["id"]}, {"$push": {"systems": sysd}})
+    return sysd
+
+
+@api_router.delete("/home/systems/{system_id}")
+async def del_system(system_id: str, user: dict = Depends(get_current_user)):
+    await db.home_profiles.update_one({"user_id": user["id"]}, {"$pull": {"systems": {"id": system_id}}})
+    return {"ok": True}
+
+
+@api_router.get("/home/year-review/{year}")
+async def year_review(year: int, user: dict = Depends(get_current_user)):
+    timeline = await db.timeline.find({"user_id": user["id"]}, {"_id": 0}).sort("created_at", 1).to_list(500)
+    ent = [e for e in timeline if _year(e.get("created_at")) == year]
+    skills: dict = {}
+    for e in ent:
+        t = e.get("skill_tag") or "DIYer"
+        skills[t] = skills.get(t, 0) + 1
+    return {
+        "year": year,
+        "projects": len(ent),
+        "money_saved_cents": sum(int(e.get("money_saved_cents") or 0) for e in ent),
+        "invested_cents": sum(int(e.get("cost_cents") or 0) for e in ent),
+        "hours": round(sum(float(e.get("hours") or 0) for e in ent), 1),
+        "top_skills": [k for k, _ in sorted(skills.items(), key=lambda x: -x[1])][:3],
+        "highlights": [{"title": e.get("story_title") or e.get("title"), "money_saved_cents": e.get("money_saved_cents"), "created_at": e.get("created_at")} for e in ent],
+    }
 
 
 # ---------------------------------------------------------------- community (Pro-Earn)

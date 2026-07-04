@@ -1,0 +1,52 @@
+{
+  "summary": "Full validation of Sheet #13 (Admin Automation & Workflow Rules Engine) and Sheet #14 (Home Digital Twin / Lifetime Knowledge Log). Backend: 15/15 pytest pass in 2.23s (test_automation_home.py). Covered: GET /admin/automations/meta (returns >=4 triggers incl. signup/project_completed/subscription_started/referral_completed, >=5 actions, recipes), admin gating (403 for standard user on all /admin/automations endpoints), POST/GET/PATCH toggle/DELETE /admin/automations, POST /admin/automations/{id}/test (fires with sample data projects_completed=5, log persists in GET /admin/automations/logs), bad-trigger 400. Home: GET /api/home shape (rooms/systems/stats/years/log/room_types/system_types), admin has projects_completed>=1 with populated log, new user returns empty structure, POST/DELETE /home/rooms and /home/systems with GET verification, GET /home/year-review/{year} for admin's 2026 year returns projects>=1 with money_saved_cents/invested_cents/hours/top_skills/highlights, year with no data returns projects=0 cleanly, auth required (401/403). No MongoDB _id leakage in responses. Frontend (Expo web): Admin flow (desktop 1280x900) — logged in as Diyhomieapp@gmail.com → /admin → admin-nav-automations opens Automations page with 'When ___ happens, do ___.' subhead. Rules/Activity tabs both visible (auto-tab-rules, auto-tab-activity). Tapped auto-new → builder opens → filled auto-name='TEST_UI Reward 5th' → picked auto-trigger-project_completed → tapped auto-addcond-projects_completed (default op=gte value=1) → tapped auto-addaction-award_credits → auto-save persisted rule; rule card appeared with auto-toggle-{id} Switch, auto-test-{id} and auto-delete-{id} buttons. Test button fired the rule and inserted a log entry visible in Activity tab (✓ TEST_UI Reward 5th (test) · project_completed · diyhomieapp@gmail.com · +0 credits). Recipe auto-recipe-0 clone pre-filled builder name '5th project → bonus credits + badge email'. auto-delete-{id} removed rule from list. User flow (mobile 390x844) — logged in as admin (has 1 completed project) → /profile → profile-home menu row visible and navigates to /home-profile. Hero card 'Your home's living record' + stat grid (PROJECTS=1, SAVED=$115, INVESTED=$35, YEARS=1) all render. home-add-room modal → home-add-name + Kitchen chip + home-add-submit → 'TEST_UI Kitchen' listed with home-del-room-{id}. home-add-system modal → name + HVAC chip + home-add-year=2020 + home-add-submit → 'TEST_UI HVAC · HVAC · 2020' listed with home-del-system-{id}. home-year-2026 chip opens Year-in-Review modal with year, 1 PROJECTS, $115 SAVED, 2 HOURS, 'Top skills: Bathroom Pro' and NICE! close button. LIFETIME KNOWLEDGE LOG shows 'Jul 4, 2026 · bathroom / Leaky Faucet Fixed! / Fix a leaky bathroom faucet / Saved $115'. Delete room + system both worked. Regression: admin-nav-proleads renders Pro Leads, admin-nav-finance renders CFO Dashboard, /search still renders search input. No red-screen or crash. Some cosmetic React warnings only (shadow*, pointerEvents, useNativeDriver — pre-existing, not from this iteration).",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "AutomationModule builder", "issues": ["Minor UX: adding an 'award_credits' action does not require an amount — leaving the amount TextInput empty saves the rule and Test-runs it with '+0 credits' in the log (see attached admin_auto.png). Consider blocking Save when award_credits.amount is empty/<=0, or defaulting to 10. Not blocking."]}
+    ],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_automation_home.py",
+    "/app/test_reports/pytest/automation_home_results.xml"
+  ],
+  "action_items": [
+    "(Optional) Add front-end guard in AutomationModule.save(): require award_credits actions to have amount>0 before allowing SAVE — otherwise Test emits '+0 credits' log which is confusing.",
+    "(Optional / pre-existing, not blocking) Metro version drift warning: expo@54.0.34 vs expected ~54.0.35 (and expo-font/expo-router minors). No functional impact but easy `yarn add expo@~54.0.35 expo-font@~14.0.12 expo-router@~6.0.24`.",
+    "(Optional / pre-existing) React Native web console warnings: shadow* style props, props.pointerEvents, and useNativeDriver JS fallback — cosmetic warnings from RN-web, unchanged from prior iterations."
+  ],
+  "critical_code_review_comments": [
+    "server.py:1500 _cond_ok safely handles op ∈ {gte,lte,eq,contains} with try/except on TypeError/ValueError — never raises.",
+    "server.py:1518 _run_action wraps each action in try/except so a single bad action doesn't crash the rule, and returns structured {type,ok,detail}.",
+    "server.py:1545 emit_event handles both live-fire (find enabled rules for trigger) and test-fire (pass a single rule directly) via `test_rule` param — clean design; increments runs counter only on live fires.",
+    "server.py:1588 create_automation validates trigger against AUTOMATION_TRIGGERS enum → 400 on unknown (test_bad_trigger_400 passes).",
+    "server.py:1631 test_automation uses a fixed sample payload with projects_completed=5, money_saved_cents=120000 etc — matches all 4 recipe condition thresholds so Test-run reliably fires. Good design.",
+    "server.py:1646 _home_profile idempotent — creates empty {rooms:[], systems:[]} on first access; setdefault covers legacy docs without those arrays.",
+    "server.py:1663 get_home aggregates timeline + home_memory into a unified log[], sorted desc by created_at, capped to 200. Uses (_id:0) projection everywhere → no ObjectId leakage.",
+    "server.py:1712-1747 room/system add/delete use $push and $pull with per-item id → no risk of collision; string fields sliced to safe caps (60/300).",
+    "server.py:1751 year_review filters timeline by _year() (which safely returns None for bad ISO), aggregates skills with top-3, and returns highlights[]. Consistent shape.",
+    "AutomationModule.tsx:53 save() blocks with Alert if !name or actions empty — good client guard. However does NOT require action params (e.g. amount for award_credits) — see design_issues.",
+    "AutomationModule.tsx:65 test() shows Alert with fired/not-fired verdict then switches to Activity tab and reloads logs — nice UX chain.",
+    "AutomationModule.tsx:61,69 toggle() and remove() do optimistic UI updates with load() rollback on error — resilient.",
+    "home-profile.tsx:39 useFocusEffect(load) refreshes on nav-back — ensures newly-completed projects appear in log immediately.",
+    "home-profile.tsx:62 del() also does optimistic UI update with load() rollback.",
+    "home-profile.tsx:171-192 add-modal wrapped in KeyboardAvoidingView (iOS) with proper testIDs (home-add-name/type-chips/home-add-year/home-add-notes/home-add-submit) — mobile-first correct.",
+    "All new components use React Native primitives (View/Text/Pressable/Modal/ScrollView/TextInput/Switch/KeyboardAvoidingView) + StyleSheet.create + MaterialCommunityIcons only — no HTML tags, no deprecated expo-av/expo-barcode-scanner/expo-background-fetch."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_automation_home.py (NEW)",
+    "/app/test_reports/pytest/automation_home_results.xml (NEW)"
+  ],
+  "success_rate": {
+    "backend": "100% (15/15 pytest pass in 2.23s)",
+    "frontend": "100% — admin Automations create/toggle/test/log/delete/recipe-clone all work; user Home Profile stats/rooms/systems/year-review/lifetime-log all work; regression (Pro Leads, CFO, Knowledge Search) still renders"
+  },
+  "seed_data_creation": "Backend pytest created: (a) 1 automation rule 'TEST_auto_reward_5th' (deleted in teardown), (b) 1 automation rule 'TEST_delme' (deleted in test), (c) 1 automation test-run log for the admin (persists — no delete endpoint, benign, prefixed 'TEST_'). Home tests created 1 room + 1 system on a fresh standard user and cleaned both up. UI test created 'TEST_UI Reward 5th' rule (deleted at end) and 'TEST_UI Kitchen' room + 'TEST_UI HVAC' system on the admin (deleted at end). Admin's test-run logs for both TEST rules remain in db.automation_logs (benign, easy to filter by rule_name prefix if E1 wants to purge).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Sheets #13 (Automation) + #14 (Home Digital Twin) fully validated end-to-end. Admin is web-only at /admin — use desktop viewport (1280x900) when testing admin modules including AutomationModule. Automations builder testIDs: auto-tab-{rules|activity}, auto-new, auto-name, auto-trigger-{key}, auto-addcond-{field}, auto-addaction-{key}, auto-save, auto-cancel, auto-toggle-{id}, auto-test-{id}, auto-delete-{id}, auto-recipe-{i}. When Test-firing, the sample payload used server-side is {projects_completed:5, money_saved_cents:120000, cost_cents:5000, hours:6, tier:'pro'} — recipes/rules with conditions above these thresholds will NOT fire. Home Profile is mobile-first at /home-profile reached from testID profile-home on /profile. Home testIDs: home-back, home-add-room, home-add-system, home-add-name, home-add-year, home-add-notes, home-add-submit, home-year-{YYYY}, home-del-room-{id}, home-del-system-{id}. Year-in-Review modal has plain-text close button 'NICE!' (no testID — use get_by_text). The admin account (Diyhomieapp@gmail.com/diyhomie1122) has a completed 'Fix a leaky bathroom faucet' project → /home returns stats.projects_completed=1, years=[2026], and /home/year-review/2026 returns money_saved_cents=11500, hours=2, top_skills=['Bathroom Pro']. Standard user demo_home@diyhomie.com/Test1234 exists but was NOT used in this iteration (registered a fresh TEST_ user in pytest instead) — either works.",
+  "rca_of_issue": "N/A — no bugs found. Both new features work end-to-end. The only observation is a minor UX polish item: AutomationModule allows saving an award_credits action with no amount, resulting in Test-run logs showing '+0 credits' — documented in design_issues + action_items for E1 to consider."
+}

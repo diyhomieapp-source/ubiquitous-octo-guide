@@ -11,8 +11,9 @@ import { EmailModule } from "@/src/components/admin/EmailModule";
 import { AffiliateModule } from "@/src/components/admin/AffiliateModule";
 import { FinanceModule } from "@/src/components/admin/FinanceModule";
 import { ProLeadsModule } from "@/src/components/admin/ProLeadsModule";
+import { AutomationModule } from "@/src/components/admin/AutomationModule";
 
-type Mod = "overview" | "finance" | "crm" | "vendors" | "proleads" | "email" | "affiliate" | "feedback" | "tickets" | "blog";
+type Mod = "overview" | "finance" | "crm" | "vendors" | "proleads" | "automations" | "email" | "affiliate" | "feedback" | "tickets" | "blog";
 const MODULES: { key: Mod; label: string; icon: string }[] = [
   { key: "overview", label: "Overview", icon: "view-dashboard-outline" },
   { key: "finance", label: "CFO Dashboard", icon: "finance" },
@@ -21,6 +22,7 @@ const MODULES: { key: Mod; label: string; icon: string }[] = [
   { key: "affiliate", label: "Affiliate Widget", icon: "cart-percent" },
   { key: "vendors", label: "Vendors", icon: "domain" },
   { key: "proleads", label: "Pro Leads", icon: "account-hard-hat" },
+  { key: "automations", label: "Automations", icon: "robot-outline" },
   { key: "feedback", label: "Feedback", icon: "message-alert-outline" },
   { key: "tickets", label: "Support Tickets", icon: "ticket-outline" },
   { key: "blog", label: "Blog Curation", icon: "book-edit-outline" },
@@ -91,6 +93,7 @@ export default function AdminWorkstation() {
         {mod === "affiliate" && <AffiliateModule />}
         {mod === "vendors" && <VendorsModule />}
         {mod === "proleads" && <ProLeadsModule />}
+        {mod === "automations" && <AutomationModule />}
         {mod === "feedback" && <Feedback />}
         {mod === "tickets" && <Tickets />}
         {mod === "blog" && <Blog />}
