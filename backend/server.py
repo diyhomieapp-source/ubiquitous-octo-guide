@@ -1017,16 +1017,56 @@ async def get_supplies(project_id: str, user: dict = Depends(get_current_user)):
     project = await db.projects.find_one({"id": project_id, "user_id": user["id"]}, {"_id": 0})
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
-    items = []
-    for t in project.get("missing_supplies", []):
-        q = t.replace(" ", "+")
-        items.append({
-            "name": t,
-            "url": f"https://www.amazon.com/s?k={q}&tag={AMAZON_TAG}",
-        })
-    bundle_q = "+".join((s.replace(" ", "+") for s in project.get("missing_supplies", [])))
-    bundle_url = f"https://www.amazon.com/s?k={bundle_q}&tag={AMAZON_TAG}" if bundle_q else ""
-    return {"items": items, "bundle_url": bundle_url, "project_title": project["title"]}
+    guide = project.get("guide", {}) or {}
+    owned_tools = user.get("tools", []) or []
+    state = project.get("supply_state", {}) or {}
+    cfg = await affiliate_engine.ensure_config()
+    retailers = affiliate_engine._ordered_retailers(cfg)
+
+    def links_for(name: str):
+        return [{"retailer": rk, "label": rc.get("label", rk), "url": affiliate_engine._build_link(rk, rc, name)}
+                for rk, rc in retailers]
+
+    def mk(name: str, category: str):
+        default_owned = category == "tool" and _owned(name, owned_tools)
+        owned = bool(state.get(name, default_owned))
+        return {"name": name, "category": category, "owned": owned, "links": links_for(name)}
+
+    materials = [mk(m, "material") for m in (guide.get("materials") or [])]
+    tools = [mk(t, "tool") for t in (guide.get("tools") or [])]
+    if not materials and not tools:  # fallback for older projects
+        materials = [mk(s, "material") for s in project.get("missing_supplies", [])]
+
+    all_items = materials + tools
+    total = len(all_items)
+    owned_ct = sum(1 for i in all_items if i["owned"])
+    readiness = round(owned_ct / total * 100) if total else 0
+
+    remaining = [i["name"] for i in all_items if not i["owned"]]
+    bundle_q = "+".join(s.replace(" ", "+") for s in remaining)
+    amz = cfg.get("retailers", {}).get("amazon", {})
+    tag = amz.get("affiliate_tag") or AMAZON_TAG
+    bundle_url = f"https://www.amazon.com/s?k={bundle_q}&tag={tag}" if bundle_q else ""
+
+    return {
+        "materials": materials, "tools": tools,
+        "readiness": readiness, "owned_count": owned_ct, "total": total,
+        "bundle_url": bundle_url, "project_title": project["title"],
+    }
+
+
+class SupplyToggleReq(BaseModel):
+    name: str
+    owned: bool
+
+
+@api_router.patch("/projects/{project_id}/supplies")
+async def toggle_supply(project_id: str, req: SupplyToggleReq, user: dict = Depends(get_current_user)):
+    project = await db.projects.find_one({"id": project_id, "user_id": user["id"]}, {"_id": 0})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    await db.projects.update_one({"id": project_id}, {"$set": {f"supply_state.{req.name}": req.owned}})
+    return {"ok": True, "name": req.name, "owned": req.owned}
 
 
 # ---------------------------------------------------------------- community (Pro-Earn)

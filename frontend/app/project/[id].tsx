@@ -15,6 +15,7 @@ import { useAuth } from "@/src/auth";
 import { storage } from "@/src/utils/storage";
 import { AvatarThinking } from "@/src/components/AvatarThinking";
 import { CalculatorSheet } from "@/src/components/CalculatorSheet";
+import { SupplyDrawer } from "@/src/components/SupplyDrawer";
 import { CodeCheckCard, projectNeedsCode } from "@/src/components/CodeCheckCard";
 import { calculatorForProject } from "@/src/calculators/registry";
 
@@ -56,6 +57,7 @@ export default function Workspace() {
   const [asking, setAsking] = useState(false);
   const [mode, setMode] = useState<"text" | "voice">("text");
   const [calcOpen, setCalcOpen] = useState(false);
+  const [supplyOpen, setSupplyOpen] = useState(false);
   const askRef = useRef<ScrollView>(null);
   const [intake, setIntake] = useState<IntakeQ[] | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -266,25 +268,16 @@ export default function Workspace() {
             </Pressable>
           )}
 
-          {/* PREP */}
-          <Section title="TOOLS & MATERIALS" icon="toolbox-outline" defaultOpen>
-            {(g?.tools || []).map((t) => {
-              const owned = (g?.owned_tools || []).some((o) => o.toLowerCase().split("/")[0].split(" ")[0] && (o.toLowerCase().split("/")[0].split(" ")[0] || "").length > 0 && (t.toLowerCase().includes(o.toLowerCase().split("/")[0].split(" ")[0]) || o.toLowerCase().includes(t.toLowerCase())));
-              return (
-                <View key={t} style={styles.listRow}>
-                  <MaterialCommunityIcons name={owned ? "check-circle" : "cart-outline"} size={16} color={owned ? colors.success : colors.brandPrimary} />
-                  <Text style={styles.listText}>{t}</Text>
-                  {!owned && <Text style={styles.needTag}>NEED</Text>}
-                </View>
-              );
-            })}
-            {(g?.materials || []).map((m) => (
-              <View key={m} style={styles.listRow}>
-                <MaterialCommunityIcons name="package-variant-closed" size={16} color={colors.onSurfaceTertiary} />
-                <Text style={styles.listText}>{m}</Text>
-              </View>
-            ))}
-          </Section>
+          {/* PREP — Smart Supply List (State B drawer) */}
+          <Pressable testID="open-supply-drawer" style={styles.calcBanner} onPress={() => setSupplyOpen(true)}>
+            <MaterialCommunityIcons name="clipboard-list-outline" size={22} color={colors.brandPrimary} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.calcBannerTitle}>Supply List</Text>
+              <Text style={styles.calcBannerSub}>{(g?.tools?.length || 0) + (g?.materials?.length || 0)} items · shop & check off what you own</Text>
+            </View>
+            <MaterialCommunityIcons name="arrow-right" size={20} color={colors.brandPrimary} />
+          </Pressable>
+          <SupplyDrawer projectId={id} visible={supplyOpen} onClose={() => setSupplyOpen(false)} />
 
           {calculatorForProject(project?.title) && (
             <Pressable testID="project-calc-banner" style={styles.calcBanner} onPress={() => setCalcOpen(true)}>

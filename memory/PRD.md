@@ -159,4 +159,20 @@ Goal: solve the real pain points of existing DIY platforms with solutions people
 - Store badges: `APP_STORE_URL`/`PLAY_STORE_URL` consts at top of landing.tsx — empty for now (apps not published) so badges route to web onboarding with "coming soon" note; paste real store links later to go live.
 - NOTE: testimonial quotes (Marcus/Dana/Priya) are illustrative placeholders — user should replace with real reviews before launch.
 
+## Shipped (continued 13) — Avatar Home (State A) + Smart Table / Supply Drawer (State B) [Sheet #3]
+- Home tab redesigned into immersive avatar canvas (State A): pure-black, glowing floating Homie, glassmorphic ask/voice bar (BlurView), suggestion chips, resume pill, avatar-chip menu. Live-3D Reallusion + voice mic = future native build (slot ready).
+- Smart Supply Drawer (State B): white slide-up sheet on project screen (orange trim, charcoal text). Backend upgraded `GET /projects/{id}/supplies` → categorized manifest (materials/tools) each with 7-retailer affiliate links + owned-state + readiness %; `PATCH /projects/{id}/supplies` toggles owned (persists to project.supply_state). "Order remaining on Amazon" bundle. Reuses affiliate_engine. Curl-verified (readiness 60→80% on toggle) + screenshot verified.
+
+## Roadmap status vs user's 8 build sheets
+- #1 AR Room Scan/Digital Twin: DEFERRED — Unity/ARFoundation can't run in Expo; real scan = ARKit RoomPlan, iOS-LiDAR-only, needs native build. Foundation (rooms model + manual dims) offered, not yet built.
+- #2 Profiles/Community: profile photo+bio+bubble, auto-post on completion, report/flag, privacy — NOT built (community base already exists).
+- #3 Smart Table: DONE (above).
+- #4 Hands-Free Voice/AR: BLOCKED (native + ElevenLabs keys).
+- #5 Affiliate Referral: Share&Earn already exists; gear-popup + social-share extensions NOT built.
+- #6 Scheduler (critical path/weather): weather + steps exist; Gantt/dependency ordering NOT built.
+- #7 Completion Story/Testimonial generator: NOT built.
+- #8 Admin Dashboard: LARGELY EXISTS (overview, CRM, affiliate panel, email marketing, vendors, tickets). 
+- #9 Automation rules + AI inbox: email automations builder exists; visual if/then rules engine + AI inbox NOT built.
+- No new external services added (Cloudflare/Supabase/Firebase) — using existing Mongo + affiliate search links.
+
 ## ⚠️ BLOCKER/ACTION: backend/.env PERPLEXITY_API_KEY is EMPTY. Perplexity is NOT active — guide generation has been silently using the Emergent fallback (gpt-4o-mini, no web search), and Code Check returns 503. User must paste a real Perplexity API key into backend/.env PERPLEXITY_API_KEY to activate both accurate guides and local code lookup.
