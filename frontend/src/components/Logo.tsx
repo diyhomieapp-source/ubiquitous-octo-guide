@@ -3,7 +3,11 @@ import { View, Text, StyleSheet, Animated, Easing, Platform } from "react-native
 import { Image } from "expo-image";
 import { colors, spacing, font } from "@/src/theme";
 
-const LOGO = require("../../assets/logo-contractor.png");
+const MASCOT = require("../../assets/homie-mascot.png");
+// Full PNG frame aspect (1080x720). The mascot fills the frame vertically
+// (cap near the top, shirt at the very bottom), so scaling by this aspect and
+// bottom-aligning makes the head pop above the tile's top edge.
+const MASCOT_AR = 1080 / 720;
 
 type Size = "sm" | "md" | "lg";
 
@@ -11,8 +15,6 @@ type Size = "sm" | "md" | "lg";
 function Ring({ dim, delay }: { dim: number; delay: number }) {
   const v = useRef(new Animated.Value(0)).current;
   useEffect(() => {
-    // Apply the stagger delay once, then loop the pulse forever so all rings
-    // keep a steady, evenly-spaced continuous radiating cadence.
     const anim = Animated.sequence([
       Animated.delay(delay),
       Animated.loop(
@@ -41,6 +43,27 @@ export function Logo({ size = "md", showWordmark = true, animated = true }: { si
   const dim = size === "lg" ? 92 : size === "sm" ? 44 : 60;
   const word = size === "lg" ? 40 : size === "sm" ? 22 : 32;
 
+  // Mascot is scaled wider than the tile so the head/cap pops above the top
+  // edge while the shirt/shoulders sit flush with the tile's bottom.
+  const mW = dim * 1.9;
+  const mH = mW / MASCOT_AR; // ~1.27 * dim → head extends above the square
+  const radius = dim * 0.26;
+
+  // Gentle idle float so the avatar feels alive/interactive.
+  const float = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (!animated) return;
+    const anim = Animated.loop(
+      Animated.sequence([
+        Animated.timing(float, { toValue: 1, duration: 1600, easing: Easing.inOut(Easing.sin), useNativeDriver: Platform.OS !== "web" }),
+        Animated.timing(float, { toValue: 0, duration: 1600, easing: Easing.inOut(Easing.sin), useNativeDriver: Platform.OS !== "web" }),
+      ])
+    );
+    anim.start();
+    return () => anim.stop();
+  }, [float, animated]);
+  const translateY = float.interpolate({ inputRange: [0, 1], outputRange: [0, -3] });
+
   return (
     <View style={styles.row}>
       <View style={[styles.mark, { width: dim, height: dim }]}>
@@ -51,7 +74,18 @@ export function Logo({ size = "md", showWordmark = true, animated = true }: { si
             <Ring dim={dim} delay={1460} />
           </>
         )}
-        <Image source={LOGO} style={[styles.tile, { width: dim, height: dim, borderRadius: dim * 0.26 }]} contentFit="cover" />
+        {/* orange square (kept) */}
+        <View style={[styles.tile, { width: dim, height: dim, borderRadius: radius }]} />
+        {/* mascot popping out of the top */}
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.mascotWrap,
+            { width: mW, height: mH, left: (dim - mW) / 2, bottom: 0, transform: [{ translateY }] },
+          ]}
+        >
+          <Image source={MASCOT} style={styles.mascot} contentFit="contain" />
+        </Animated.View>
       </View>
       {showWordmark && (
         <Text style={[styles.word, { fontSize: word }]}>
@@ -64,17 +98,19 @@ export function Logo({ size = "md", showWordmark = true, animated = true }: { si
 
 const styles = StyleSheet.create({
   row: { flexDirection: "row", alignItems: "center", gap: spacing.md },
-  mark: { alignItems: "center", justifyContent: "center" },
-  ring: { position: "absolute", borderWidth: 2, borderColor: colors.brandPrimary },
+  mark: { alignItems: "center", justifyContent: "flex-end" },
+  ring: { position: "absolute", borderWidth: 2, borderColor: colors.brandPrimary, bottom: 0 },
   tile: {
     backgroundColor: colors.brandPrimary,
-    alignItems: "center",
-    justifyContent: "center",
     shadowColor: colors.brandPrimary,
     shadowOpacity: 0.55,
     shadowRadius: 14,
     shadowOffset: { width: 0, height: 4 },
     elevation: 8,
   },
+  mascotWrap: {
+    position: "absolute",
+  },
+  mascot: { width: "100%", height: "100%" },
   word: { color: colors.onSurface, fontFamily: font.bold, letterSpacing: -1 },
 });
