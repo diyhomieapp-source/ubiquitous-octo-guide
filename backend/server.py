@@ -6,6 +6,7 @@ import logging
 import re
 from pathlib import Path
 from datetime import datetime, timezone, timedelta
+import secrets
 from typing import List, Optional
 
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, status
@@ -2043,6 +2044,67 @@ async def year_review(year: int, user: dict = Depends(get_current_user)):
         "top_skills": [k for k, _ in sorted(skills.items(), key=lambda x: -x[1])][:3],
         "highlights": [{"title": e.get("story_title") or e.get("title"), "money_saved_cents": e.get("money_saved_cents"), "created_at": e.get("created_at")} for e in ent],
     }
+
+
+# ---------------------------------------------------------------- Insurance / Resale Home Portfolio (Sheet #24)
+async def _portfolio_data(user: dict) -> dict:
+    uid = user["id"]
+    timeline = await db.timeline.find({"user_id": uid}, {"_id": 0}).sort("created_at", -1).to_list(500)
+    home = await db.home_profiles.find_one({"user_id": uid}, {"_id": 0}) or {}
+    invested = sum(int(e.get("cost_cents") or 0) for e in timeline)
+    saved = sum(int(e.get("money_saved_cents") or 0) for e in timeline)
+    hours = sum(float(e.get("hours") or 0) for e in timeline)
+    projects = [{
+        "title": e.get("title"), "story_title": e.get("story_title"), "story": e.get("story"),
+        "room": e.get("room"), "skill_tag": e.get("skill_tag"), "rating": e.get("rating"),
+        "cost_cents": e.get("cost_cents"), "money_saved_cents": e.get("money_saved_cents"),
+        "hours": e.get("hours"), "before_photo": e.get("before_photo"), "after_photo": e.get("after_photo"),
+        "created_at": e.get("created_at"),
+    } for e in timeline]
+    systems = [{k: s.get(k) for k in ("name", "type", "brand", "model", "serial", "install_year", "purchase_date", "warranty_expires", "warranty")} for s in home.get("systems", [])]
+    return {
+        "owner": user.get("name") or user["email"].split("@")[0],
+        "location": user.get("location", ""),
+        "generated_at": now_iso(),
+        "totals": {
+            "projects": len(timeline),
+            "invested_cents": invested,
+            "saved_cents": saved,
+            "hours": round(hours, 1),
+            "systems": len(systems),
+            "rooms": len(home.get("rooms", [])),
+        },
+        "projects": projects,
+        "systems": systems,
+        "rooms": [{"name": r.get("name"), "type": r.get("type"), "notes": r.get("notes")} for r in home.get("rooms", [])],
+    }
+
+
+@api_router.get("/portfolio")
+async def my_portfolio(user: dict = Depends(get_current_user)):
+    data = await _portfolio_data(user)
+    data["share_token"] = user.get("portfolio_token")
+    data["is_public"] = bool(user.get("portfolio_public"))
+    return data
+
+
+class ShareReq(BaseModel):
+    public: bool = True
+
+
+@api_router.post("/portfolio/share")
+async def share_portfolio(req: ShareReq, user: dict = Depends(get_current_user)):
+    token = user.get("portfolio_token") or secrets.token_urlsafe(9)
+    await db.users.update_one({"id": user["id"]}, {"$set": {"portfolio_token": token, "portfolio_public": req.public}})
+    return {"share_token": token, "is_public": req.public}
+
+
+@api_router.get("/portfolio/public/{token}")
+async def public_portfolio(token: str):
+    u = await db.users.find_one({"portfolio_token": token, "portfolio_public": True}, {"_id": 0})
+    if not u:
+        raise HTTPException(status_code=404, detail="This home portfolio is private or does not exist.")
+    return await _portfolio_data(u)
 
 
 # ---------------------------------------------------------------- community (Pro-Earn)
