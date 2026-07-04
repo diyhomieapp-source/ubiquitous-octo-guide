@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
-import { View, Text, StyleSheet, Animated, Easing, Platform } from "react-native";
+import { View, Text, StyleSheet, Animated, Easing, Platform, Pressable } from "react-native";
 import { Image } from "expo-image";
+import * as Haptics from "expo-haptics";
 import { colors, spacing, font } from "@/src/theme";
 
 const MASCOT = require("../../assets/homie-mascot.png");
@@ -39,7 +40,7 @@ function Ring({ dim, delay }: { dim: number; delay: number }) {
   );
 }
 
-export function Logo({ size = "md", showWordmark = true, animated = true }: { size?: Size; showWordmark?: boolean; animated?: boolean }) {
+export function Logo({ size = "md", showWordmark = true, animated = true, interactive = true }: { size?: Size; showWordmark?: boolean; animated?: boolean; interactive?: boolean }) {
   const dim = size === "lg" ? 92 : size === "sm" ? 44 : 60;
   const word = size === "lg" ? 40 : size === "sm" ? 22 : 32;
 
@@ -62,11 +63,36 @@ export function Logo({ size = "md", showWordmark = true, animated = true }: { si
     anim.start();
     return () => anim.stop();
   }, [float, animated]);
-  const translateY = float.interpolate({ inputRange: [0, 1], outputRange: [0, -3] });
+  const floatY = float.interpolate({ inputRange: [0, 1], outputRange: [0, -3] });
+
+  // Interactive "spring to life" — grows out & pops up on hover (web) / press (mobile).
+  const engage = useRef(new Animated.Value(0)).current;
+  const setEngaged = (on: boolean) => {
+    if (!interactive) return;
+    if (on && Platform.OS !== "web") Haptics.selectionAsync();
+    Animated.spring(engage, {
+      toValue: on ? 1 : 0,
+      useNativeDriver: Platform.OS !== "web",
+      friction: 5,
+      tension: 140,
+    }).start();
+  };
+
+  // Scale up + lift, anchored at the base so he "grows out" of the tile.
+  const mScale = engage.interpolate({ inputRange: [0, 1], outputRange: [1, 1.22] });
+  const engageY = engage.interpolate({ inputRange: [0, 1], outputRange: [0, -(mH * 0.11) - 7] });
+  const translateY = Animated.add(floatY, engageY);
+  const tileScale = engage.interpolate({ inputRange: [0, 1], outputRange: [1, 1.06] });
 
   return (
     <View style={styles.row}>
-      <View style={[styles.mark, { width: dim, height: dim }]}>
+      <Pressable
+        style={[styles.mark, { width: dim, height: dim }]}
+        onHoverIn={() => setEngaged(true)}
+        onHoverOut={() => setEngaged(false)}
+        onPressIn={() => setEngaged(true)}
+        onPressOut={() => setEngaged(false)}
+      >
         {animated && (
           <>
             <Ring dim={dim} delay={0} />
@@ -75,18 +101,18 @@ export function Logo({ size = "md", showWordmark = true, animated = true }: { si
           </>
         )}
         {/* orange square (kept) */}
-        <View style={[styles.tile, { width: dim, height: dim, borderRadius: radius }]} />
+        <Animated.View style={[styles.tile, { width: dim, height: dim, borderRadius: radius, transform: [{ scale: tileScale }] }]} />
         {/* mascot popping out of the top */}
         <Animated.View
           pointerEvents="none"
           style={[
             styles.mascotWrap,
-            { width: mW, height: mH, left: (dim - mW) / 2, bottom: -dim * 0.1, transform: [{ translateY }] },
+            { width: mW, height: mH, left: (dim - mW) / 2, bottom: -dim * 0.1, transform: [{ translateY }, { scale: mScale }] },
           ]}
         >
           <Image source={MASCOT} style={styles.mascot} contentFit="contain" />
         </Animated.View>
-      </View>
+      </Pressable>
       {showWordmark && (
         <Text style={[styles.word, { fontSize: word }]}>
           DIY<Text style={{ color: colors.brandPrimary }}>homie</Text>

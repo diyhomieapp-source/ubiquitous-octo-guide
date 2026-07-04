@@ -154,6 +154,8 @@ export default function Profile() {
             testID="profile-journey" onPress={() => router.push("/journey")} />
           <MenuRow icon="home-heart-outline" label="My Home" sub="Rooms, systems & lifetime home record"
             testID="profile-home" onPress={() => router.push("/home-profile")} />
+          <MenuRow icon="file-document-outline" label="Home Portfolio & Docs" sub="Export & share records for insurance / resale"
+            testID="profile-portfolio" onPress={() => router.push("/portfolio")} />
           <MenuRow icon="account-hard-hat-outline" label="Find a Pro" sub="Vetted local pros for above-DIY jobs"
             testID="profile-pros" onPress={() => router.push("/pros")} />
           <MenuRow icon="credit-card-outline" label="Billing & Plan" sub="Card, invoices, subscription"
