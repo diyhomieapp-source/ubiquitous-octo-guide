@@ -176,3 +176,19 @@ Goal: solve the real pain points of existing DIY platforms with solutions people
 - No new external services added (Cloudflare/Supabase/Firebase) — using existing Mongo + affiliate search links.
 
 ## ⚠️ BLOCKER/ACTION: backend/.env PERPLEXITY_API_KEY is EMPTY. Perplexity is NOT active — guide generation has been silently using the Emergent fallback (gpt-4o-mini, no web search), and Code Check returns 503. User must paste a real Perplexity API key into backend/.env PERPLEXITY_API_KEY to activate both accurate guides and local code lookup.
+
+## Shipped (continued 14) — CFO Finance Dashboard [Sheet #10] + Homeowner Journey / Achievement / Completion engine [Sheets #2, #7, #11]
+- **CFO Dashboard**: FinanceModule wired into Admin Workstation nav (`admin-nav-finance`). Cards: MRR, revenue (month), monthly expenses, net, margin, ARPU, paying users, runway. Editable monthly expenses (add/delete, testIDs finance-expense-*) + cash-on-hand (finance-cash-*). Endpoints: GET `/admin/finance/summary`, POST/DELETE `/admin/finance/expenses`, PUT `/admin/finance/cash`. MRR derived from active subs × PLAN_TIERS; revenue from payment_transactions this month.
+- **Completion Story engine [#7]**: `POST /projects/{id}/complete` (CompletionModal on project screen, banner `project-finish`). Collects material cost, hours, star rating, reflection, before/after photos (base64), share toggle. AI (`brain_completion_story`, gpt-4o-mini) returns story_title, testimonial story, estimated pro cost, skill tag. Computes money_saved = max(0, pro_cost − cost). Writes a `db.timeline` entry. Duplicate completion → 400. Confetti + result screen with new achievements.
+- **Homeowner Journey / Progression [#11]**: `GET /journey` (screen `/journey`, linked from profile `profile-journey`): lifetime money saved, total hours, projects completed, achievements grid (9 milestone badges: first/3/5/10 projects, $500/$1k saved, storyteller, before/after, community mentor), skills chips (room→skill map + AI tag), Homeowner Timeline. Public shareable journey: `GET /journey/u/{user_id}` (respects share_public), native Share sheet.
+- **Profile bubble [#2]**: photo avatar (image picker, `profile-avatar-pick`), one-line bio (`profile-bio-input`), public-journey Switch (`profile-share-toggle`). public_user + ProfileReq extended (avatar_base64, bio, share_public).
+- **Community auto-post [#2]**: on completion with share=true, writes a `community_experiences` doc (shows in `/community/feed` "JUST COMPLETED"); feed title falls back to experience title.
+- Verified: backend 12/12 pytest pass + curl (story/savings/badges/dup-block/feed); frontend Playwright all flows pass. Test file: /app/backend/tests/test_finance_journey.py.
+
+## Roadmap status update (post continued-14)
+- #2 Profiles/Community: DONE (photo, bio, public toggle, auto-post on completion). Remaining: report/flag moderation.
+- #7 Completion Story/Testimonial: DONE.
+- #10 CFO Finance Dashboard: DONE.
+- #11 Homeowner Achievement & Progression: DONE (timeline, savings, hours, badges, skills, shareable journey).
+- Backlog (queued, not built): #5 referral gear-popup, #6 Gantt dependency scheduler, #9 visual automation rules + AI inbox, #12 Knowledge Search + Pro-Referral hand-off (needs vector/RAG), #13 Automation & Workflow Builder (visual rules engine). #1/#4 remain native-build-blocked.
+

@@ -67,15 +67,15 @@ export function FinanceModule() {
         <Text style={styles.section}>CASH ON HAND</Text>
         <View style={styles.cashRow}>
           <Text style={styles.dollar}>$</Text>
-          <TextInput style={styles.cashInput} value={cash} onChangeText={setCash} keyboardType="numeric" placeholder="0" placeholderTextColor={colors.onSurfaceTertiary} />
-          <Pressable style={styles.saveBtn} onPress={saveCash}><Text style={styles.saveText}>SAVE</Text></Pressable>
+          <TextInput testID="finance-cash-input" style={styles.cashInput} value={cash} onChangeText={setCash} keyboardType="numeric" placeholder="0" placeholderTextColor={colors.onSurfaceTertiary} />
+          <Pressable testID="finance-cash-save" style={styles.saveBtn} onPress={saveCash}><Text style={styles.saveText}>SAVE</Text></Pressable>
         </View>
 
         <Text style={styles.section}>MONTHLY EXPENSES</Text>
         <View style={styles.addRow}>
-          <TextInput style={[styles.input, { flex: 1 }]} value={label} onChangeText={setLabel} placeholder="e.g. Hosting, OpenAI, Stripe fees" placeholderTextColor={colors.onSurfaceTertiary} />
-          <TextInput style={[styles.input, { width: 90 }]} value={amount} onChangeText={setAmount} keyboardType="numeric" placeholder="$/mo" placeholderTextColor={colors.onSurfaceTertiary} />
-          <Pressable style={styles.addBtn} onPress={addExpense}><MaterialCommunityIcons name="plus" size={22} color={colors.onBrandPrimary} /></Pressable>
+          <TextInput testID="finance-expense-label" style={[styles.input, { flex: 1 }]} value={label} onChangeText={setLabel} placeholder="e.g. Hosting, OpenAI, Stripe fees" placeholderTextColor={colors.onSurfaceTertiary} />
+          <TextInput testID="finance-expense-amount" style={[styles.input, { width: 90 }]} value={amount} onChangeText={setAmount} keyboardType="numeric" placeholder="$/mo" placeholderTextColor={colors.onSurfaceTertiary} />
+          <Pressable testID="finance-expense-add" style={styles.addBtn} onPress={addExpense}><MaterialCommunityIcons name="plus" size={22} color={colors.onBrandPrimary} /></Pressable>
         </View>
         {(d.expenses || []).length === 0 ? (
           <Text style={styles.muted}>No expenses logged. Add your recurring costs for accurate profit.</Text>
