@@ -33,7 +33,7 @@ const KIND_FOR_TAB: Record<Tab, string> = { feed: "spotlight", help: "help", qa:
 export default function Neighborhood() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { user, refresh } = useAuth();
+  const { refresh } = useAuth();
   const [d, setD] = useState<Overview | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
   const [tab, setTab] = useState<Tab>("feed");
@@ -60,8 +60,10 @@ export default function Neighborhood() {
         ]);
         setPosts([...help, ...qa, ...spot]);
       }
-    } catch {} finally { setLoading(false); }
-  }, []);
+    } catch (e: any) {
+      if (e?.status === 401 || e?.status === 403) { router.replace("/onboarding"); return; }
+    } finally { setLoading(false); }
+  }, [router]);
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   const join = async () => {
