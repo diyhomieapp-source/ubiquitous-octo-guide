@@ -7854,6 +7854,165 @@ async def seed_kits():
     logger.info("project kits seeded")
 
 
+# ================================================================ Project ROI & Outcome Insights (Sheet #53)
+# Resale value-add % by room (national remodeling-cost-vs-value averages) + useful life.
+ROI_BENCHMARKS = {
+    "kitchen": {"value_add_pct": 0.72, "life_years": 15, "label": "Kitchen"},
+    "bathroom": {"value_add_pct": 0.66, "life_years": 12, "label": "Bathroom"},
+    "outdoor": {"value_add_pct": 0.68, "life_years": 15, "label": "Outdoor / Deck"},
+    "basement": {"value_add_pct": 0.70, "life_years": 20, "label": "Basement"},
+    "garage": {"value_add_pct": 0.55, "life_years": 15, "label": "Garage"},
+    "laundry": {"value_add_pct": 0.50, "life_years": 12, "label": "Laundry"},
+    "bedroom": {"value_add_pct": 0.56, "life_years": 10, "label": "Bedroom"},
+    "living": {"value_add_pct": 0.60, "life_years": 12, "label": "Living space"},
+    "": {"value_add_pct": 0.55, "life_years": 10, "label": "Home improvement"},
+}
+
+# Next-highest-ROI recommendation library (explainable, sourced, seasonal).
+ROI_RECS = [
+    {"id": "attic_insulation", "title": "Insulate the attic", "icon": "home-thermometer-outline",
+     "annual_savings_cents": 63000, "est_cost_cents": 130000, "payback_years": 2.1, "season": ["Fall", "Winter"],
+     "note": "Cuts heating/cooling ~15%. Source: U.S. DOE energy-savings averages."},
+    {"id": "smart_thermostat", "title": "Install a smart thermostat", "icon": "thermostat",
+     "annual_savings_cents": 14500, "est_cost_cents": 22000, "payback_years": 1.5, "season": ["Summer", "Winter"],
+     "note": "~8% HVAC savings. Source: ENERGY STAR."},
+    {"id": "led_retrofit", "title": "LED lighting retrofit", "icon": "lightbulb-on-outline",
+     "annual_savings_cents": 12500, "est_cost_cents": 9000, "payback_years": 0.7, "season": ["Spring", "Fall"],
+     "note": "LEDs use ~75% less energy. Source: DOE."},
+    {"id": "weatherstrip", "title": "Weatherstrip doors & windows", "icon": "window-closed-variant",
+     "annual_savings_cents": 18000, "est_cost_cents": 6000, "payback_years": 0.4, "season": ["Fall"],
+     "note": "Air-sealing saves ~10-15% on energy. Source: DOE."},
+    {"id": "low_flow", "title": "Low-flow faucets & showerheads", "icon": "water-outline",
+     "annual_savings_cents": 9000, "est_cost_cents": 5000, "payback_years": 0.6, "season": ["Summer"],
+     "note": "Cuts water use up to 30%. Source: EPA WaterSense."},
+    {"id": "gutter_clean", "title": "Clean & seal gutters", "icon": "water-pump",
+     "annual_savings_cents": 0, "est_cost_cents": 3000, "payback_years": None, "season": ["Spring", "Fall"],
+     "note": "Prevents costly water damage — deferred-maintenance value."},
+]
+
+
+def _current_season() -> str:
+    m = datetime.now(timezone.utc).month
+    return {12: "Winter", 1: "Winter", 2: "Winter", 3: "Spring", 4: "Spring", 5: "Spring",
+            6: "Summer", 7: "Summer", 8: "Summer", 9: "Fall", 10: "Fall", 11: "Fall"}[m]
+
+
+def _roi_for_entry(e: dict) -> dict:
+    room = e.get("room") or ""
+    bm = ROI_BENCHMARKS.get(room, ROI_BENCHMARKS[""])
+    spend = int(e.get("cost_cents") or 0)
+    pro = int(e.get("pro_cost_cents") or 0)
+    saved = int(e.get("money_saved_cents") or max(0, pro - spend))
+    hours = float(e.get("hours") or 0)
+    value_add = int(round(pro * bm["value_add_pct"])) if pro else 0
+    roi_pct = int(round(saved / spend * 100)) if spend else (100 if saved else 0)
+    hourly = int(round(saved / hours)) if hours else 0
+    breakdown = [
+        {"label": "Your spend", "value_cents": spend, "note": "Materials & tools you logged for this project."},
+        {"label": "Pro quote (est.)", "value_cents": pro, "note": "AI estimate of a licensed pro's price for this scope."},
+        {"label": "You saved", "value_cents": saved, "note": "Pro quote minus your DIY spend."},
+        {"label": "Resale value added", "value_cents": value_add,
+         "note": f"~{int(bm['value_add_pct']*100)}% of comparable job value — national {bm['label']} remodel ROI average."},
+    ]
+    if hours:
+        breakdown.append({"label": "Effective DIY hourly value", "value_cents": hourly, "note": f"Your ${saved/100:,.0f} saved over {hours:g} hours of work."})
+    return {"project_id": e.get("project_id"), "timeline_id": e.get("id"), "title": e.get("title"),
+            "room": room, "room_label": bm["label"], "skill_tag": e.get("skill_tag"),
+            "skill_icon": e.get("skill_icon"), "spend_cents": spend, "pro_cost_cents": pro,
+            "saved_cents": saved, "value_add_cents": value_add, "roi_pct": roi_pct,
+            "hours": hours, "hourly_cents": hourly, "life_years": bm["life_years"],
+            "rating": e.get("rating"), "created_at": e.get("created_at"),
+            "before_photo": e.get("before_photo"), "after_photo": e.get("after_photo"),
+            "breakdown": breakdown,
+            "sharecard": _roi_sharecard(e.get("title"), saved, value_add)}
+
+
+def _roi_sharecard(title: str, saved: int, value_add: int) -> str:
+    parts = [f"My {title} project with DIYhomie"]
+    bits = []
+    if saved:
+        bits.append(f"saved ${saved/100:,.0f} vs hiring a pro")
+    if value_add:
+        bits.append(f"added ~${value_add/100:,.0f} in home value")
+    if bits:
+        parts.append(" ".join([bits[0]] + ([f"and {bits[1]}"] if len(bits) > 1 else [])))
+    return " ".join(parts) + " 🏠💪 #DIYhomie"
+
+
+@api_router.get("/roi/summary")
+async def roi_summary(user: dict = Depends(get_current_user)):
+    entries = await db.timeline.find({"user_id": user["id"], "project_id": {"$exists": True, "$ne": None}}, {"_id": 0}).sort("created_at", -1).to_list(500)
+    rois = [_roi_for_entry(e) for e in entries]
+    total_saved = sum(r["saved_cents"] for r in rois)
+    total_value = sum(r["value_add_cents"] for r in rois)
+    total_spend = sum(r["spend_cents"] for r in rois)
+    total_hours = sum(r["hours"] for r in rois)
+    avg_roi = int(round(total_saved / total_spend * 100)) if total_spend else 0
+    hourly = int(round(total_saved / total_hours)) if total_hours else 0
+    best = max(rois, key=lambda r: r["saved_cents"], default=None)
+    eff = max((r for r in rois if r["hours"]), key=lambda r: r["hourly_cents"], default=None)
+    badges = []
+    for r in rois:
+        marks = []
+        if best and r["timeline_id"] == best["timeline_id"] and r["saved_cents"] > 0:
+            marks.append("Best ROI")
+        if eff and r["timeline_id"] == eff["timeline_id"]:
+            marks.append("Most Efficient")
+        if r["value_add_cents"] > 0:
+            marks.append("Verified Value")
+        r["badges"] = marks
+    return {"totals": {"saved_cents": total_saved, "value_add_cents": total_value, "spend_cents": total_spend,
+                       "hours": total_hours, "projects": len(rois), "avg_roi_pct": avg_roi, "hourly_cents": hourly},
+            "best_project": best, "projects": rois}
+
+
+@api_router.get("/roi/recommendations")
+async def roi_recommendations(user: dict = Depends(get_current_user)):
+    season = _current_season()
+    recs = sorted(ROI_RECS, key=lambda r: (season not in r["season"], -(r["annual_savings_cents"] or 0)))
+    return {"season": season, "recommendations": recs[:4]}
+
+
+@api_router.get("/roi/project/{project_id}")
+async def roi_project(project_id: str, user: dict = Depends(get_current_user)):
+    e = await db.timeline.find_one({"project_id": project_id, "user_id": user["id"]}, {"_id": 0})
+    if not e:
+        raise HTTPException(status_code=404, detail="No completed project found — finish it to see your ROI.")
+    return _roi_for_entry(e)
+
+
+@api_router.get("/admin/roi/analytics")
+async def admin_roi_analytics(admin: dict = Depends(require_admin)):
+    entries = await db.timeline.find({"project_id": {"$exists": True, "$ne": None}}, {"_id": 0}).to_list(5000)
+    rois = [_roi_for_entry(e) for e in entries]
+    total_saved = sum(r["saved_cents"] for r in rois)
+    total_value = sum(r["value_add_cents"] for r in rois)
+    by_room: dict = {}
+    for r in rois:
+        b = by_room.setdefault(r["room"] or "other", {"room": r["room_label"], "projects": 0, "saved_cents": 0, "spend_cents": 0, "shares": 0, "testimonials": 0})
+        b["projects"] += 1
+        b["saved_cents"] += r["saved_cents"]
+        b["spend_cents"] += r["spend_cents"]
+    for e in entries:
+        room = e.get("room") or "other"
+        if room in by_room:
+            if e.get("shared"):
+                by_room[room]["shares"] += 1
+            if (e.get("rating") or 0) >= 4:
+                by_room[room]["testimonials"] += 1
+    rooms = []
+    for b in by_room.values():
+        b["avg_roi_pct"] = int(round(b["saved_cents"] / b["spend_cents"] * 100)) if b["spend_cents"] else 0
+        rooms.append(b)
+    rooms.sort(key=lambda x: -x["saved_cents"])
+    return {"totals": {"projects": len(rois), "saved_cents": total_saved, "value_add_cents": total_value,
+                       "avg_roi_pct": int(round(total_saved / sum(r["spend_cents"] for r in rois) * 100)) if any(r["spend_cents"] for r in rois) else 0,
+                       "shares": sum(1 for e in entries if e.get("shared")),
+                       "testimonials": sum(1 for e in entries if (e.get("rating") or 0) >= 4)},
+            "by_room": rooms,
+            "top_share_drivers": sorted(rooms, key=lambda x: -x["shares"])[:5]}
+
+
 app.include_router(api_router)
 
 # Built-in autoresponder / email engine (separate module to keep server.py lean).
