@@ -281,3 +281,16 @@ New features are now built as SEPARATE engine modules (audit_engine, certificati
 - Global Skills Index & Community Impact Leaderboard.
 - (User hinted more: Resell Partner SDK, Payment Gateway Upgrades, Advanced Reporting, MVP Launch/QA checklist.)
 - Deferred: server.py refactor; #59 lifecycle auto-prune/anonymize.
+
+---
+## Session update (fork) cont. — Sheet #65 shipped
+- **#65 Integration App Store** — NEW `appstore_engine.py` (complements existing developer/partner API layer). Browsable, permissioned add-on catalog; install with explicit consent scopes + instant revoke (audit-logged); admin publish/version/QA + install analytics. Seeded 5 add-ons. User `/appstore` + admin AppStoreModule. Verified iteration 44 (backend 16/16 + frontend E2E). Fixed a startup seed bug + corrupted admin/index.tsx tail during this build.
+
+### Engine modules now: audit, certification, education, campaign, export, appstore (all separate files → keeps server.py lean).
+
+### PENDING QUEUE:
+- #61 Beta Feature Launch, Guided Onboarding & First-Touch Support.
+- #62(A) Dynamic Pro Pricing Calculator & AI Quote Engine.
+- Global Skills Index & Community Impact Leaderboard.
+- User-hinted finals: Stakeholder Launch Checklist, DevOps/Monitoring, Demo/Investor Bundle, Mega-Check QA Run, Resell Partner SDK, Payment Gateway Upgrades.
+- Deferred: server.py refactor; #59 lifecycle auto-prune/anonymize.
