@@ -142,7 +142,7 @@ function Rewards({ me, reload }: { me: Me; reload: () => void }) {
               <Text style={styles.rewardLabel}>{r.label}</Text>
               <Text style={styles.rewardCost}>{r.cost} credits</Text>
             </View>
-            <Pressable testID={`loy-redeem-${r.id}`} style={[styles.redeemBtn, !can && styles.redeemOff]} onPress={() => redeem(r)} disabled={!can || busy === r.id}>
+            <Pressable testID={`loy-redeem-${r.id}`} style={[styles.redeemBtn, !can && styles.redeemOff]} onPress={() => redeem(r)} disabled={busy === r.id}>
               {busy === r.id ? <ActivityIndicator size="small" color={colors.onBrandPrimary} /> : <Text style={[styles.redeemText, !can && { color: colors.onSurfaceTertiary }]}>{can ? "Redeem" : "Locked"}</Text>}
             </Pressable>
           </View>

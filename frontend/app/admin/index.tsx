@@ -15,8 +15,9 @@ import { ProAccountsModule } from "@/src/components/admin/ProAccountsModule";
 import { NotificationsModule } from "@/src/components/admin/NotificationsModule";
 import { AutomationModule } from "@/src/components/admin/AutomationModule";
 import { SuppliersModule } from "@/src/components/admin/SuppliersModule";
+import { FeaturesModule } from "@/src/components/admin/FeaturesModule";
 
-type Mod = "overview" | "finance" | "crm" | "vendors" | "suppliers" | "proleads" | "proaccounts" | "notifications" | "automations" | "email" | "affiliate" | "feedback" | "tickets" | "blog";
+type Mod = "overview" | "finance" | "crm" | "vendors" | "suppliers" | "proleads" | "proaccounts" | "notifications" | "automations" | "features" | "email" | "affiliate" | "feedback" | "tickets" | "blog";
 const MODULES: { key: Mod; label: string; icon: string }[] = [
   { key: "overview", label: "Overview", icon: "view-dashboard-outline" },
   { key: "finance", label: "CFO Dashboard", icon: "finance" },
@@ -29,6 +30,7 @@ const MODULES: { key: Mod; label: string; icon: string }[] = [
   { key: "proaccounts", label: "Pro Accounts", icon: "briefcase-check-outline" },
   { key: "notifications", label: "Broadcast", icon: "bullhorn-outline" },
   { key: "automations", label: "Automations", icon: "robot-outline" },
+  { key: "features", label: "Feature Flags", icon: "flask-outline" },
   { key: "feedback", label: "Feedback", icon: "message-alert-outline" },
   { key: "tickets", label: "Support Tickets", icon: "ticket-outline" },
   { key: "blog", label: "Blog Curation", icon: "book-edit-outline" },
@@ -103,6 +105,7 @@ export default function AdminWorkstation() {
         {mod === "proaccounts" && <ProAccountsModule />}
         {mod === "notifications" && <NotificationsModule />}
         {mod === "automations" && <AutomationModule />}
+        {mod === "features" && <FeaturesModule />}
         {mod === "feedback" && <Feedback />}
         {mod === "tickets" && <Tickets />}
         {mod === "blog" && <Blog />}

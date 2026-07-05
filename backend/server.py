@@ -3751,6 +3751,192 @@ async def seed_loyalty_campaigns():
     logger.info("loyalty campaigns seeded")
 
 
+# ================================================================ Beta / Feature Flags & Structured Feedback (Sheet #39)
+FLAG_ROLLOUT_TYPES = ["all", "optin", "user_type", "region", "off"]
+USER_TYPE_VALUES = ["pro", "paying", "admin"]
+
+
+def _flag_on_for_user(flag: dict, user: dict) -> bool:
+    if not flag.get("enabled", False):
+        return False
+    rt = flag.get("rollout_type", "optin")
+    val = flag.get("rollout_value")
+    if rt == "off":
+        return False
+    if rt == "all":
+        return True
+    if rt == "optin":
+        return flag["key"] in (user.get("beta_optins") or [])
+    if rt == "user_type":
+        if val == "pro":
+            return bool(user.get("is_pro"))
+        if val == "admin":
+            return bool(user.get("is_admin"))
+        if val == "paying":
+            return (user.get("plan") or "free") != "free"
+        return False
+    if rt == "region":
+        return bool(val) and val.lower() in (user.get("location", "").lower() or _neighborhood_key(user.get("location", "")))
+    return False
+
+
+def _flag_public(flag: dict, user: dict) -> dict:
+    opted = flag["key"] in (user.get("beta_optins") or [])
+    return {
+        "key": flag["key"], "label": flag.get("label", flag["key"]),
+        "description": flag.get("description", ""), "icon": flag.get("icon", "flask-outline"),
+        "rollout_type": flag.get("rollout_type", "optin"),
+        "can_optin": flag.get("enabled", False) and flag.get("rollout_type") == "optin",
+        "opted_in": opted,
+        "enabled_for_me": _flag_on_for_user(flag, user),
+    }
+
+
+@api_router.get("/features")
+async def list_features(user: dict = Depends(get_current_user)):
+    flags = await db.feature_flags.find({}, {"_id": 0}).sort("created_at", -1).to_list(200)
+    # only surface flags the user can interact with (opt-in) or that are on for them
+    out = []
+    for f in flags:
+        pub = _flag_public(f, user)
+        if pub["can_optin"] or pub["enabled_for_me"]:
+            out.append(pub)
+    return {"features": out}
+
+
+class FlagOptinReq(BaseModel):
+    optin: bool = True
+
+
+@api_router.post("/features/{key}/optin")
+async def feature_optin(key: str, req: FlagOptinReq, user: dict = Depends(get_current_user)):
+    flag = await db.feature_flags.find_one({"key": key}, {"_id": 0})
+    if not flag:
+        raise HTTPException(status_code=404, detail="Feature not found.")
+    if flag.get("rollout_type") != "optin" or not flag.get("enabled"):
+        raise HTTPException(status_code=400, detail="This feature isn't open for opt-in.")
+    op = "$addToSet" if req.optin else "$pull"
+    await db.users.update_one({"id": user["id"]}, {op: {"beta_optins": key}})
+    if req.optin:
+        await push_notification(user["id"], title=f"You're in the beta: {flag.get('label', key)}",
+                                body="Try it out and tell us what you think — your feedback shapes it.",
+                                ntype="system", meta={"feature": key})
+    return {"ok": True, "opted_in": req.optin}
+
+
+class BetaFeedbackReq(BaseModel):
+    flag_key: str
+    rating: int = 0          # 1-5 (emoji scale)
+    useful: Optional[bool] = None
+    comment: str = ""
+
+
+@api_router.post("/beta-feedback")
+async def submit_beta_feedback(req: BetaFeedbackReq, user: dict = Depends(get_current_user)):
+    tag = "suggestion"
+    low = req.comment.lower()
+    if any(w in low for w in ["crash", "error", "broke", "bug", "fail"]):
+        tag = "bug"
+    elif req.rating and req.rating <= 2:
+        tag = "friction"
+    await db.beta_feedback.insert_one({
+        "id": new_id(), "flag_key": req.flag_key, "user_id": user["id"],
+        "user_email": user.get("email"), "rating": max(0, min(5, req.rating)),
+        "useful": req.useful, "comment": req.comment[:1000], "tag": tag, "created_at": now_iso(),
+    })
+    return {"ok": True, "tag": tag}
+
+
+# ---- admin feature flags
+class FlagReq(BaseModel):
+    key: str
+    label: str
+    description: str = ""
+    icon: str = "flask-outline"
+    enabled: bool = False
+    rollout_type: str = "optin"
+    rollout_value: Optional[str] = None
+
+
+@api_router.get("/admin/features")
+async def admin_list_features(admin: dict = Depends(require_admin)):
+    flags = await db.feature_flags.find({}, {"_id": 0}).sort("created_at", -1).to_list(200)
+    out = []
+    for f in flags:
+        optins = await db.users.count_documents({"beta_optins": f["key"]})
+        fb_count = await db.beta_feedback.count_documents({"flag_key": f["key"]})
+        out.append({**f, "optin_count": optins, "feedback_count": fb_count})
+    return out
+
+
+@api_router.post("/admin/features")
+async def admin_create_feature(req: FlagReq, admin: dict = Depends(require_admin)):
+    if req.rollout_type not in FLAG_ROLLOUT_TYPES:
+        raise HTTPException(status_code=400, detail="Invalid rollout type.")
+    if await db.feature_flags.find_one({"key": req.key}):
+        raise HTTPException(status_code=409, detail="A flag with this key already exists.")
+    doc = {"id": new_id(), **req.model_dump(), "created_at": now_iso()}
+    await db.feature_flags.insert_one(dict(doc))
+    return doc
+
+
+@api_router.patch("/admin/features/{key}")
+async def admin_update_feature(key: str, payload: dict, admin: dict = Depends(require_admin)):
+    allowed = {k: v for k, v in payload.items() if k in ("label", "description", "icon", "enabled", "rollout_type", "rollout_value")}
+    if "rollout_type" in allowed and allowed["rollout_type"] not in FLAG_ROLLOUT_TYPES:
+        raise HTTPException(status_code=400, detail="Invalid rollout type.")
+    res = await db.feature_flags.update_one({"key": key}, {"$set": allowed})
+    if not res.matched_count:
+        raise HTTPException(status_code=404, detail="Feature not found.")
+    return {"ok": True}
+
+
+@api_router.delete("/admin/features/{key}")
+async def admin_delete_feature(key: str, admin: dict = Depends(require_admin)):
+    await db.feature_flags.delete_one({"key": key})
+    await db.users.update_many({"beta_optins": key}, {"$pull": {"beta_optins": key}})
+    return {"ok": True}
+
+
+@api_router.get("/admin/features/{key}/analytics")
+async def admin_feature_analytics(key: str, admin: dict = Depends(require_admin)):
+    flag = await db.feature_flags.find_one({"key": key}, {"_id": 0})
+    if not flag:
+        raise HTTPException(status_code=404, detail="Feature not found.")
+    fb = await db.beta_feedback.find({"flag_key": key}, {"_id": 0}).sort("created_at", -1).to_list(500)
+    ratings = [f["rating"] for f in fb if f.get("rating")]
+    useful = [f["useful"] for f in fb if f.get("useful") is not None]
+    tags: dict = {}
+    for f in fb:
+        tags[f.get("tag", "suggestion")] = tags.get(f.get("tag", "suggestion"), 0) + 1
+    optins = await db.users.count_documents({"beta_optins": key})
+    return {
+        "flag": flag, "optin_count": optins, "feedback_count": len(fb),
+        "avg_rating": round(sum(ratings) / len(ratings), 2) if ratings else 0,
+        "useful_pct": round(100 * sum(1 for u in useful if u) / len(useful)) if useful else 0,
+        "tag_breakdown": tags, "recent": fb[:50],
+    }
+
+
+async def seed_feature_flags():
+    seeds = [
+        {"key": "ar_personalization", "label": "Avatar & AR Personalization",
+         "description": "Customize your DIY mentor avatar look, voice & AR overlay style.",
+         "icon": "face-man-shimmer-outline", "enabled": True, "rollout_type": "optin", "rollout_value": None},
+        {"key": "bulk_buying", "label": "Neighborhood Bulk Buying",
+         "description": "Pool orders with neighbors to unlock wholesale pricing on materials.",
+         "icon": "cart-arrow-down", "enabled": True, "rollout_type": "optin", "rollout_value": None},
+        {"key": "real_estate_mode", "label": "Real Estate / Listing Mode",
+         "description": "Turn your home record into a resale-ready report for agents & buyers.",
+         "icon": "home-city-outline", "enabled": True, "rollout_type": "optin", "rollout_value": None},
+    ]
+    for s in seeds:
+        if not await db.feature_flags.find_one({"key": s["key"]}):
+            await db.feature_flags.insert_one({"id": new_id(), **s, "created_at": now_iso()})
+    logger.info("feature flags seeded")
+
+
+
 
 # ---------------------------------------------------------------- support tickets
 class TicketReq(BaseModel):
@@ -5771,6 +5957,7 @@ async def _startup_seed_community():
     await seed_pros()
     await seed_suppliers()
     await seed_loyalty_campaigns()
+    await seed_feature_flags()
 
 
 @app.on_event("startup")
