@@ -26,8 +26,9 @@ import { ExpertsModule } from "@/src/components/admin/ExpertsModule";
 import { FreemiumModule } from "@/src/components/admin/FreemiumModule";
 import { AuditModule } from "@/src/components/admin/AuditModule";
 import { CertificationsModule } from "@/src/components/admin/CertificationsModule";
+import { EducationModule } from "@/src/components/admin/EducationModule";
 
-type Mod = "overview" | "finance" | "roi" | "freemium" | "quizzes" | "experts" | "certs" | "crm" | "vendors" | "suppliers" | "kits" | "proleads" | "proaccounts" | "credentials" | "partners" | "prompts" | "audit" | "notifications" | "automations" | "features" | "email" | "affiliate" | "feedback" | "tickets" | "blog";
+type Mod = "overview" | "finance" | "roi" | "freemium" | "quizzes" | "experts" | "certs" | "education" | "crm" | "vendors" | "suppliers" | "kits" | "proleads" | "proaccounts" | "credentials" | "partners" | "prompts" | "audit" | "notifications" | "automations" | "features" | "email" | "affiliate" | "feedback" | "tickets" | "blog";
 const MODULES: { key: Mod; label: string; icon: string }[] = [
   { key: "overview", label: "Overview", icon: "view-dashboard-outline" },
   { key: "finance", label: "CFO Dashboard", icon: "finance" },
@@ -42,6 +43,7 @@ const MODULES: { key: Mod; label: string; icon: string }[] = [
   { key: "quizzes", label: "Skill Quizzes", icon: "school-outline" },
   { key: "experts", label: "Experts & Knowledge", icon: "account-tie-outline" },
   { key: "certs", label: "Verified & Certs", icon: "certificate-outline" },
+  { key: "education", label: "Education Center", icon: "school-outline" },
   { key: "proleads", label: "Pro Leads", icon: "account-hard-hat" },
   { key: "proaccounts", label: "Pro Accounts", icon: "briefcase-check-outline" },
   { key: "credentials", label: "Credential Checks", icon: "certificate-outline" },
@@ -127,6 +129,7 @@ export default function AdminWorkstation() {
         {mod === "quizzes" && <QuizzesModule />}
         {mod === "experts" && <ExpertsModule />}
         {mod === "certs" && <CertificationsModule />}
+        {mod === "education" && <EducationModule />}
         {mod === "proleads" && <ProLeadsModule />}
         {mod === "proaccounts" && <ProAccountsModule />}
         {mod === "credentials" && <CredentialsModule />}

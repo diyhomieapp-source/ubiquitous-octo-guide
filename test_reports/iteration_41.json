@@ -1,0 +1,29 @@
+{
+  "summary": "Info Sheet #62 (Education Center & Learn-to-DIY Content Hub) fully verified. Backend pytest 9/9 passed against public URL: user tracks/progress, ordered lessons with completed flag, lesson upsert-on-open, complete-flow (ok/micro_cert/quiz_id/next_lesson/progress), /education/me dashboard (>=3 or all-remaining suggested honored), admin list with lesson_count, analytics, toggle publish<->draft, and non-admin 403. Frontend E2E on mobile viewport 390x844 verified: Profile 'Learn to DIY' row (profile-education) routes to /education; screen shows dashboard stats (2 Lessons done / 2 Skill badges / 3 Tracks), 'Recommended for you' with edu-suggested-* entries, and 3 curriculum-track cards with progress bars (edu-track-paint-basics/plumbing-101/deck-building). Tapping a track opens the detail modal with ordered lessons (edu-lesson-*); tapping a lesson opens reader modal with STEPS, FLASHCARDS, safety and 'Complete & take the quiz' (edu-complete). Completing the deck lesson correctly navigated to /skills?quizId=... deep-link. Admin at /admin -> admin-nav-education opens Education Center with stats 3/4/3/1, completions-by-track bars, and per-lesson Publish/Unpublish (edu-toggle-*) — toggling flips Published<->Draft on the UI in real time. Note: review-request mentions slug 'step-by-step-diy' but real seeded slugs are paint-basics/plumbing-101/deck-building; test falls back accordingly. Note: demo_home now has 2 completed lessons (paint-basics#1 pre-existing + plumbing-101 from this run) — suggested list correctly returned the 2 remaining lessons (satisfies '>=3 OR all remaining').",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": [
+      {"component": "expo/expo-font/expo-router", "issue": "Package version drift vs installed expo (expo@54.0.34 vs ~54.0.35, expo-font@14.0.11 vs ~14.0.12, expo-router@6.0.23 vs ~6.0.24). Non-blocking but flagged by Expo start log."}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_education_sheet62.py",
+    "/app/test_reports/pytest/education_sheet62_results.xml"
+  ],
+  "action_items": [
+    "(Optional) Align Expo package versions per Expo start warning (expo, expo-font, expo-router)."
+  ],
+  "critical_code_review_comments": [
+    "education_engine.py is well-scoped (~290 lines) and correctly excludes MongoDB _id in all reads, uses async I/O, per-track progress computed from completed intersect published lessons, and admin router is guarded by require_admin (verified 403 for demo_home).",
+    "Suggested-list logic prioritises started tracks then fills with others; behaves correctly when remaining < 3."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (9/9)", "frontend": "100% (all critical flows verified)"},
+  "seed_data_creation": "No new seed created. Completed plumbing-101 lesson for demo_home as part of the complete-flow test (idempotent).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "demo_home has completed lessons in paint-basics (1st), plumbing-101 (1st) and after E2E also deck-building (1st). Suggested endpoint will therefore return the remaining paint-basics lesson (Cut-in & roll like a pro). Admin toggles restored back to Published in tests. Slug used for detail is paint-basics (not step-by-step-diy)."
+}

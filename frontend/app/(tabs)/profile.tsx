@@ -212,6 +212,8 @@ export default function Profile() {
             testID="profile-privacy" onPress={() => router.push("/privacy")} />
           <MenuRow icon="certificate-outline" label="DIYhomie Verified" sub="Your certificates & shareable Verified status"
             testID="profile-certifications" onPress={() => router.push("/certifications")} />
+          <MenuRow icon="school-outline" label="Learn to DIY" sub="Curriculum tracks, lessons & skill badges"
+            testID="profile-education" onPress={() => router.push("/education")} />
           <MenuRow icon="flask-outline" label="Beta Features" sub="Try experiments early & shape what ships"
             testID="profile-beta" onPress={() => router.push("/beta")} last />
         </View>

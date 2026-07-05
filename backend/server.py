@@ -32,6 +32,7 @@ import email_engine
 import affiliate_engine
 import audit_engine
 import certification_engine
+import education_engine
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -8785,6 +8786,11 @@ app.include_router(certification_engine.build_user_router(get_current_user))
 app.include_router(certification_engine.build_public_router())
 app.include_router(certification_engine.build_admin_router(require_admin))
 
+# Education Center & Learn-to-DIY content hub (Sheet #62).
+education_engine.configure(db, logger)
+app.include_router(education_engine.build_user_router(get_current_user))
+app.include_router(education_engine.build_admin_router(require_admin))
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
@@ -8848,6 +8854,8 @@ async def _ensure_indexes():
         await db.certificates.create_index("project_id")
         await db.certificates.create_index("share_token")
         await db.certificates.create_index("status")
+        await db.edu_lessons.create_index([("track_slug", 1), ("order", 1)])
+        await db.edu_progress.create_index([("user_id", 1), ("lesson_id", 1)])
         logger.info("indexes ensured")
     except Exception as e:
         logger.warning(f"index ensure: {e}")
@@ -8865,6 +8873,7 @@ async def _startup_seed_community():
     await seed_kits()
     await seed_quizzes()
     await seed_freemium()
+    await education_engine.seed_education()
 
 
 @app.on_event("startup")
