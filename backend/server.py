@@ -8557,6 +8557,195 @@ async def admin_delete_knowledge(guide_id: str, admin: dict = Depends(require_ad
     return {"ok": True}
 
 
+# ================================================================ Freemium Trial, Demo Mode & Conversion Engine (Sheet #58)
+FREEMIUM_DEFAULTS = {"free_scans": 3, "free_guides": 2, "free_saved_projects": 3, "trial_days": 14,
+                     "upgrade_cta": "Unlock unlimited projects, AR guides & your lifetime home record.",
+                     "price_label": "$12/mo"}
+
+
+class ConsumeReq(BaseModel):
+    feature: str  # scan | guide
+
+
+class ConversionEventReq(BaseModel):
+    event: str  # demo_start | demo_commit | cta_view | cta_click | trial_start
+    meta: Optional[dict] = None
+
+
+class FreemiumConfigReq(BaseModel):
+    free_scans: int
+    free_guides: int
+    free_saved_projects: int
+    trial_days: int
+    upgrade_cta: str
+    price_label: str
+
+
+def _is_paid(user: dict) -> bool:
+    return user.get("subscription_status") == "active" or user.get("subscription_tier", "free") != "free" or user.get("is_pro", False)
+
+
+async def _freemium_config() -> dict:
+    cfg = await db.freemium_config.find_one({"_id": "singleton"}, {"_id": 0})
+    return {**FREEMIUM_DEFAULTS, **(cfg or {})}
+
+
+async def _log_conversion(user_id: str, event: str, meta: dict = None):
+    await db.conversion_events.insert_one({"id": new_id(), "user_id": user_id, "event": event, "meta": meta or {}, "at": now_iso()})
+
+
+@api_router.get("/entitlements/me")
+async def entitlements_me(user: dict = Depends(get_current_user)):
+    cfg = await _freemium_config()
+    paid = _is_paid(user)
+    usage = user.get("freemium_usage") or {"scans": 0, "guides": 0}
+    saved = await db.projects.count_documents({"user_id": user["id"], "is_demo": {"$ne": True}})
+    created = user.get("created_at")
+    days_left = None
+    if created:
+        try:
+            elapsed = (datetime.now(timezone.utc) - datetime.fromisoformat(created)).days
+            days_left = max(0, cfg["trial_days"] - elapsed)
+        except Exception:
+            days_left = cfg["trial_days"]
+    caps = {"scans": cfg["free_scans"], "guides": cfg["free_guides"], "saved_projects": cfg["free_saved_projects"]}
+    remaining = {"scans": max(0, caps["scans"] - usage.get("scans", 0)),
+                 "guides": max(0, caps["guides"] - usage.get("guides", 0)),
+                 "saved_projects": max(0, caps["saved_projects"] - saved)}
+    return {"plan": "pro" if paid else "free", "is_paid": paid, "caps": caps,
+            "usage": {"scans": usage.get("scans", 0), "guides": usage.get("guides", 0), "saved_projects": saved},
+            "remaining": remaining, "trial_days_left": days_left,
+            "upgrade_cta": cfg["upgrade_cta"], "price_label": cfg["price_label"]}
+
+
+@api_router.post("/entitlements/consume")
+async def entitlements_consume(req: ConsumeReq, user: dict = Depends(get_current_user)):
+    if req.feature not in ("scans", "guides", "scan", "guide"):
+        raise HTTPException(status_code=400, detail="Invalid feature")
+    key = req.feature if req.feature.endswith("s") else req.feature + "s"
+    if _is_paid(user):
+        return {"ok": True, "unlimited": True}
+    cfg = await _freemium_config()
+    usage = user.get("freemium_usage") or {"scans": 0, "guides": 0}
+    cap = cfg["free_scans"] if key == "scans" else cfg["free_guides"]
+    if usage.get(key, 0) >= cap:
+        return {"ok": False, "locked": True, "cap": cap, "upgrade_cta": cfg["upgrade_cta"], "price_label": cfg["price_label"]}
+    await db.users.update_one({"id": user["id"]}, {"$inc": {f"freemium_usage.{key}": 1}})
+    return {"ok": True, "remaining": max(0, cap - usage.get(key, 0) - 1)}
+
+
+@api_router.post("/conversion/event")
+async def conversion_event(req: ConversionEventReq, user: dict = Depends(get_current_user)):
+    await _log_conversion(user["id"], req.event, req.meta)
+    return {"ok": True}
+
+
+# ---- demo sandbox
+DEMO_TEMPLATES = [
+    {"slug": "demo-kitchen-remodel", "name": "Demo Kitchen Remodel", "icon": "silverware-fork-knife",
+     "tagline": "See a full guided remodel — risk-free", "room": "kitchen",
+     "overview": "A hands-free tour of a kitchen refresh so you can feel how Homie guides every step.",
+     "tools": ["Foam roller", "Screwdriver", "Painter's tape"], "materials": ["Cabinet paint", "Cabinet pulls", "Backsplash tile"],
+     "safety": ["Ventilate while painting"],
+     "steps": [{"title": "Empty & prep cabinets", "instruction": "Clear and label cabinet doors.", "ar_hint": "Number each door"},
+               {"title": "Paint the cabinets", "instruction": "Two thin coats of enamel.", "ar_hint": "Show roller direction"},
+               {"title": "Swap the hardware", "instruction": "Install new pulls with the template.", "ar_hint": "Place pull template"},
+               {"title": "Add the backsplash", "instruction": "Peel & stick from a level line.", "ar_hint": "Project a level line"}]},
+    {"slug": "demo-fence-build", "name": "Virtual Fence Build", "icon": "fence",
+     "tagline": "Build a fence in a demo yard", "room": "outdoor",
+     "overview": "Experience an outdoor build end-to-end — no tools required to explore.",
+     "tools": ["Post-hole digger", "Level", "Impact driver"], "materials": ["Fence panels", "4x4 posts", "Concrete mix"],
+     "safety": ["Call 811 before digging", "Wear gloves & glasses"],
+     "steps": [{"title": "Mark the line", "instruction": "Stake and string the fence line.", "ar_hint": "Overlay the fence line"},
+               {"title": "Dig & set posts", "instruction": "Dig, set posts, and level in concrete.", "ar_hint": "Show post spacing"},
+               {"title": "Hang panels", "instruction": "Attach panels level between posts.", "ar_hint": "Show level guide"},
+               {"title": "Finish & seal", "instruction": "Cap posts and seal the wood.", "ar_hint": ""}]},
+]
+
+
+@api_router.get("/demo/templates")
+async def demo_templates(user: dict = Depends(get_current_user)):
+    return {"templates": [{"slug": t["slug"], "name": t["name"], "icon": t["icon"], "tagline": t["tagline"],
+                           "step_count": len(t["steps"])} for t in DEMO_TEMPLATES]}
+
+
+@api_router.post("/demo/start/{slug}")
+async def demo_start(slug: str, user: dict = Depends(get_current_user)):
+    tpl = next((t for t in DEMO_TEMPLATES if t["slug"] == slug), None)
+    if not tpl:
+        raise HTTPException(status_code=404, detail="Demo not found")
+    existing = await db.projects.find_one({"user_id": user["id"], "kit_slug": slug, "is_demo": True}, {"_id": 0, "id": 1})
+    if existing:
+        return {"project_id": existing["id"], "existing": True}
+    steps = [{"id": new_id(), "index": i + 1, "title": s["title"], "instruction": s["instruction"],
+              "visual_description": s.get("ar_hint", ""), "image_base64": None, "done": False} for i, s in enumerate(tpl["steps"])]
+    guide = {"overview": tpl["overview"], "tools": tpl["tools"], "materials": tpl["materials"],
+             "safety_warnings": tpl["safety"], "code_alert": None, "common_mistakes": [],
+             "troubleshooting": [], "inspection_checklist": [], "owned_tools": []}
+    project = {"id": new_id(), "user_id": user["id"], "title": tpl["name"], "location": user.get("location", ""),
+               "status": "active", "favorite": False, "notes": "", "guide": guide, "steps": steps,
+               "missing_supplies": tpl["materials"], "source": "demo", "is_demo": True, "kit_slug": slug,
+               "created_at": now_iso(), "last_viewed_at": now_iso(), "completed_at": None}
+    await db.projects.insert_one(project)
+    await _log_conversion(user["id"], "demo_start", {"slug": slug})
+    return {"project_id": project["id"], "existing": False}
+
+
+@api_router.post("/demo/commit/{project_id}")
+async def demo_commit(project_id: str, user: dict = Depends(get_current_user)):
+    r = await db.projects.update_one({"id": project_id, "user_id": user["id"], "is_demo": True},
+                                     {"$set": {"is_demo": False, "source": "committed_demo"}})
+    if not r.matched_count:
+        raise HTTPException(status_code=404, detail="Demo project not found")
+    await _log_conversion(user["id"], "demo_commit", {"project_id": project_id})
+    return {"ok": True}
+
+
+# ---- admin freemium controls
+@api_router.get("/admin/freemium/config")
+async def admin_freemium_config(admin: dict = Depends(require_admin)):
+    return await _freemium_config()
+
+
+@api_router.put("/admin/freemium/config")
+async def admin_set_freemium(req: FreemiumConfigReq, admin: dict = Depends(require_admin)):
+    await db.freemium_config.update_one({"_id": "singleton"}, {"$set": req.model_dump()}, upsert=True)
+    return {"ok": True}
+
+
+@api_router.get("/admin/freemium/analytics")
+async def admin_freemium_analytics(admin: dict = Depends(require_admin)):
+    total_users = await db.users.count_documents({})
+    paid_users = await db.users.count_documents({"$or": [{"subscription_status": "active"}, {"is_pro": True}]})
+    events = await db.conversion_events.find({}, {"_id": 0}).to_list(20000)
+    def distinct(ev):
+        return len({e["user_id"] for e in events if e["event"] == ev})
+    demo_started = distinct("demo_start")
+    demo_committed = distinct("demo_commit")
+    cta_views = sum(1 for e in events if e["event"] == "cta_view")
+    cta_clicks = sum(1 for e in events if e["event"] == "cta_click")
+    real_project_users = len({p["user_id"] async for p in db.projects.find({"is_demo": {"$ne": True}}, {"user_id": 1})})
+    funnel = [
+        {"stage": "Signed up", "count": total_users},
+        {"stage": "Tried a demo", "count": demo_started},
+        {"stage": "Committed demo → real", "count": demo_committed},
+        {"stage": "Has a real project", "count": real_project_users},
+        {"stage": "Upgraded to paid", "count": paid_users},
+    ]
+    return {"totals": {"users": total_users, "paid": paid_users,
+                       "conversion_pct": int(round(paid_users / total_users * 100)) if total_users else 0,
+                       "demo_started": demo_started, "demo_committed": demo_committed,
+                       "cta_views": cta_views, "cta_clicks": cta_clicks,
+                       "cta_ctr": int(round(cta_clicks / cta_views * 100)) if cta_views else 0},
+            "funnel": funnel}
+
+
+async def seed_freemium():
+    if not await db.freemium_config.find_one({"_id": "singleton"}):
+        await db.freemium_config.insert_one({"_id": "singleton", **FREEMIUM_DEFAULTS})
+    logger.info("freemium config seeded")
+
+
 app.include_router(api_router)
 
 # Built-in autoresponder / email engine (separate module to keep server.py lean).
@@ -8637,6 +8826,7 @@ async def _startup_seed_community():
     await seed_prompts()
     await seed_kits()
     await seed_quizzes()
+    await seed_freemium()
 
 
 @app.on_event("startup")

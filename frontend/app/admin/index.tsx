@@ -23,8 +23,9 @@ import { KitsModule } from "@/src/components/admin/KitsModule";
 import { RoiModule } from "@/src/components/admin/RoiModule";
 import { QuizzesModule } from "@/src/components/admin/QuizzesModule";
 import { ExpertsModule } from "@/src/components/admin/ExpertsModule";
+import { FreemiumModule } from "@/src/components/admin/FreemiumModule";
 
-type Mod = "overview" | "finance" | "roi" | "quizzes" | "experts" | "crm" | "vendors" | "suppliers" | "kits" | "proleads" | "proaccounts" | "credentials" | "partners" | "prompts" | "notifications" | "automations" | "features" | "email" | "affiliate" | "feedback" | "tickets" | "blog";
+type Mod = "overview" | "finance" | "roi" | "freemium" | "quizzes" | "experts" | "crm" | "vendors" | "suppliers" | "kits" | "proleads" | "proaccounts" | "credentials" | "partners" | "prompts" | "notifications" | "automations" | "features" | "email" | "affiliate" | "feedback" | "tickets" | "blog";
 const MODULES: { key: Mod; label: string; icon: string }[] = [
   { key: "overview", label: "Overview", icon: "view-dashboard-outline" },
   { key: "finance", label: "CFO Dashboard", icon: "finance" },
@@ -35,6 +36,7 @@ const MODULES: { key: Mod; label: string; icon: string }[] = [
   { key: "suppliers", label: "Wholesalers & RFQs", icon: "truck-delivery-outline" },
   { key: "kits", label: "Project Kits", icon: "package-variant-closed" },
   { key: "roi", label: "Value Delivered", icon: "chart-line" },
+  { key: "freemium", label: "Freemium & Trials", icon: "gift-outline" },
   { key: "quizzes", label: "Skill Quizzes", icon: "school-outline" },
   { key: "experts", label: "Experts & Knowledge", icon: "account-tie-outline" },
   { key: "proleads", label: "Pro Leads", icon: "account-hard-hat" },
@@ -117,6 +119,7 @@ export default function AdminWorkstation() {
         {mod === "suppliers" && <SuppliersModule />}
         {mod === "kits" && <KitsModule />}
         {mod === "roi" && <RoiModule />}
+        {mod === "freemium" && <FreemiumModule />}
         {mod === "quizzes" && <QuizzesModule />}
         {mod === "experts" && <ExpertsModule />}
         {mod === "proleads" && <ProLeadsModule />}

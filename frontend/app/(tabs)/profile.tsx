@@ -12,6 +12,7 @@ import * as Haptics from "expo-haptics";
 import { colors, spacing, radius, font, type } from "@/src/theme";
 import { useAuth } from "@/src/auth";
 import { api } from "@/src/api";
+import { UpgradeBanner } from "@/src/components/UpgradeBanner";
 
 const TIER_LABEL: Record<string, string> = { free: "FREE TRIAL", pro: "PRO", master: "MASTER" };
 
@@ -166,6 +167,9 @@ export default function Profile() {
             testID="profile-neighborhood" onPress={() => router.push("/neighborhood")} />
           <MenuRow icon="medal-outline" label="Rewards & Recognition" sub="Badges, credits, leaderboard & local impact"
             testID="profile-loyalty" onPress={() => router.push("/loyalty")} />
+          <UpgradeBanner />
+          <MenuRow icon="gesture-tap-button" label="Try a Demo Project" sub="Explore a full guided build risk-free"
+            testID="profile-demo" onPress={() => router.push("/demo")} />
           <MenuRow icon="book-open-variant" label="Expert Knowledge" sub="Pro-authored guides, mentors & how-tos"
             testID="profile-knowledge" onPress={() => router.push("/knowledge")} />
           <MenuRow icon="account-tie-outline" label="Become an Expert" sub="Contribute guides, mentor DIYers & earn credits"
