@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, RefreshControl, TextInput, Alert, Platform } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, TextInput, Alert, Platform } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -11,7 +11,7 @@ import { api } from "@/src/api";
 type Key = { id: string; label: string; scopes: string[]; environment: string; key: string; active: boolean; call_count: number };
 type Hook = { id: string; url: string; events: string[]; active: boolean; secret: string; failures: number; deliveries: number; last_status: number | null };
 type Meta = { scopes: string[]; events: string[]; environments: string[]; base_url: string; docs: { method: string; path: string; scope: string; desc: string }[] };
-type Tab = "keys" | "webhooks" | "docs";
+type Tab = "keys" | "webhooks" | "usage" | "docs";
 
 export default function Developer() {
   const router = useRouter();
@@ -29,7 +29,7 @@ export default function Developer() {
         <View style={{ width: 28 }} />
       </View>
       <View style={styles.tabRow}>
-        {([["keys", "API Keys"], ["webhooks", "Webhooks"], ["docs", "API Docs"]] as [Tab, string][]).map(([k, l]) => (
+        {([["keys", "API Keys"], ["webhooks", "Webhooks"], ["usage", "Usage"], ["docs", "API Docs"]] as [Tab, string][]).map(([k, l]) => (
           <Pressable key={k} testID={`dev-tab-${k}`} style={[styles.tab, tab === k && styles.tabOn]} onPress={() => setTab(k)}>
             <Text style={[styles.tabText, tab === k && styles.tabTextOn]}>{l}</Text>
           </Pressable>
@@ -38,6 +38,7 @@ export default function Developer() {
       <View style={{ flex: 1, paddingHorizontal: spacing.lg }}>
         {tab === "keys" && <Keys meta={meta} insetsBottom={insets.bottom} />}
         {tab === "webhooks" && <Webhooks meta={meta} insetsBottom={insets.bottom} />}
+        {tab === "usage" && <Usage insetsBottom={insets.bottom} />}
         {tab === "docs" && <Docs meta={meta} insetsBottom={insets.bottom} />}
       </View>
     </View>
@@ -158,6 +159,68 @@ function Webhooks({ meta, insetsBottom }: { meta: Meta | null; insetsBottom: num
   );
 }
 
+function Usage({ insetsBottom }: { insetsBottom: number }) {
+  const [data, setData] = useState<any | null>(null);
+  const [plans, setPlans] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const money = (c: number) => `$${(c / 100).toFixed(2)}`;
+
+  const load = useCallback(async () => {
+    try {
+      const [u, p] = await Promise.all([api<any>("/developer/usage"), api<{ plans: any[] }>("/developer/plans")]);
+      setData(u); setPlans(p.plans);
+    } catch {} finally { setLoading(false); }
+  }, []);
+  useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  const changePlan = async (keyId: string, plan: string) => {
+    try { await api(`/developer/keys/${keyId}/plan`, { method: "POST", body: { plan } }); load(); } catch (e: any) { Alert.alert("Failed", e?.message || "Try again."); }
+  };
+
+  if (loading) return <ActivityIndicator style={{ marginTop: spacing.xl }} color={colors.brandPrimary} />;
+  if (!data || data.keys.length === 0) return <View style={{ paddingTop: spacing.xl }}><Text style={styles.ctaSub}>Create an API key to see usage & billing.</Text></View>;
+
+  const maxDay = Math.max(1, ...data.trend.map((t: any) => t.count));
+  return (
+    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insetsBottom + 40 }}>
+      <View style={styles.billCard}>
+        <Text style={styles.miniLabel}>ESTIMATED BILL · {data.period}</Text>
+        <Text style={styles.billBig}>{money(data.est_bill_cents)}</Text>
+      </View>
+
+      {data.trend.length > 0 && (
+        <View style={styles.trendBox}>
+          <Text style={styles.trendTitle}>Last {data.trend.length} days</Text>
+          <View style={styles.trendRow}>
+            {data.trend.map((t: any, i: number) => (
+              <View key={i} style={styles.trendCol}><View style={[styles.trendBar, { height: 6 + (t.count / maxDay) * 60 }]} /></View>
+            ))}
+          </View>
+        </View>
+      )}
+
+      {data.keys.map((k: any) => {
+        const pct = Math.min(1, k.used / k.quota);
+        return (
+          <View key={k.id} style={styles.card}>
+            <View style={styles.cardTop}><Text style={styles.cardTitle}>{k.label}</Text><Text style={styles.planTag}>{k.plan_label}</Text></View>
+            <View style={styles.barBg}><View style={[styles.barFill, { width: `${pct * 100}%`, backgroundColor: pct >= 1 ? colors.error : colors.brandPrimary }]} /></View>
+            <Text style={styles.meta}>{k.used.toLocaleString()} / {k.quota.toLocaleString()} calls{k.overage > 0 ? ` · ${k.overage} over` : ""} · {money(k.cost_cents)}</Text>
+            <View style={styles.planRow}>
+              {plans.map((p) => (
+                <Pressable key={p.id} testID={`dev-plan-${k.id}-${p.id}`} style={[styles.planChip, k.plan === p.id && styles.planChipOn]} onPress={() => changePlan(k.id, p.id)}>
+                  <Text style={[styles.planChipText, k.plan === p.id && styles.planChipTextOn]}>{p.label.split(" ")[0]}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        );
+      })}
+      <Text style={styles.ctaSub}>Free 1k calls/mo · Starter $29 + $2/1k over 20k · Enterprise $499 (1M calls). Overage billed monthly.</Text>
+    </ScrollView>
+  );
+}
+
 function Docs({ meta, insetsBottom }: { meta: Meta | null; insetsBottom: number }) {
   const copy = async (t: string) => { await Clipboard.setStringAsync(t); Alert.alert("Copied", t); };
   return (
@@ -222,4 +285,19 @@ const styles = StyleSheet.create({
   methodText: { color: colors.info, fontFamily: font.bold, fontSize: 10 },
   docPath: { color: colors.onSurface, fontFamily: Platform.select({ ios: "Courier", default: "monospace" }), fontSize: type.sm },
   docDesc: { color: colors.onSurfaceTertiary, fontFamily: font.regular, fontSize: type.sm, marginTop: 1 },
+  billCard: { backgroundColor: colors.surfaceSecondary, borderColor: colors.brandPrimary, borderWidth: 1.5, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.md },
+  billBig: { color: colors.brandPrimary, fontFamily: font.display, fontSize: 34, marginTop: 2 },
+  trendBox: { backgroundColor: colors.surfaceSecondary, borderColor: colors.border, borderWidth: 1, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.md },
+  trendTitle: { color: colors.onSurfaceTertiary, fontFamily: font.bold, fontSize: type.sm, marginBottom: spacing.sm },
+  trendRow: { flexDirection: "row", alignItems: "flex-end", gap: 3, height: 70 },
+  trendCol: { flex: 1, alignItems: "center", justifyContent: "flex-end" },
+  trendBar: { width: "70%", borderRadius: 2, backgroundColor: colors.brandPrimary },
+  planTag: { color: colors.info, fontFamily: font.bold, fontSize: type.sm },
+  barBg: { height: 8, borderRadius: 4, backgroundColor: colors.surface, overflow: "hidden", marginTop: spacing.xs },
+  barFill: { height: 8, borderRadius: 4 },
+  planRow: { flexDirection: "row", gap: spacing.xs, marginTop: spacing.sm },
+  planChip: { flex: 1, alignItems: "center", paddingVertical: spacing.xs, borderRadius: radius.sm, backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 },
+  planChipOn: { backgroundColor: colors.brandPrimary, borderColor: colors.brandPrimary },
+  planChipText: { color: colors.onSurfaceSecondary, fontFamily: font.bold, fontSize: 12 },
+  planChipTextOn: { color: colors.onBrandPrimary },
 });

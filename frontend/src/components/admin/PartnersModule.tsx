@@ -1,7 +1,6 @@
 import { useCallback, useState } from "react";
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Platform } from "react-native";
 import { useFocusEffect } from "expo-router";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 import { colors, spacing, radius, font, type } from "@/src/theme";
 import { api } from "@/src/api";
@@ -12,19 +11,31 @@ type Data = { keys: Key[]; webhooks: Hook[]; totals: { keys: number; active_keys
 
 export function PartnersModule() {
   const [d, setD] = useState<Data | null>(null);
+  const [billing, setBilling] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
-    try { setD(await api<Data>("/admin/partners")); } catch {} finally { setLoading(false); }
+    try {
+      const [p, b] = await Promise.all([api<Data>("/admin/partners"), api<any>("/admin/api-billing").catch(() => null)]);
+      setD(p); setBilling(b);
+    } catch {} finally { setLoading(false); }
   }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  const money = (c: number) => `$${((c || 0) / 100).toLocaleString(undefined, { minimumFractionDigits: 0 })}`;
 
   if (loading || !d) return <View style={styles.center}><ActivityIndicator color={colors.brandPrimary} /></View>;
   const t = d.totals;
   return (
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: spacing["3xl"] }}>
       <Text style={styles.h1}>Partner Platform</Text>
-      <Text style={styles.sub}>API keys, webhooks & usage across all integrators.</Text>
+      <Text style={styles.sub}>API keys, webhooks, usage & revenue across all integrators.</Text>
+      {billing && (
+        <View style={styles.revRow}>
+          <View style={styles.revCard}><Text style={styles.revBig}>{money(billing.mrr_cents)}</Text><Text style={styles.revLabel}>Base MRR</Text></View>
+          <View style={styles.revCard}><Text style={styles.revBig}>{money(billing.billable_cents)}</Text><Text style={styles.revLabel}>Billable ({billing.period})</Text></View>
+        </View>
+      )}
       <View style={styles.statRow}>
         <Stat value={`${t.active_keys}/${t.keys}`} label="Active keys" />
         <Stat value={String(t.api_calls)} label="API calls" />
@@ -64,6 +75,10 @@ const styles = StyleSheet.create({
   h1: { color: colors.onSurface, fontFamily: font.display, fontSize: 24 },
   sub: { color: colors.onSurfaceTertiary, fontFamily: font.regular, fontSize: type.sm, marginBottom: spacing.md },
   statRow: { flexDirection: "row", gap: spacing.sm, marginBottom: spacing.md },
+  revRow: { flexDirection: "row", gap: spacing.sm, marginBottom: spacing.md },
+  revCard: { flex: 1, backgroundColor: colors.surfaceSecondary, borderColor: colors.brandPrimary, borderWidth: 1.5, borderRadius: radius.md, padding: spacing.md },
+  revBig: { color: colors.brandPrimary, fontFamily: font.display, fontSize: 24 },
+  revLabel: { color: colors.onSurfaceTertiary, fontFamily: font.medium, fontSize: type.sm },
   stat: { flex: 1, alignItems: "center", backgroundColor: colors.surfaceSecondary, borderColor: colors.border, borderWidth: 1, borderRadius: radius.md, paddingVertical: spacing.md },
   statValue: { color: colors.brandPrimary, fontFamily: font.display, fontSize: 18 },
   statLabel: { color: colors.onSurfaceTertiary, fontFamily: font.medium, fontSize: 10, textAlign: "center" },

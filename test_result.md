@@ -271,3 +271,9 @@ NOTE: generation is a single backend call, so stages are time-progressed (approx
 - Frontend: src/components/RiskAuditCard.tsx (collapsible: run audit CTA → confidence bar, factors w/ level dots, next action, re-run). Rendered in app/project/[id].tsx when project has steps.
 - CURL-VERIFIED: audit returns risk 30/confidence 70/5 factors on a demo project. Lint clean. Frontend E2E via agent PENDING (pattern-consistent).
 - STILL QUEUED: #41 Tool Rental & Peer Lending, #42 Resell/Donation Marketplace (fold into #35 Materials Exchange), #43 AR Instruction Builder, #44 Order/Supply-Chain Tracking, #45 Skill Exchange Marketplace.
+
+## Iteration 6 — API Monetization, Billing & Usage #48 (main agent, forked)
+- Backend: API_PLANS (free 1k/mo, starter $29+overage/20k, enterprise $499/1M). get_api_key_user now meters per-key (period_count reset monthly) + enforces quota (429 on free-plan overrun; usage-billed plans accrue overage). api_usage_daily collection for trend. Endpoints: /api/developer/plans, /developer/usage (per-key usage+quota+cost+14d trend+est bill), /developer/keys/{id}/plan (change), /api/admin/api-billing (plan_counts, MRR, billable, top partners).
+- Frontend: developer.tsx new "Usage" tab (est bill, 14-day trend bars, per-key quota bar + plan selector). Admin PartnersModule shows Base MRR + Billable revenue cards.
+- CURL-VERIFIED: plans list, plan change→starter, usage $29 base, admin MRR $29. Lint clean. Frontend E2E via agent PENDING for #46/#47/#48 (all backend-verified + pattern-consistent).
+- STILL QUEUED: #41 Tool Rental & Peer Lending, #42 Resell/Donation Marketplace (fold into #35), #43 AR Instruction Builder, #44 Order/Supply-Chain Tracking, #45 Skill Exchange Marketplace.

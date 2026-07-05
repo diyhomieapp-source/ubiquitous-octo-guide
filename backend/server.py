@@ -3234,6 +3234,24 @@ WEBHOOK_EVENTS = ["project.completed", "order.confirmed", "testimonial.posted",
                   "badge.earned", "campaign.joined", "credential.verified"]
 API_ENVIRONMENTS = ["test", "live"]
 
+# Monetization plans (Sheet #48): monthly included calls, overage $/1000 calls, base monthly price (cents)
+API_PLANS = {
+    "free": {"label": "Free", "monthly_quota": 1000, "overage_per_k_cents": 0, "base_cents": 0, "allow_overage": False},
+    "starter": {"label": "Starter (usage-billed)", "monthly_quota": 20000, "overage_per_k_cents": 200, "base_cents": 2900, "allow_overage": True},
+    "enterprise": {"label": "Enterprise", "monthly_quota": 1000000, "overage_per_k_cents": 100, "base_cents": 49900, "allow_overage": True},
+}
+
+
+def _period_now() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m")
+
+
+def _usage_cost_cents(plan_key: str, calls: int) -> int:
+    plan = API_PLANS.get(plan_key, API_PLANS["free"])
+    over = max(0, calls - plan["monthly_quota"])
+    over_blocks = -(-over // 1000)  # ceil division
+    return plan["base_cents"] + over_blocks * plan["overage_per_k_cents"]
+
 
 def _sign_payload(secret: str, body: str) -> str:
     return "sha256=" + hmac.new(secret.encode(), body.encode(), hashlib.sha256).hexdigest()
@@ -3248,7 +3266,21 @@ async def get_api_key_user(x_api_key: Optional[str] = Header(default=None)):
     user = await db.users.find_one({"id": key["user_id"]}, {"_id": 0})
     if not user:
         raise HTTPException(status_code=401, detail="Key owner not found.")
-    await db.api_keys.update_one({"id": key["id"]}, {"$set": {"last_used": now_iso()}, "$inc": {"call_count": 1}})
+    # metering: reset counter on new billing period
+    period = _period_now()
+    plan_key = key.get("plan", "free")
+    plan = API_PLANS.get(plan_key, API_PLANS["free"])
+    period_count = key.get("period_count", 0) if key.get("period") == period else 0
+    # quota enforcement
+    if period_count >= plan["monthly_quota"] and not plan["allow_overage"]:
+        raise HTTPException(status_code=429, detail=f"Monthly quota of {plan['monthly_quota']} calls reached on the {plan['label']} plan. Upgrade to continue.")
+    await db.api_keys.update_one({"id": key["id"]}, {
+        "$set": {"last_used": now_iso(), "period": period, "period_count": period_count + 1},
+        "$inc": {"call_count": 1},
+    })
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    await db.api_usage_daily.update_one({"key_id": key["id"], "date": today},
+                                        {"$inc": {"count": 1}, "$set": {"user_id": key["user_id"]}}, upsert=True)
     return {"user": user, "key": key}
 
 
@@ -3301,6 +3333,7 @@ def _key_public(k: dict, reveal: bool = False) -> dict:
     masked = k["key"] if reveal else (k["key"][:12] + "…" + k["key"][-4:])
     return {"id": k["id"], "label": k["label"], "scopes": k.get("scopes", []),
             "environment": k.get("environment", "test"), "key": masked, "active": k.get("active", True),
+            "plan": k.get("plan", "free"), "period_count": k.get("period_count", 0) if k.get("period") == _period_now() else 0,
             "call_count": k.get("call_count", 0), "last_used": k.get("last_used"), "created_at": k.get("created_at")}
 
 
@@ -3326,7 +3359,8 @@ async def create_api_key(req: ApiKeyReq, user: dict = Depends(get_current_user))
     scopes = [s for s in req.scopes if s in API_SCOPES] or ["projects:read"]
     raw = f"dk_{env}_{secrets.token_urlsafe(24)}"
     doc = {"id": new_id(), "user_id": user["id"], "label": req.label.strip()[:60] or "Untitled key",
-           "scopes": scopes, "environment": env, "key": raw, "active": True,
+           "scopes": scopes, "environment": env, "key": raw, "active": True, "plan": "free",
+           "period": _period_now(), "period_count": 0,
            "call_count": 0, "last_used": None, "created_at": now_iso()}
     await db.api_keys.insert_one(dict(doc))
     return {"key": _key_public(doc, reveal=True), "warning": "Store this key now — it won't be shown in full again."}
@@ -3425,6 +3459,76 @@ async def admin_partners(admin: dict = Depends(require_admin)):
         "totals": {"keys": len(keys), "active_keys": sum(1 for k in keys if k.get("active")),
                    "webhooks": len(hooks), "api_calls": total_calls, "webhook_deliveries": total_deliveries},
     }
+
+
+# ---- monetization: plans, usage & billing (Sheet #48)
+@api_router.get("/developer/plans")
+async def developer_plans(user: dict = Depends(get_current_user)):
+    return {"plans": [{"id": k, **v} for k, v in API_PLANS.items()]}
+
+
+class PlanReq(BaseModel):
+    plan: str
+
+
+@api_router.post("/developer/keys/{key_id}/plan")
+async def change_key_plan(key_id: str, req: PlanReq, user: dict = Depends(get_current_user)):
+    if req.plan not in API_PLANS:
+        raise HTTPException(status_code=400, detail="Unknown plan.")
+    res = await db.api_keys.update_one({"id": key_id, "user_id": user["id"]}, {"$set": {"plan": req.plan}})
+    if not res.matched_count:
+        raise HTTPException(status_code=404, detail="Key not found.")
+    return {"ok": True, "plan": req.plan}
+
+
+@api_router.get("/developer/usage")
+async def developer_usage(user: dict = Depends(get_current_user)):
+    keys = await db.api_keys.find({"user_id": user["id"]}, {"_id": 0}).to_list(100)
+    period = _period_now()
+    out_keys, total_cost = [], 0
+    for k in keys:
+        plan_key = k.get("plan", "free")
+        plan = API_PLANS[plan_key]
+        used = k.get("period_count", 0) if k.get("period") == period else 0
+        cost = _usage_cost_cents(plan_key, used)
+        total_cost += cost
+        out_keys.append({
+            "id": k["id"], "label": k["label"], "plan": plan_key, "plan_label": plan["label"],
+            "used": used, "quota": plan["monthly_quota"], "overage": max(0, used - plan["monthly_quota"]),
+            "cost_cents": cost, "allow_overage": plan["allow_overage"],
+        })
+    # 14-day usage trend across all keys
+    key_ids = [k["id"] for k in keys]
+    daily = await db.api_usage_daily.find({"key_id": {"$in": key_ids}}, {"_id": 0}).sort("date", -1).to_list(200)
+    trend: dict = {}
+    for d in daily:
+        trend[d["date"]] = trend.get(d["date"], 0) + d.get("count", 0)
+    trend_list = sorted([{"date": k, "count": v} for k, v in trend.items()], key=lambda x: x["date"])[-14:]
+    return {"period": period, "keys": out_keys, "est_bill_cents": total_cost, "trend": trend_list}
+
+
+@api_router.get("/admin/api-billing")
+async def admin_api_billing(admin: dict = Depends(require_admin)):
+    keys = await db.api_keys.find({}, {"_id": 0}).to_list(1000)
+    period = _period_now()
+    plan_counts = {p: 0 for p in API_PLANS}
+    mrr_cents, usage_cents = 0, 0
+    partners = []
+    for k in keys:
+        plan_key = k.get("plan", "free")
+        plan_counts[plan_key] = plan_counts.get(plan_key, 0) + 1
+        used = k.get("period_count", 0) if k.get("period") == period else 0
+        cost = _usage_cost_cents(plan_key, used)
+        mrr_cents += API_PLANS[plan_key]["base_cents"]
+        usage_cents += cost
+        if cost > 0 or used > 0:
+            u = await db.users.find_one({"id": k["user_id"]}, {"_id": 0, "email": 1})
+            partners.append({"label": k["label"], "owner": u.get("email") if u else k["user_id"],
+                             "plan": plan_key, "used": used, "cost_cents": cost})
+    partners.sort(key=lambda x: x["cost_cents"], reverse=True)
+    return {"period": period, "plan_counts": plan_counts, "mrr_cents": mrr_cents,
+            "billable_cents": usage_cents, "partners": partners[:50], "plans": [{"id": k, **v} for k, v in API_PLANS.items()]}
+
 
 
 # ================================================================ AI Critical Path & Risk Audit (Sheet #47)
