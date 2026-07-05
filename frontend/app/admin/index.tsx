@@ -24,8 +24,9 @@ import { RoiModule } from "@/src/components/admin/RoiModule";
 import { QuizzesModule } from "@/src/components/admin/QuizzesModule";
 import { ExpertsModule } from "@/src/components/admin/ExpertsModule";
 import { FreemiumModule } from "@/src/components/admin/FreemiumModule";
+import { AuditModule } from "@/src/components/admin/AuditModule";
 
-type Mod = "overview" | "finance" | "roi" | "freemium" | "quizzes" | "experts" | "crm" | "vendors" | "suppliers" | "kits" | "proleads" | "proaccounts" | "credentials" | "partners" | "prompts" | "notifications" | "automations" | "features" | "email" | "affiliate" | "feedback" | "tickets" | "blog";
+type Mod = "overview" | "finance" | "roi" | "freemium" | "quizzes" | "experts" | "crm" | "vendors" | "suppliers" | "kits" | "proleads" | "proaccounts" | "credentials" | "partners" | "prompts" | "audit" | "notifications" | "automations" | "features" | "email" | "affiliate" | "feedback" | "tickets" | "blog";
 const MODULES: { key: Mod; label: string; icon: string }[] = [
   { key: "overview", label: "Overview", icon: "view-dashboard-outline" },
   { key: "finance", label: "CFO Dashboard", icon: "finance" },
@@ -43,6 +44,7 @@ const MODULES: { key: Mod; label: string; icon: string }[] = [
   { key: "proaccounts", label: "Pro Accounts", icon: "briefcase-check-outline" },
   { key: "credentials", label: "Credential Checks", icon: "certificate-outline" },
   { key: "partners", label: "Partner Platform", icon: "api" },
+  { key: "audit", label: "Audit & Transparency", icon: "clipboard-list-outline" },
   { key: "prompts", label: "AI Prompt Library", icon: "robot-happy-outline" },
   { key: "notifications", label: "Broadcast", icon: "bullhorn-outline" },
   { key: "automations", label: "Automations", icon: "robot-outline" },
@@ -126,6 +128,7 @@ export default function AdminWorkstation() {
         {mod === "proaccounts" && <ProAccountsModule />}
         {mod === "credentials" && <CredentialsModule />}
         {mod === "partners" && <PartnersModule />}
+        {mod === "audit" && <AuditModule />}
         {mod === "prompts" && <PromptLibraryModule />}
         {mod === "notifications" && <NotificationsModule />}
         {mod === "automations" && <AutomationModule />}

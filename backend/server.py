@@ -30,6 +30,7 @@ from passlib.context import CryptContext
 
 import email_engine
 import affiliate_engine
+import audit_engine
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -8767,6 +8768,12 @@ app.include_router(email_engine.build_public_router())
 affiliate_engine.configure(db, logger, _llm_json)
 app.include_router(affiliate_engine.build_admin_router(require_admin))
 
+# Activity / API / Consent audit & transparency engine (Sheet #59).
+audit_engine.configure(db, logger, JWT_SECRET_KEY, JWT_ALGORITHM)
+app.include_router(audit_engine.build_user_router(get_current_user))
+app.include_router(audit_engine.build_admin_router(require_admin))
+app.middleware("http")(audit_engine.audit_middleware)
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
@@ -8820,6 +8827,12 @@ async def _ensure_indexes():
         await db.emergency_events.create_index([("user_id", 1), ("created_at", -1)])
         await db.notifications.create_index([("user_id", 1), ("read", 1), ("created_at", -1)])
         await db.notifications.create_index("meta.campaign_id")
+        await db.audit_events.create_index([("actor_id", 1), ("at", -1)])
+        await db.audit_events.create_index([("category", 1), ("at", -1)])
+        await db.audit_events.create_index([("risk_level", 1), ("at", -1)])
+        await db.audit_events.create_index("target_id")
+        await db.audit_alerts.create_index([("status", 1), ("at", -1)])
+        await db.consent_registry.create_index([("user_id", 1), ("type", 1), ("at", -1)])
         logger.info("indexes ensured")
     except Exception as e:
         logger.warning(f"index ensure: {e}")
