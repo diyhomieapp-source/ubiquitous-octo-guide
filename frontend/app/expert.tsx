@@ -33,7 +33,9 @@ export default function ExpertHub() {
         <View style={{ width: 28 }} />
       </View>
 
-      {loading ? <View style={styles.center}><ActivityIndicator size="large" color={colors.brandPrimary} /></View> : (
+      {loading ? <View style={styles.center}><ActivityIndicator size="large" color={colors.brandPrimary} /></View> : !me ? (
+        <View style={styles.center}><Text style={styles.empty}>Couldn&apos;t load the Expert Program. Pull back and try again.</Text></View>
+      ) : (
         <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + 40 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           {status === "approved" ? (
             <>
