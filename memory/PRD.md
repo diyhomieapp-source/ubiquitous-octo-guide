@@ -240,3 +240,14 @@ New features are now built as SEPARATE engine modules (audit_engine, certificati
 - server.py monolith refactor (P0, deferred — mitigated by new-module pattern).
 - Deferred #59 sub-item: lifecycle auto-prune/anonymize compliance automation.
 - Broken pending user keys: Perplexity (Code Check), AWS SES (Email Engine).
+
+---
+## Session update (fork) cont. — Sheet #62 shipped
+- **#62 Education Center & Learn-to-DIY Hub** — NEW `education_engine.py`: curriculum tracks + versioned lessons (steps/flashcards/safety), personal learning dashboard, lesson completion → micro-cert badge + deep-link to linked #54 quiz. User `/education` screen + admin EducationModule. Verified iteration 41 (backend 9/9 + frontend E2E).
+
+### PENDING QUEUE (updated) — build in order, each its own module + testing_agent:
+- **#61** Beta Feature Launch, Guided Onboarding & First-Touch Support Engine.
+- **#62(A) — STILL PENDING**: Dynamic Pro Pricing Calculator & AI Quote Engine (user pasted TWO specs as "#62"; the Education Center one is DONE, the Pro Pricing one is NOT built).
+- **#63** Global Skills Index & Community Impact Leaderboard (builds on #54 skills + #57 experts + #60 certs + #62 education).
+- **#64** Community Events, Group Projects & Local Campaign Engine.
+- Still deferred: server.py refactor (mitigated by module pattern), #59 lifecycle auto-prune/anonymize.
