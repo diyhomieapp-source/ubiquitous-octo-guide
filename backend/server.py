@@ -2911,6 +2911,99 @@ async def admin_neighborhood_dismiss(post_id: str, admin: dict = Depends(require
     return {"ok": True}
 
 
+# ================================================================ Disaster Response & Emergency Support (Sheet #30)
+EMERGENCY_SCENARIOS = [
+    {"key": "flood_water", "label": "Water / Flooding", "icon": "water", "trade": "Plumbing"},
+    {"key": "burst_pipe", "label": "Burst Pipe / Leak", "icon": "pipe-leak", "trade": "Plumbing"},
+    {"key": "fire_smoke", "label": "Fire / Smoke", "icon": "fire", "trade": "General Contractor"},
+    {"key": "storm_roof", "label": "Storm / Roof Damage", "icon": "weather-hurricane", "trade": "Roofing"},
+    {"key": "electrical", "label": "Electrical Hazard", "icon": "flash-alert", "trade": "Electrical"},
+    {"key": "gas_leak", "label": "Gas / Smell", "icon": "gas-cylinder", "trade": "HVAC"},
+    {"key": "structural", "label": "Structural Damage", "icon": "home-alert", "trade": "General Contractor"},
+    {"key": "other", "label": "Other Emergency", "icon": "alert-octagon", "trade": "General Contractor"},
+]
+_SCEN_MAP = {s["key"]: s for s in EMERGENCY_SCENARIOS}
+
+EMERGENCY_SYSTEM = (
+    "You are 'Homie,' a calm emergency home-triage expert. A homeowner has an URGENT hazard. "
+    "SAFETY IS THE ONLY PRIORITY — never suggest buying products or upsell during triage. "
+    "Give clear, calm, immediately actionable steps a scared non-expert can follow right now.\n"
+    "Location: {location}.\n"
+    "Respond ONLY with valid JSON (no markdown) with EXACTLY these keys:\n"
+    "  'severity': one of 'call_911' | 'urgent' | 'caution'.\n"
+    "  'call_authority': short string if they must call 911/gas company/utility NOW, else null.\n"
+    "  'headline': one short reassuring sentence telling them the first thing to do.\n"
+    "  'immediate_steps': array of 4-7 short imperative safety steps in order (e.g. 'Shut off the water main').\n"
+    "  'do_not': array of 3-5 short 'do NOT ...' warnings.\n"
+    "  'temp_fix': array of 2-4 short safe temporary-mitigation steps (only if safe).\n"
+    "  'document': array of 3-4 short steps to document damage for insurance (photos/video/notes).\n"
+    "  'when_to_call_pro': one short sentence on when to stop and call a professional."
+)
+
+
+class TriageReq(BaseModel):
+    scenario: str
+    description: str = ""
+    photo_base64: Optional[str] = None
+
+
+@api_router.get("/emergency/scenarios")
+async def emergency_scenarios(user: dict = Depends(get_current_user)):
+    return {"scenarios": [{"key": s["key"], "label": s["label"], "icon": s["icon"]} for s in EMERGENCY_SCENARIOS]}
+
+
+@api_router.post("/emergency/triage")
+async def emergency_triage(req: TriageReq, user: dict = Depends(get_current_user)):
+    scen = _SCEN_MAP.get(req.scenario, _SCEN_MAP["other"])
+    system = EMERGENCY_SYSTEM.format(location=user.get("location") or "United States") + lang_note(user)
+    user_text = (
+        f"EMERGENCY TYPE: {scen['label']}.\n"
+        f"What the homeowner reports: {req.description or '(no extra detail given)'}\n"
+        "Generate the emergency triage guide now."
+    )
+    try:
+        guide = await _llm_json(system, user_text, max_tokens=1200)
+    except Exception as e:
+        logger.error(f"emergency triage error: {e}")
+        guide = {
+            "severity": "urgent",
+            "call_authority": "If anyone is in danger, call 911 now.",
+            "headline": "Get everyone to safety first, then protect the home.",
+            "immediate_steps": ["Move people and pets to a safe area.", "Shut off the affected utility if you can do so safely.", "Avoid the hazard area."],
+            "do_not": ["Do not risk your safety for belongings."],
+            "temp_fix": [], "document": ["Take photos and video of all damage for insurance."],
+            "when_to_call_pro": "Call a licensed professional as soon as the area is safe.",
+        }
+    event = {
+        "id": new_id(), "user_id": user["id"], "scenario": scen["key"], "scenario_label": scen["label"],
+        "description": req.description[:1000], "photo_base64": req.photo_base64,
+        "guide": guide, "suggested_trade": scen["trade"], "created_at": now_iso(),
+    }
+    await db.emergency_events.insert_one(dict(event))
+    # log to the home twin timeline for insurance / FEMA records
+    try:
+        await db.timeline.insert_one({
+            "id": new_id(), "user_id": user["id"], "type": "emergency",
+            "story_title": f"⚠️ Emergency logged: {scen['label']}",
+            "story": (req.description or scen["label"])[:500],
+            "after_photo": req.photo_base64, "money_saved_cents": 0, "shared": False,
+            "created_at": now_iso(),
+        })
+    except Exception as e:
+        logger.warning(f"emergency timeline log failed: {e}")
+    await emit_event("emergency_reported", user["id"], {"scenario": scen["key"]})
+    return {
+        "id": event["id"], "scenario": scen["key"], "scenario_label": scen["label"],
+        "guide": guide, "suggested_trade": scen["trade"],
+    }
+
+
+@api_router.get("/emergency/events")
+async def emergency_events(user: dict = Depends(get_current_user)):
+    rows = await db.emergency_events.find({"user_id": user["id"]}, {"_id": 0, "photo_base64": 0}).sort("created_at", -1).to_list(100)
+    return rows
+
+
 # ---------------------------------------------------------------- support tickets
 class TicketReq(BaseModel):
     category: str
@@ -4909,6 +5002,7 @@ async def _ensure_indexes():
         await db.pro_jobs.create_index("id")
         await db.pro_invoices.create_index("job_id")
         await db.pro_invoices.create_index("id")
+        await db.emergency_events.create_index([("user_id", 1), ("created_at", -1)])
         logger.info("indexes ensured")
     except Exception as e:
         logger.warning(f"index ensure: {e}")

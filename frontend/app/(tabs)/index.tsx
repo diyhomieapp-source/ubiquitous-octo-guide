@@ -126,6 +126,10 @@ export default function Home() {
           <MaterialCommunityIcons name="account-voice" size={16} color="#FF6A00" />
           <Text style={styles.talkLiveText}>Talk to Homie live</Text>
         </Pressable>
+        <Pressable testID="home-emergency" style={styles.emergencyBtn} onPress={() => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning); router.push("/emergency"); }}>
+          <MaterialCommunityIcons name="shield-alert" size={15} color="#E5484D" />
+          <Text style={styles.emergencyText}>Report an Emergency</Text>
+        </Pressable>
       </View>
 
       {/* bottom interaction zone */}
@@ -196,6 +200,8 @@ const styles = StyleSheet.create({
   greetSub: { color: "rgba(255,255,255,0.55)", fontFamily: font.regular, fontSize: type.lg, lineHeight: 24, textAlign: "center", marginTop: spacing.md, maxWidth: 320 },
   talkLive: { flexDirection: "row", alignItems: "center", gap: spacing.xs, backgroundColor: "rgba(255,106,0,0.12)", borderColor: "rgba(255,106,0,0.45)", borderWidth: 1, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, borderRadius: radius.pill, marginTop: spacing.xl },
   talkLiveText: { color: "#FF6A00", fontFamily: font.bold, fontSize: type.base },
+  emergencyBtn: { flexDirection: "row", alignItems: "center", gap: spacing.xs, backgroundColor: "rgba(229,72,77,0.12)", borderColor: "rgba(229,72,77,0.5)", borderWidth: 1, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.pill, marginTop: spacing.sm },
+  emergencyText: { color: "#E5484D", fontFamily: font.bold, fontSize: type.sm },
 
   bottom: { paddingHorizontal: spacing.lg },
   resumePill: { flexDirection: "row", alignItems: "center", gap: spacing.sm, backgroundColor: "rgba(255,255,255,0.06)", borderColor: "rgba(255,106,0,0.4)", borderWidth: 1, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, marginBottom: spacing.md, alignSelf: "flex-start", maxWidth: "100%" },

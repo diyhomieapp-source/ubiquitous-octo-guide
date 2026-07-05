@@ -1,0 +1,31 @@
+{
+  "summary": "Sheet #30 (Disaster Response & Emergency Support) validated end-to-end. Backend: 10/10 pytest passed (scenarios auth gate, 8 scenarios returned, burst_pipe/fire_smoke/electrical/other triage with correct suggested_trade, guide keys severity/headline/immediate_steps/do_not/document/when_to_call_pro, no commercial CTA in guide text, /emergency/events grows after triage and does NOT leak photo_base64, timeline entry with 'Emergency logged' created and visible via /api/portfolio & /api/home). Frontend: login → Home shows red 'Report an Emergency' pill (home-emergency), Profile has row (profile-emergency) both navigating to /emergency; 8 scenario cards render (emg-scenario-*), tapping burst_pipe streams AI guide in ~5s with URGENT severity banner, numbered 'Do this now', 'Do NOT', 'Safe temporary fixes', 'Document for insurance' sections; after-triage buttons emg-find-pros/emg-ask-neighbors/emg-records all present and route correctly; emg-new resets to grid. Unauthenticated /api/emergency/scenarios returns 403.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_emergency_sheet30.py",
+    "/app/test_reports/pytest/emergency_sheet30.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Feature is safety-first as intended: guide prompt explicitly forbids product/upsell during triage; frontend only surfaces commercial-adjacent CTAs (Find pros/Ask neighbors) AFTER the safety triage is rendered.",
+    "server.py already exceeds 5000 lines (existing tech debt noted in earlier iterations; not introduced by #30). Consider splitting into feature modules — non-blocking."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_emergency_sheet30.py (new)"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "seed_data_creation": "None. Tests create emergency events under demo_home@diyhomie.com (descriptions prefixed with TEST_ where relevant); events are per-user and non-destructive.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Sheet #30 endpoints: GET /api/emergency/scenarios (auth), POST /api/emergency/triage {scenario, description, photo_base64?}, GET /api/emergency/events. Triage uses gpt-4o-mini via Emergent key (~5-15s). Every triage inserts a timeline doc (type='emergency') — timeline is exposed through /api/portfolio and /api/home but the projection strips the raw `type` field; identify emergency entries by story_title prefix '⚠️ Emergency logged:'. photo_base64 is stored on the raw emergency_events doc but excluded from /api/emergency/events responses. Frontend testIDs: home-emergency, profile-emergency, emg-back, emg-desc, emg-scenario-{key}, emg-find-pros, emg-ask-neighbors, emg-records, emg-new. Login flow: /landing → 'I already have an account' → /auth?mode=login → email/password → 'Log in' button.",
+  "rca_of_issue": "N/A — no bugs found."
+}
