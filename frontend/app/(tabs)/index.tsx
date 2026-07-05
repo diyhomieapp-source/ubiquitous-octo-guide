@@ -127,9 +127,9 @@ export default function Home() {
           </Animated.View>
         </Pressable>
         <Text style={styles.greet}>
-          {user?.name ? `Hey ${user.name.split(" ")[0]} —` : "Hey there —"}{"\n"}what are we building?
+          {user?.name ? `Hey ${user.name.split(" ")[0]} —` : "Hey there —"}{"\n"}what are we working on?
         </Text>
-        <Text style={styles.greetSub}>{"Tell me any repair, project or upgrade. I'll build your step-by-step plan."}</Text>
+        <Text style={styles.greetSub}>{"Any repair, maintenance job or home upgrade — I'll build your step-by-step plan."}</Text>
         <Pressable testID="home-talk-live" style={styles.talkLive} onPress={() => { Haptics.selectionAsync(); router.push("/homie"); }}>
           <MaterialCommunityIcons name="account-voice" size={16} color="#FF6A00" />
           <Text style={styles.talkLiveText}>Talk to Homie live</Text>

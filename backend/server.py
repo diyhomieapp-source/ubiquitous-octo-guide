@@ -3130,20 +3130,21 @@ async def admin_broadcast(req: BroadcastReq, admin: dict = Depends(require_admin
         q = {"tags": seg.split(":", 1)[1]}
     users = await db.users.find(q, {"_id": 0, "id": 1}).to_list(50000)
     ntype = req.ntype if req.ntype in NOTIF_TYPES else "system"
+    priority = req.priority if req.priority in ("urgent", "normal", "low") else "normal"
     campaign_id = new_id()
-    docs = [{
-        "id": new_id(), "user_id": u["id"], "type": ntype, "title": req.title[:140], "body": req.body[:500],
-        "priority": req.priority if req.priority in ("urgent", "normal", "low") else "normal",
-        "meta": {"campaign_id": campaign_id}, "read": False, "created_at": now_iso(),
-    } for u in users]
-    if docs:
-        await db.notifications.insert_many(docs)
+    sent = 0
+    for u in users:
+        # push_notification enforces per-user preferences (safety/urgent override)
+        doc = await push_notification(u["id"], title=req.title, body=req.body, ntype=ntype,
+                                      priority=priority, meta={"campaign_id": campaign_id})
+        if doc:
+            sent += 1
     await db.notif_campaigns.insert_one({
-        "id": campaign_id, "title": req.title[:140], "body": req.body[:500], "priority": req.priority,
-        "ntype": ntype, "segment": seg, "recipients": len(docs), "created_at": now_iso(),
+        "id": campaign_id, "title": req.title[:140], "body": req.body[:500], "priority": priority,
+        "ntype": ntype, "segment": seg, "recipients": sent, "created_at": now_iso(),
         "created_by": admin.get("email"),
     })
-    return {"ok": True, "recipients": len(docs), "campaign_id": campaign_id}
+    return {"ok": True, "recipients": sent, "campaign_id": campaign_id}
 
 
 @api_router.get("/admin/notifications/campaigns")
