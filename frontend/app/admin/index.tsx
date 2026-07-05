@@ -31,8 +31,9 @@ import { CampaignsModule } from "@/src/components/admin/CampaignsModule";
 import { ExportModule } from "@/src/components/admin/ExportModule";
 import { AppStoreModule } from "@/src/components/admin/AppStoreModule";
 import { MonitoringModule } from "@/src/components/admin/MonitoringModule";
+import { InvestorModule } from "@/src/components/admin/InvestorModule";
 
-type Mod = "overview" | "finance" | "roi" | "freemium" | "quizzes" | "experts" | "certs" | "education" | "campaigns" | "export" | "appstore" | "monitoring" | "crm" | "vendors" | "suppliers" | "kits" | "proleads" | "proaccounts" | "credentials" | "partners" | "prompts" | "audit" | "notifications" | "automations" | "features" | "email" | "affiliate" | "feedback" | "tickets" | "blog";
+type Mod = "overview" | "finance" | "roi" | "freemium" | "quizzes" | "experts" | "certs" | "education" | "campaigns" | "export" | "appstore" | "monitoring" | "investor" | "crm" | "vendors" | "suppliers" | "kits" | "proleads" | "proaccounts" | "credentials" | "partners" | "prompts" | "audit" | "notifications" | "automations" | "features" | "email" | "affiliate" | "feedback" | "tickets" | "blog";
 const MODULES: { key: Mod; label: string; icon: string }[] = [
   { key: "overview", label: "Overview", icon: "view-dashboard-outline" },
   { key: "finance", label: "CFO Dashboard", icon: "finance" },
@@ -52,6 +53,7 @@ const MODULES: { key: Mod; label: string; icon: string }[] = [
   { key: "export", label: "Data & Reports", icon: "file-chart-outline" },
   { key: "appstore", label: "Integration Store", icon: "puzzle-outline" },
   { key: "monitoring", label: "DevOps & Monitoring", icon: "heart-pulse" },
+  { key: "investor", label: "Investor Reporting", icon: "chart-box-outline" },
   { key: "proleads", label: "Pro Leads", icon: "account-hard-hat" },
   { key: "proaccounts", label: "Pro Accounts", icon: "briefcase-check-outline" },
   { key: "credentials", label: "Credential Checks", icon: "certificate-outline" },
@@ -142,6 +144,7 @@ export default function AdminWorkstation() {
         {mod === "export" && <ExportModule />}
         {mod === "appstore" && <AppStoreModule />}
         {mod === "monitoring" && <MonitoringModule />}
+        {mod === "investor" && <InvestorModule />}
         {mod === "proleads" && <ProLeadsModule />}
         {mod === "proaccounts" && <ProAccountsModule />}
         {mod === "credentials" && <CredentialsModule />}

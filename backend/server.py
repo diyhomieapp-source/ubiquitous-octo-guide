@@ -37,6 +37,7 @@ import campaign_engine
 import export_engine
 import appstore_engine
 import monitoring_engine
+import investor_engine
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -8815,6 +8816,10 @@ app.include_router(appstore_engine.build_admin_router(require_admin))
 monitoring_engine.configure(db, logger)
 app.include_router(monitoring_engine.build_admin_router(require_admin))
 app.middleware("http")(monitoring_engine.monitoring_middleware)
+
+# Investor / Stakeholder Reporting Suite (Sheet #68) — admin/founder.
+investor_engine.configure(db, logger, _llm_json, PLAN_TIERS)
+app.include_router(investor_engine.build_admin_router(require_admin))
 
 app.add_middleware(
     CORSMiddleware,
