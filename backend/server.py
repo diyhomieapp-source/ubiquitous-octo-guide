@@ -3427,6 +3427,89 @@ async def admin_partners(admin: dict = Depends(require_admin)):
     }
 
 
+# ================================================================ AI Critical Path & Risk Audit (Sheet #47)
+async def _run_project_audit(user: dict, project: dict) -> dict:
+    steps = project.get("steps", [])
+    done = sum(1 for s in steps if s.get("done"))
+    step_lines = "\n".join(f"{i+1}. {s.get('title')}: {s.get('instruction','')} [{'done' if s.get('done') else 'todo'}]"
+                           for i, s in enumerate(steps)) or "(no detailed steps yet)"
+    system = (
+        "You are a master contractor performing a project risk & critical-path audit for a DIY homeowner. "
+        "Assess sequencing/dependencies, the homeowner's skill fit, safety, code/permit needs, and weather/region constraints. "
+        "Return ONLY valid JSON (no markdown): {"
+        "'risk_score': int 0-100 (higher = riskier), 'confidence': int 0-100 (likelihood of successful completion), "
+        "'path_status': one of 'optimal'|'caution'|'at_risk', "
+        "'factors': array of up to 5 {'key': short_id, 'label': str, 'level': 'low'|'medium'|'high', 'note': one sentence}, "
+        "'next_action': one concrete recommended next step (<20 words), "
+        "'reschedule': null or a short string if a step should be paused/reordered (e.g. weather/dependency), "
+        "'summary': 2 sentences, encouraging but honest}."
+    )
+    user_text = (
+        f"Project: '{project.get('title')}'. Location: {project.get('location') or user.get('location') or 'unknown'}. "
+        f"Homeowner experience: {user.get('experience') or 'Weekend Warrior'}. "
+        f"Progress: {done}/{len(steps)} steps done.\nSteps:\n{step_lines}"
+    )
+    try:
+        data = await _llm_json(system, user_text, max_tokens=600)
+    except Exception as e:
+        logger.warning(f"audit failed: {e}")
+        data = {}
+    # sanitize
+    audit = {
+        "risk_score": max(0, min(100, int(data.get("risk_score", 40) or 40))),
+        "confidence": max(0, min(100, int(data.get("confidence", 70) or 70))),
+        "path_status": data.get("path_status") if data.get("path_status") in ("optimal", "caution", "at_risk") else "caution",
+        "factors": (data.get("factors") or [])[:5],
+        "next_action": data.get("next_action") or "Review your next step and gather any missing materials.",
+        "reschedule": data.get("reschedule") or None,
+        "summary": data.get("summary") or "Your project is progressing. Keep an eye on safety-critical steps.",
+        "steps_count": len(steps), "done_count": done, "generated_at": now_iso(),
+    }
+    return audit
+
+
+@api_router.get("/projects/{project_id}/audit")
+async def project_audit(project_id: str, refresh: int = 0, user: dict = Depends(get_current_user)):
+    project = await db.projects.find_one({"id": project_id, "user_id": user["id"]}, {"_id": 0})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found.")
+    steps = project.get("steps", [])
+    done = sum(1 for s in steps if s.get("done"))
+    cache = project.get("audit")
+    if cache and not refresh and cache.get("steps_count") == len(steps) and cache.get("done_count") == done:
+        return cache
+    audit = await _run_project_audit(user, project)
+    await db.projects.update_one({"id": project_id}, {"$set": {"audit": audit}})
+    return audit
+
+
+@api_router.post("/projects/{project_id}/reflect")
+async def project_reflect(project_id: str, user: dict = Depends(get_current_user)):
+    project = await db.projects.find_one({"id": project_id, "user_id": user["id"]}, {"_id": 0})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found.")
+    steps = project.get("steps", [])
+    step_lines = "\n".join(f"- {s.get('title')}" for s in steps) or "(project)"
+    system = (
+        "You are a supportive DIY coach writing a short post-project reflection card. Return ONLY JSON: "
+        "{'went_well': array of 2-3 short strings, 'pitfalls': array of 1-3 short strings, "
+        "'next_time': array of 2-3 short actionable tips}."
+    )
+    user_text = f"Project '{project.get('title')}' with steps:\n{step_lines}\nStatus: {project.get('status')}."
+    try:
+        data = await _llm_json(system, user_text, max_tokens=400)
+    except Exception:
+        data = {}
+    card = {
+        "went_well": (data.get("went_well") or ["You made real progress on your home."])[:3],
+        "pitfalls": (data.get("pitfalls") or [])[:3],
+        "next_time": (data.get("next_time") or ["Plan materials ahead of each step."])[:3],
+        "created_at": now_iso(),
+    }
+    await db.projects.update_one({"id": project_id}, {"$set": {"reflection": card}})
+    return card
+
+
 
 # ---------------------------------------------------------------- community (Pro-Earn)
 class PostReq(BaseModel):

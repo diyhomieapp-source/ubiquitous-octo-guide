@@ -265,3 +265,9 @@ NOTE: generation is a single backend call, so stages are time-progressed (approx
 - Frontend app/developer.tsx (API Keys / Webhooks / API Docs tabs; key copy via expo-clipboard). Admin PartnersModule (nav admin-nav-partners). Profile row profile-developer.
 - CURL-VERIFIED E2E: create key → v1/me + v1/projects 200, no key → 401, webhook create + test-fire (delivery logged), admin partners totals. Lint clean. Frontend E2E via agent PENDING (pattern-consistent with verified screens).
 - STILL QUEUED: #41 Tool Rental & Peer Lending, #42 Resell/Donation Marketplace (extend #35 Materials Exchange), #43 AR Instruction Builder, #44 Order/Supply-Chain Tracking, #45 Skill Exchange Marketplace.
+
+## Iteration 5 — AI Critical Path & Risk Audit #47 (main agent, forked)
+- Backend: GET /api/projects/{id}/audit (AI risk/confidence scoring via _llm_json gpt-4o-mini; cached by steps_count+done_count; ?refresh=1 to recompute) returns {risk_score, confidence, path_status, factors[], next_action, reschedule, summary}. POST /api/projects/{id}/reflect (post-mortem card: went_well/pitfalls/next_time).
+- Frontend: src/components/RiskAuditCard.tsx (collapsible: run audit CTA → confidence bar, factors w/ level dots, next action, re-run). Rendered in app/project/[id].tsx when project has steps.
+- CURL-VERIFIED: audit returns risk 30/confidence 70/5 factors on a demo project. Lint clean. Frontend E2E via agent PENDING (pattern-consistent).
+- STILL QUEUED: #41 Tool Rental & Peer Lending, #42 Resell/Donation Marketplace (fold into #35 Materials Exchange), #43 AR Instruction Builder, #44 Order/Supply-Chain Tracking, #45 Skill Exchange Marketplace.

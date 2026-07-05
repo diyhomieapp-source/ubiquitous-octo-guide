@@ -18,6 +18,7 @@ import { CalculatorSheet } from "@/src/components/CalculatorSheet";
 import { SupplyDrawer } from "@/src/components/SupplyDrawer";
 import { CompletionModal } from "@/src/components/CompletionModal";
 import { CodeCheckCard, projectNeedsCode } from "@/src/components/CodeCheckCard";
+import { RiskAuditCard } from "@/src/components/RiskAuditCard";
 import { calculatorForProject } from "@/src/calculators/registry";
 
 type Step = { id: string; index: number; title: string; instruction: string; visual_description: string; image_base64: string | null; done: boolean; added?: boolean };
@@ -300,6 +301,8 @@ export default function Workspace() {
           {projectNeedsCode(project?.title) && (
             <CodeCheckCard projectTitle={project?.title} projectId={id} />
           )}
+
+          {project.steps.length > 0 && <RiskAuditCard projectId={id as string} />}
 
           {(g?.safety_warnings?.length || 0) > 0 && (
             <Section title="SAFETY FIRST" icon="shield-alert-outline">
