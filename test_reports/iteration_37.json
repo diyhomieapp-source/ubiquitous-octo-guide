@@ -1,0 +1,54 @@
+{
+  "summary": "Sheet #57 (Expert / Mentor / Knowledge Partner Platform) tested end-to-end. Backend: 24/24 pytest cases PASSED covering /expert/me, apply-pending-approve, guide draft/edit/submit, admin publish + credits bump, public /knowledge feed + category filter + detail view + views increment + rate + flag, /knowledge/mentors, admin analytics/flags/list, non-admin 403 guardrails, and admin delete cleanup. Route ordering (/knowledge/mentors before /knowledge/{id}) verified working — mentors call returns proper list, not treated as guide_id. Mobile UI (375x812): login → /expert shows approved 'Certified Pro / Electrical & Lighting / 75 credits' hero with the existing published guide 'Safely Replace a Light Fixture' + New Guide toggle; /knowledge lists it under Pro Guides tab with category chips + search, detail modal opens with Steps + Safety + 5-star rate + Report an issue; Mentors tab renders. Admin web (1280x800): Diyhomieapp login → 'Experts & Knowledge' nav loads analytics header (2 Applications, 0 Pending, 2 Approved, 1 Published, 1 Flags) with 3 working tabs (Applications, Guide QA showing Publish/Obsolete/Reject/Delete controls, Flags). One LATENT UI bug found in /expert crash-guard (see frontend_issues). All test data cleaned up (guide via admin DELETE + throwaway user/application purged directly from MongoDB).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "app/expert.tsx (ExpertHub)",
+        "issue": "When /expert/me API call fails (network hiccup, expired/invalid token, or unauthenticated user landing on route directly), setMe is never called, `me` stays null but `loading` flips to false in the finally block. The render then reaches `<ApplyForm types={me!.types} …/>` (line 71) and crashes with `TypeError: Cannot read properties of null (reading 'types')`. Reproduced via unauthenticated navigation → red-screen error boundary. Fix: guard the render with `if (!me) return null` (or an error card) after loading finishes. Reference: /app/frontend/app/expert.tsx:71",
+        "testID": "n/a",
+        "priority": "MEDIUM"
+      },
+      {
+        "component": "src/components/admin/ExpertsModule.tsx tab labels",
+        "issue": "The 'Applications (N)' tab label uses only pending count (correct) but the analytics card and tab number can mismatch user expectation when Applications list actually shows approved + rejected too. Consider labeling the tab 'Applications (pending: 0)' or splitting. Cosmetic only.",
+        "testID": "experts-tab-apps",
+        "priority": "LOW"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_experts_knowledge_sheet57.py",
+    "/app/test_reports/pytest/experts_knowledge_sheet57_results.xml"
+  ],
+  "action_items": [
+    "Add a null guard in /app/frontend/app/expert.tsx line 71: e.g. `if (!me) return <View style={styles.center}><Text>Couldn't load expert data.</Text></View>;` before rendering ApplyForm — prevents red-screen when /expert/me fails or is called without auth.",
+    "(Optional/low) Consider exposing an admin endpoint to delete expert applications (currently only guides have DELETE) so admins can prune rejected/spam applicants without a DB hit.",
+    "(Optional/low) Applications tab count label reads '(0)' when there are only approved apps left — either rename tab to 'Pending applications' or show total count for less confusion."
+  ],
+  "critical_code_review_comments": [
+    "Route ordering handled correctly — `/knowledge/mentors` declared before `/knowledge/{id}`; verified via tests (would otherwise 404 as guide).",
+    "Publish credits bump uses `$inc: {'expert.credits': 25}` which is fine since expert doc always exists once approved; a $setOnInsert nested-path safeguard would be even safer.",
+    "expert_apply passes credential_image (base64) but there's no size cap on the endpoint — potential DoS/large-doc issue. Recommend a MAX_LEN on ExpertApplyReq.credential_image (e.g. 500 KB) and same for GuideReq.media.",
+    "All endpoints properly exclude MongoDB `_id`. Non-admin 403 gating verified on every admin route in the suite."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_experts_knowledge_sheet57.py (created)",
+    "/app/test_reports/pytest/experts_knowledge_sheet57_results.xml (created by pytest)"
+  ],
+  "success_rate": {
+    "backend": "100% (24/24 pytest)",
+    "frontend": "~95% — approved-expert workspace, knowledge feed/detail/rate/flag, mentors tab, and admin experts module all work; only latent /expert null-guard crash for unauthenticated/API-failure edge case."
+  },
+  "seed_data_creation": "Test run created 1 throwaway user (test_expert_*@diyhomie.com), 1 expert_application, and 1 expert_guides doc. All cleaned up after tests: guide deleted via admin DELETE /api/admin/knowledge/{id}; throwaway user + application purged directly from MongoDB post-run. No production seeded data (demo_home, Diyhomieapp) modified except demo_home's guide picked up 2 additional views + 1 rating + 1 flag from the tests (harmless).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend tests live at /app/backend/tests/test_experts_knowledge_sheet57.py — run with `EXPO_PUBLIC_BACKEND_URL=<public> pytest`. demo_home is a pre-seeded APPROVED Certified Pro with 1 published guide 'Safely Replace a Light Fixture' (Electrical). Admin analytics baseline: 1 Application (Jordan, demo_home), 1 Approved, 1 Guide, 1 Published. If tests are re-run they auto-create + clean their own throwaway data.",
+  "rca_of_issue": "The /expert render crash is a defensive-coding gap. `useCallback(load)` swallows the api() error in a try/catch and always calls `setLoading(false)` in finally. Because setMe is skipped on error, `me` remains null, but the render still executes the else-branch that dereferences me!.types/categories. Add early-return guard `if (!me) return <ErrorCard/>` after loading finishes."
+}

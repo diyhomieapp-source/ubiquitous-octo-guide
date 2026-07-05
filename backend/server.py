@@ -8312,6 +8312,251 @@ async def seed_quizzes():
     logger.info("skill quizzes seeded")
 
 
+# ================================================================ Expert / Mentor / Knowledge Partner Platform (Sheet #57)
+EXPERT_TYPES = ["Community Mentor", "Certified Pro", "Content Partner", "OEM / Product Expert"]
+KNOWLEDGE_CATEGORIES = ["Kitchen", "Bathroom", "Flooring", "Painting", "Electrical", "Plumbing", "Outdoor", "Safety", "General"]
+
+
+class ExpertApplyReq(BaseModel):
+    type: str
+    specialty: str
+    license: Optional[str] = ""
+    bio: str = ""
+    credential_image: Optional[str] = None  # base64
+
+
+class ExpertReviewReq(BaseModel):
+    decision: str  # approve | reject
+    note: Optional[str] = ""
+
+
+class GuideReq(BaseModel):
+    title: str
+    category: str = "General"
+    summary: str = ""
+    body: str = ""
+    steps: List[str] = []
+    safety: List[str] = []
+    media: Optional[str] = None  # base64 hero image
+
+
+class KnowledgeReviewReq(BaseModel):
+    decision: str  # publish | reject | obsolete
+    note: Optional[str] = ""
+
+
+class RateReq(BaseModel):
+    rating: int  # 1-5
+
+
+class FlagReq(BaseModel):
+    reason: str
+
+
+def _expert_of(user: dict) -> dict:
+    return user.get("expert") or {}
+
+
+@api_router.get("/expert/me")
+async def expert_me(user: dict = Depends(get_current_user)):
+    fresh = await db.users.find_one({"id": user["id"]}, {"_id": 0, "expert": 1, "name": 1})
+    exp = (fresh or {}).get("expert") or {}
+    guides = await db.expert_guides.find({"author_id": user["id"]}, {"_id": 0, "body": 0}).sort("created_at", -1).to_list(100)
+    return {"expert": exp, "types": EXPERT_TYPES, "categories": KNOWLEDGE_CATEGORIES, "guides": guides}
+
+
+@api_router.post("/expert/apply")
+async def expert_apply(req: ExpertApplyReq, user: dict = Depends(get_current_user)):
+    if req.type not in EXPERT_TYPES:
+        raise HTTPException(status_code=400, detail="Invalid expert type")
+    exp = _expert_of(user)
+    if exp.get("status") == "approved":
+        raise HTTPException(status_code=400, detail="You're already a verified contributor")
+    app_doc = {"id": new_id(), "user_id": user["id"], "name": user.get("name") or user["email"].split("@")[0],
+               "email": user.get("email"), "type": req.type, "specialty": req.specialty,
+               "license": req.license, "bio": req.bio, "credential_image": req.credential_image,
+               "status": "pending", "created_at": now_iso()}
+    await db.expert_applications.insert_one(app_doc)
+    await db.users.update_one({"id": user["id"]}, {"$set": {"expert": {
+        "type": req.type, "specialty": req.specialty, "status": "pending",
+        "credits": 0, "badge": None, "application_id": app_doc["id"]}}})
+    return {"ok": True, "status": "pending"}
+
+
+@api_router.post("/expert/guides")
+async def create_guide(req: GuideReq, user: dict = Depends(get_current_user)):
+    exp = _expert_of(user)
+    if exp.get("status") != "approved":
+        raise HTTPException(status_code=403, detail="Only verified contributors can author guides")
+    doc = {"id": new_id(), "author_id": user["id"], "author_name": user.get("name") or user["email"].split("@")[0],
+           "author_type": exp.get("type"), "title": req.title.strip(), "category": req.category,
+           "summary": req.summary, "body": req.body, "steps": req.steps, "safety": req.safety,
+           "media": req.media, "status": "draft", "version": 1, "views": 0,
+           "rating_sum": 0, "rating_count": 0, "flags": [], "created_at": now_iso(), "updated_at": now_iso()}
+    await db.expert_guides.insert_one(doc)
+    return {"ok": True, "id": doc["id"]}
+
+
+@api_router.put("/expert/guides/{guide_id}")
+async def update_guide(guide_id: str, req: GuideReq, user: dict = Depends(get_current_user)):
+    g = await db.expert_guides.find_one({"id": guide_id, "author_id": user["id"]}, {"_id": 0})
+    if not g:
+        raise HTTPException(status_code=404, detail="Guide not found")
+    await db.expert_guides.update_one({"id": guide_id}, {"$set": {
+        "title": req.title.strip(), "category": req.category, "summary": req.summary, "body": req.body,
+        "steps": req.steps, "safety": req.safety, "media": req.media,
+        "version": g.get("version", 1) + 1, "status": "draft", "updated_at": now_iso()}})
+    return {"ok": True}
+
+
+@api_router.post("/expert/guides/{guide_id}/submit")
+async def submit_guide(guide_id: str, user: dict = Depends(get_current_user)):
+    r = await db.expert_guides.update_one({"id": guide_id, "author_id": user["id"]}, {"$set": {"status": "pending", "updated_at": now_iso()}})
+    if not r.matched_count:
+        raise HTTPException(status_code=404, detail="Guide not found")
+    return {"ok": True, "status": "pending"}
+
+
+def _guide_public(g: dict, full: bool = False) -> dict:
+    rc = g.get("rating_count", 0)
+    d = {"id": g["id"], "title": g["title"], "category": g.get("category"), "summary": g.get("summary"),
+         "author_name": g.get("author_name"), "author_type": g.get("author_type"),
+         "views": g.get("views", 0), "rating": round(g.get("rating_sum", 0) / rc, 1) if rc else 0,
+         "rating_count": rc, "created_at": g.get("created_at"), "media": g.get("media") if full else None,
+         "status": g.get("status")}
+    if full:
+        d.update({"body": g.get("body"), "steps": g.get("steps", []), "safety": g.get("safety", [])})
+    return d
+
+
+@api_router.get("/knowledge")
+async def knowledge_feed(category: Optional[str] = None, q: Optional[str] = None, user: dict = Depends(get_current_user)):
+    query = {"status": "published"}
+    if category and category != "All":
+        query["category"] = category
+    rows = await db.expert_guides.find(query, {"_id": 0, "body": 0}).sort([("rating_sum", -1), ("views", -1)]).to_list(300)
+    if q:
+        ql = q.lower()
+        rows = [g for g in rows if ql in (g.get("title", "") + g.get("summary", "")).lower()]
+    return {"guides": [_guide_public(g) for g in rows], "categories": KNOWLEDGE_CATEGORIES}
+
+
+@api_router.get("/knowledge/mentors")
+async def knowledge_mentors(specialty: Optional[str] = None, user: dict = Depends(get_current_user)):
+    query = {"expert.status": "approved"}
+    rows = await db.users.find(query, {"_id": 0, "name": 1, "email": 1, "expert": 1}).to_list(200)
+    mentors = []
+    for u in rows:
+        e = u.get("expert") or {}
+        if specialty and specialty.lower() not in (e.get("specialty", "").lower()):
+            continue
+        mentors.append({"name": u.get("name") or u.get("email", "").split("@")[0], "type": e.get("type"),
+                        "specialty": e.get("specialty"), "badge": e.get("badge"), "credits": e.get("credits", 0)})
+    mentors.sort(key=lambda m: -m.get("credits", 0))
+    return {"mentors": mentors}
+
+
+@api_router.get("/knowledge/{guide_id}")
+async def knowledge_detail(guide_id: str, user: dict = Depends(get_current_user)):
+    g = await db.expert_guides.find_one({"id": guide_id, "status": "published"}, {"_id": 0})
+    if not g:
+        raise HTTPException(status_code=404, detail="Guide not found")
+    await db.expert_guides.update_one({"id": guide_id}, {"$inc": {"views": 1}})
+    return _guide_public(g, full=True)
+
+
+@api_router.post("/knowledge/{guide_id}/rate")
+async def rate_guide(guide_id: str, req: RateReq, user: dict = Depends(get_current_user)):
+    if not 1 <= req.rating <= 5:
+        raise HTTPException(status_code=400, detail="Rating must be 1-5")
+    await db.expert_guides.update_one({"id": guide_id}, {"$inc": {"rating_sum": req.rating, "rating_count": 1}})
+    return {"ok": True}
+
+
+@api_router.post("/knowledge/{guide_id}/flag")
+async def flag_guide(guide_id: str, req: FlagReq, user: dict = Depends(get_current_user)):
+    await db.expert_guides.update_one({"id": guide_id}, {"$push": {"flags": {
+        "user_id": user["id"], "reason": req.reason[:200], "at": now_iso()}}})
+    return {"ok": True}
+
+
+# ---- admin: expert & knowledge governance
+@api_router.get("/admin/experts")
+async def admin_list_experts(status: Optional[str] = None, admin: dict = Depends(require_admin)):
+    query = {} if not status else {"status": status}
+    rows = await db.expert_applications.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
+    return {"applications": rows, "types": EXPERT_TYPES}
+
+
+@api_router.get("/admin/experts/analytics")
+async def admin_expert_analytics(admin: dict = Depends(require_admin)):
+    apps = await db.expert_applications.find({}, {"_id": 0, "credential_image": 0}).to_list(2000)
+    guides = await db.expert_guides.find({}, {"_id": 0, "body": 0, "media": 0}).to_list(2000)
+    by_status = {}
+    for a in apps:
+        by_status[a["status"]] = by_status.get(a["status"], 0) + 1
+    g_status = {}
+    for g in guides:
+        g_status[g["status"]] = g_status.get(g["status"], 0) + 1
+    flags = sum(len(g.get("flags") or []) for g in guides)
+    top = sorted(guides, key=lambda g: -g.get("views", 0))[:5]
+    return {"totals": {"applications": len(apps), "pending": by_status.get("pending", 0),
+                       "approved": by_status.get("approved", 0), "guides": len(guides),
+                       "published": g_status.get("published", 0), "pending_review": g_status.get("pending", 0),
+                       "flags": flags},
+            "app_status": by_status, "guide_status": g_status,
+            "top_guides": [{"title": g["title"], "views": g.get("views", 0), "author": g.get("author_name")} for g in top]}
+
+
+@api_router.post("/admin/experts/{app_id}/review")
+async def admin_review_expert(app_id: str, req: ExpertReviewReq, admin: dict = Depends(require_admin)):
+    app_doc = await db.expert_applications.find_one({"id": app_id}, {"_id": 0})
+    if not app_doc:
+        raise HTTPException(status_code=404, detail="Application not found")
+    status = "approved" if req.decision == "approve" else "rejected"
+    await db.expert_applications.update_one({"id": app_id}, {"$set": {"status": status, "review_note": req.note, "reviewed_at": now_iso()}})
+    expert = {"type": app_doc["type"], "specialty": app_doc["specialty"], "status": status,
+              "credits": 50 if status == "approved" else 0,
+              "badge": f"{app_doc['type']}" if status == "approved" else None, "application_id": app_id}
+    await db.users.update_one({"id": app_doc["user_id"]}, {"$set": {"expert": expert}})
+    return {"ok": True, "status": status}
+
+
+@api_router.get("/admin/knowledge")
+async def admin_list_knowledge(status: Optional[str] = None, admin: dict = Depends(require_admin)):
+    query = {} if not status else {"status": status}
+    rows = await db.expert_guides.find(query, {"_id": 0, "media": 0}).sort("updated_at", -1).to_list(500)
+    return {"guides": [{**_guide_public(g, full=False), "flag_count": len(g.get("flags") or []),
+                        "version": g.get("version", 1), "author_id": g.get("author_id")} for g in rows]}
+
+
+@api_router.get("/admin/knowledge/flags")
+async def admin_knowledge_flags(admin: dict = Depends(require_admin)):
+    rows = await db.expert_guides.find({"flags.0": {"$exists": True}}, {"_id": 0, "body": 0, "media": 0}).to_list(300)
+    return {"flagged": [{"id": g["id"], "title": g["title"], "status": g["status"],
+                         "flags": g.get("flags", [])} for g in rows]}
+
+
+@api_router.post("/admin/knowledge/{guide_id}/review")
+async def admin_review_knowledge(guide_id: str, req: KnowledgeReviewReq, admin: dict = Depends(require_admin)):
+    g = await db.expert_guides.find_one({"id": guide_id}, {"_id": 0})
+    if not g:
+        raise HTTPException(status_code=404, detail="Guide not found")
+    status = {"publish": "published", "reject": "rejected", "obsolete": "obsolete"}.get(req.decision)
+    if not status:
+        raise HTTPException(status_code=400, detail="Invalid decision")
+    await db.expert_guides.update_one({"id": guide_id}, {"$set": {"status": status, "review_note": req.note, "reviewed_at": now_iso()}})
+    if status == "published":
+        await db.users.update_one({"id": g["author_id"]}, {"$inc": {"expert.credits": 25}})
+    return {"ok": True, "status": status}
+
+
+@api_router.delete("/admin/knowledge/{guide_id}")
+async def admin_delete_knowledge(guide_id: str, admin: dict = Depends(require_admin)):
+    await db.expert_guides.delete_one({"id": guide_id})
+    return {"ok": True}
+
+
 app.include_router(api_router)
 
 # Built-in autoresponder / email engine (separate module to keep server.py lean).

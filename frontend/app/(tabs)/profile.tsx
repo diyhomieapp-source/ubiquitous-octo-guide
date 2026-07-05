@@ -166,6 +166,10 @@ export default function Profile() {
             testID="profile-neighborhood" onPress={() => router.push("/neighborhood")} />
           <MenuRow icon="medal-outline" label="Rewards & Recognition" sub="Badges, credits, leaderboard & local impact"
             testID="profile-loyalty" onPress={() => router.push("/loyalty")} />
+          <MenuRow icon="book-open-variant" label="Expert Knowledge" sub="Pro-authored guides, mentors & how-tos"
+            testID="profile-knowledge" onPress={() => router.push("/knowledge")} />
+          <MenuRow icon="account-tie-outline" label="Become an Expert" sub="Contribute guides, mentor DIYers & earn credits"
+            testID="profile-expert" onPress={() => router.push("/expert")} />
           <MenuRow icon="school-outline" label="Skill Builder" sub="Quizzes, badges & leaderboard to level up your DIY skills"
             testID="profile-skills" onPress={() => router.push("/skills")} />
           <MenuRow icon="chart-line" label="Your Impact & ROI" sub="See money saved, value added & next-best projects"
