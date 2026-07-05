@@ -14,8 +14,9 @@ import { ProLeadsModule } from "@/src/components/admin/ProLeadsModule";
 import { ProAccountsModule } from "@/src/components/admin/ProAccountsModule";
 import { NotificationsModule } from "@/src/components/admin/NotificationsModule";
 import { AutomationModule } from "@/src/components/admin/AutomationModule";
+import { SuppliersModule } from "@/src/components/admin/SuppliersModule";
 
-type Mod = "overview" | "finance" | "crm" | "vendors" | "proleads" | "proaccounts" | "notifications" | "automations" | "email" | "affiliate" | "feedback" | "tickets" | "blog";
+type Mod = "overview" | "finance" | "crm" | "vendors" | "suppliers" | "proleads" | "proaccounts" | "notifications" | "automations" | "email" | "affiliate" | "feedback" | "tickets" | "blog";
 const MODULES: { key: Mod; label: string; icon: string }[] = [
   { key: "overview", label: "Overview", icon: "view-dashboard-outline" },
   { key: "finance", label: "CFO Dashboard", icon: "finance" },
@@ -23,6 +24,7 @@ const MODULES: { key: Mod; label: string; icon: string }[] = [
   { key: "email", label: "Email Marketing", icon: "email-fast-outline" },
   { key: "affiliate", label: "Affiliate Widget", icon: "cart-percent" },
   { key: "vendors", label: "Vendors", icon: "domain" },
+  { key: "suppliers", label: "Wholesalers & RFQs", icon: "truck-delivery-outline" },
   { key: "proleads", label: "Pro Leads", icon: "account-hard-hat" },
   { key: "proaccounts", label: "Pro Accounts", icon: "briefcase-check-outline" },
   { key: "notifications", label: "Broadcast", icon: "bullhorn-outline" },
@@ -96,6 +98,7 @@ export default function AdminWorkstation() {
         {mod === "email" && <EmailModule />}
         {mod === "affiliate" && <AffiliateModule />}
         {mod === "vendors" && <VendorsModule />}
+        {mod === "suppliers" && <SuppliersModule />}
         {mod === "proleads" && <ProLeadsModule />}
         {mod === "proaccounts" && <ProAccountsModule />}
         {mod === "notifications" && <NotificationsModule />}

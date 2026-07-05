@@ -1,0 +1,57 @@
+{
+  "summary": "Sheet #32b Wholesaler/Supplier/RFQ integration verified end-to-end. Backend: 14/14 pytest passed (test_suppliers_sheet32b.py) covering customer suppliers list+detail+category filter, RFQ create/list/get, admin suppliers list w/ product_count+order_count+active, admin create supplier, CSV product import (2 rows added), toggle active on/off, admin material-orders list, PATCH quote→confirm→fulfill transitions, and /material-orders/{id}/pay. Pay endpoint returns 400 'supplier isn't set up for online payment' because no seeded/created supplier has a stripe_account_id — this is a config/data gap (Stripe Connect per-supplier not onboarded), NOT a code bug. Admin UI (web, 1400x900): logged in as Diyhomieapp@gmail.com, opened /admin, clicked admin-nav-suppliers, SuppliersModule renders with sup-tab-orders + sup-tab-suppliers. RFQs & Orders tab: 3 rfq/quoted orders each had ord-quote-<id> input, ord-sendquote-<id>, ord-confirm-<id>, ord-fulfill-<id>, ord-cancel-<id>. Actually entered $777 quote → send quote → confirm; backend accepted (200 OK in logs) and card re-rendered as Quoted. Suppliers tab: 5 suppliers, each with sup-toggle-<id> switch + sup-import-toggle-<id> that opens a CSV panel with sup-csv-<id> + sup-import-<id>. sup-add-toggle opens the AddSupplierForm with new-sup-name + new-sup-create testIDs. Customer mobile (390x844) as pat_pro_test: /suppliers lists 5 suppliers, category chips work, chip testIDs are sup-cat-<name>. Supplier cards use testID pattern sup-<supplier_id>, but because seeded ids already start with 'sup-' the composed testID becomes sup-sup-colorworks (functional, just a naming quirk). Direct nav to /suppliers/sup-colorworks hit a loading state (product list never rendered in the automation session) — likely a race/timing issue when deep-linking before AsyncStorage token hydrates. NOT reproduced via backend (GET /api/suppliers/sup-colorworks returns 200 with products for pro token). No React Native red screens; no deprecated packages introduced this iteration.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "POST /api/material-orders/{id}/pay",
+        "issue": "Returns 400 'This supplier isn't set up for online payment yet — arrange payment directly.' for all seeded and admin-created suppliers because none have stripe_account_id set. This is expected per Stripe Connect design (per-supplier onboarding), but there is no admin UI or field to attach a stripe_account_id to a supplier, so the PAY button will always error until Connect onboarding is wired. Consider (a) mocking a connect account for demo/preview, or (b) adding a stripe_account_id input to admin supplier create/edit, or (c) falling back to a platform-level Checkout without transfer_data when Connect is unavailable."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "app/suppliers/[id].tsx",
+        "issue": "When deep-linking directly to /suppliers/<id> immediately after login, the page can hang on the loading spinner (products never render). Reproduces in headless automation; unclear if human users hit it in practice. Load flow catches all errors silently and calls router.back(); when there is no back stack (deep link), it appears to stall. Add a visible error state or a retry, and log the caught error so the failure mode is diagnosable.",
+        "testID": "n/a",
+        "priority": "MEDIUM"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "app/suppliers/index.tsx",
+        "issues": [
+          "Supplier card testID prefixes as sup-<id> where <id> already starts with 'sup-' (seeded ids), yielding sup-sup-colorworks. Consider stripping the seed prefix or using a distinct namespace like supplier-card-<id> to avoid confusion in tests."
+        ]
+      }
+    ],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_suppliers_sheet32b.py",
+    "/app/test_reports/pytest/suppliers_sheet32b.xml"
+  ],
+  "action_items": [
+    "Add stripe_account_id field to admin supplier create/edit (server: extend SupplierReq + admin_create_supplier + a PATCH endpoint; UI: extend AddSupplierForm + a per-card editor in SuppliersModule.tsx). Without this, the PAY button will always Alert 'supplier isn't set up' in preview/prod.",
+    "Optionally: in /material-orders/{id}/pay, if no stripe_account_id is present, fall back to a plain platform Checkout Session (no application_fee_amount + transfer_data) so demo can complete a full flow.",
+    "Fix silent load failure in app/suppliers/[id].tsx: replace the bare `catch { router.back(); }` with an on-screen error + retry so users don't get stuck on a spinner when deep-linked.",
+    "Consider renaming supplier card testIDs to avoid the sup-sup-<slug> double-prefix collision when seed ids already start with 'sup-'."
+  ],
+  "critical_code_review_comments": [
+    "SuppliersModule.tsx: clean, well-scoped module (~350 lines). testIDs comprehensive, StyleSheet.create used, all text wrapped in <Text>, Alert used for feedback, uses api helper (env-driven). No hardcoded URLs.",
+    "server.py:3302 pay_material_order correctly enforces quoted_cents>0 and stripe_account_id presence before creating Checkout; PLATFORM_FEE_PCT + transfer_data destination present.",
+    "server.py:3348-3430 admin endpoints all gated behind require_admin; product import parses csv robustly; toggle uses query param `active`.",
+    "app/suppliers/[id].tsx: KeyboardAvoidingView + keyboardShouldPersistTaps='handled' correctly used. Minimum-order validation runs before submit."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_suppliers_sheet32b.py (new)"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "95%"},
+  "seed_data_creation": "Created 2 TEST_Sup_* suppliers via admin API (each with 2 TEST-* CSV products) and multiple TEST_ rfq material orders on ColorWorks. Some were quoted/confirmed/fulfilled during E2E. Safe to leave; all prefixed with TEST_ for later cleanup.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Sheet #32b passes. If retesting, use pat_pro_test@diyhomie.com (pro) for customer flows and Diyhomieapp@gmail.com for admin. The /material-orders/{id}/pay endpoint will return 400 in preview env unless a supplier has stripe_account_id set — this is expected. Admin UI SuppliersModule testIDs: sup-tab-orders, sup-tab-suppliers, ord-{quote,sendquote,confirm,fulfill,cancel}-<id>, sup-toggle-<id>, sup-import-toggle-<id>, sup-csv-<id>, sup-import-<id>, sup-add-toggle, new-sup-name, new-sup-create. Customer testIDs: sup-<id>, sup-cat-<name>, prod-{plus,minus,qty}-<sku>, submit-rfq, submit-order, ff-{delivery,pickup}, order-note, order-pay.",
+  "rca_of_issue": "Root cause of 'PAY button fails' finding: /api/material-orders/{id}/pay in server.py:3314 requires supplier.stripe_account_id to be set and STRIPE_SECRET_KEY not to be a placeholder. Seeded suppliers and admin-created suppliers never carry stripe_account_id (SupplierReq at server.py:3335 does not include it, and admin_create_supplier stores only the provided fields). Consequently the endpoint short-circuits with HTTP 400 before hitting Stripe. Reproduction: login as pro → create rfq → admin quotes → customer POST /material-orders/{id}/pay → 400 'This supplier isn't set up for online payment yet.' Mitigation: extend SupplierReq + admin_create_supplier to accept stripe_account_id, add a PATCH endpoint or field in the AddSupplierForm to set it, and/or add a platform-fallback branch in pay_material_order that omits transfer_data when acct is missing (for preview environments only)."
+}
