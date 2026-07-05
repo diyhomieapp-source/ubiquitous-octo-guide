@@ -34,6 +34,7 @@ import audit_engine
 import certification_engine
 import education_engine
 import campaign_engine
+import export_engine
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -8797,6 +8798,12 @@ campaign_engine.configure(db, logger)
 app.include_router(campaign_engine.build_user_router(get_current_user))
 app.include_router(campaign_engine.build_admin_router(require_admin))
 
+# Data, Analytics & Project Reporting Export engine (Sheet #64).
+export_engine.configure(db, logger)
+app.include_router(export_engine.build_user_router(get_current_user))
+app.include_router(export_engine.build_public_router())
+app.include_router(export_engine.build_admin_router(require_admin))
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
@@ -8864,6 +8871,7 @@ async def _ensure_indexes():
         await db.edu_progress.create_index([("user_id", 1), ("lesson_id", 1)])
         await db.campaign_participation.create_index([("campaign_id", 1), ("user_id", 1)])
         await db.campaign_participation.create_index("user_id")
+        await db.export_jobs.create_index("token")
         logger.info("indexes ensured")
     except Exception as e:
         logger.warning(f"index ensure: {e}")

@@ -208,6 +208,8 @@ export default function Profile() {
             testID="profile-developer" onPress={() => router.push("/developer")} />
           <MenuRow icon="database-export-outline" label="Data & Portability" sub="Export, transfer or delete your home history"
             testID="profile-data" onPress={() => router.push("/data")} />
+          <MenuRow icon="file-chart-outline" label="Reports & Export" sub="Custom data exports, reports & secure share links"
+            testID="profile-export" onPress={() => router.push("/export")} />
           <MenuRow icon="shield-check-outline" label="Privacy & Activity" sub="Your activity log, data use & consent controls"
             testID="profile-privacy" onPress={() => router.push("/privacy")} />
           <MenuRow icon="certificate-outline" label="DIYhomie Verified" sub="Your certificates & shareable Verified status"
