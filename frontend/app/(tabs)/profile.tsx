@@ -153,7 +153,7 @@ export default function Profile() {
         <View style={styles.menuCard}>
           <MenuRow icon="trophy-outline" label="My Journey" sub={`${stats.completed} completed · achievements & savings`}
             testID="profile-journey" onPress={() => router.push("/journey")} />
-          <MenuRow icon="home-heart-outline" label="My Home" sub="Rooms, systems & lifetime home record"
+          <MenuRow icon="home-heart" label="My Home" sub="Rooms, systems & lifetime home record"
             testID="profile-home" onPress={() => router.push("/home-profile")} />
           <MenuRow icon="file-document-outline" label="Home Portfolio & Docs" sub="Export & share records for insurance / resale"
             testID="profile-portfolio" onPress={() => router.push("/portfolio")} />

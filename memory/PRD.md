@@ -251,3 +251,16 @@ New features are now built as SEPARATE engine modules (audit_engine, certificati
 - **#63** Global Skills Index & Community Impact Leaderboard (builds on #54 skills + #57 experts + #60 certs + #62 education).
 - **#64** Community Events, Group Projects & Local Campaign Engine.
 - Still deferred: server.py refactor (mitigated by module pattern), #59 lifecycle auto-prune/anonymize.
+
+---
+## Session update (fork) cont. — Sheet #63 shipped
+- **#63 Sponsored Learning, Campaigns & Brand Collaboration** — NEW `campaign_engine.py`: brands launch sponsored skills challenges tied to #62 education tracks; users join + complete milestones (lesson-type auto-verified vs edu_progress) to earn badge + discount rewards; consent-gated story sharing; admin partner analytics (funnel + consented stories) + activate/end toggle. User `/campaigns` screen + admin CampaignsModule. Verified iteration 42 (backend 12/12 + frontend E2E). Fixed invalid `home-heart-outline` icon on Profile.
+
+### PENDING QUEUE (updated):
+- **#61** Beta Feature Launch, Guided Onboarding & First-Touch Support Engine.
+- **#62(A) Pro Pricing/Quote Engine** — still pending (Education Center #62 is DONE).
+- **Global Skills Index & Community Impact Leaderboard** (the earlier "#63" spec, superseded in numbering by Sponsored Campaigns; still unbuilt).
+- **#64** Community Events, Group Projects & Local Campaign Engine.
+- Deferred: server.py refactor; #59 lifecycle auto-prune/anonymize.
+
+### Engine module pattern (established this session): audit_engine, certification_engine, education_engine, campaign_engine — all separate files included into server.py. Continue for new features.
