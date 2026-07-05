@@ -66,8 +66,17 @@ export default function RealEstate() {
 
           <View style={styles.valueCard}>
             <Text style={styles.valueLabel}>ESTIMATED VALUE ADDED</Text>
-            <Text style={styles.valueBig}>{money(r.value_add.estimate_cents)}</Text>
-            <Text style={styles.valueRoi}>{r.value_add.roi_pct >= 0 ? "+" : ""}{r.value_add.roi_pct}% vs materials invested ({money(r.totals.invested_cents)})</Text>
+            {r.value_add.estimate_cents > 0 ? (
+              <>
+                <Text style={styles.valueBig}>{money(r.value_add.estimate_cents)}</Text>
+                <Text style={styles.valueRoi}>{r.value_add.roi_pct >= 0 ? "+" : ""}{r.value_add.roi_pct}% vs materials invested ({money(r.totals.invested_cents)})</Text>
+              </>
+            ) : (
+              <>
+                <Text style={styles.valueMuted}>Add project costs to estimate value</Text>
+                <Text style={styles.valueRoi}>{r.totals.projects} improvements logged — enter material costs on projects to unlock a $ value-add estimate.</Text>
+              </>
+            )}
             <Text style={styles.disclaimer}>{r.value_add.disclaimer}</Text>
           </View>
 
@@ -140,6 +149,7 @@ const styles = StyleSheet.create({
   valueCard: { backgroundColor: colors.surfaceSecondary, borderColor: colors.brandPrimary, borderWidth: 1.5, borderRadius: radius.md, padding: spacing.lg, marginBottom: spacing.md },
   valueLabel: { color: colors.onSurfaceTertiary, fontFamily: font.bold, fontSize: 10, letterSpacing: 1.5 },
   valueBig: { color: colors.brandPrimary, fontFamily: font.display, fontSize: 38, marginTop: 2 },
+  valueMuted: { color: colors.onSurface, fontFamily: font.display, fontSize: 22, marginTop: 2 },
   valueRoi: { color: colors.onSurfaceSecondary, fontFamily: font.bold, fontSize: type.sm },
   disclaimer: { color: colors.onSurfaceTertiary, fontFamily: font.regular, fontSize: 11, fontStyle: "italic", marginTop: spacing.sm },
   aiCard: { backgroundColor: colors.surfaceSecondary, borderColor: colors.border, borderWidth: 1, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.md },

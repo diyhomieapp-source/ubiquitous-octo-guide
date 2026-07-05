@@ -128,6 +128,15 @@ export default function ProDashboard() {
           </Pressable>
         )}
 
+        <Pressable testID="pro-credentials-banner" style={styles.payoutBanner} onPress={() => router.push("/pro/credentials")}>
+          <MaterialCommunityIcons name="certificate-outline" size={22} color={colors.brandPrimary} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.payoutTitle}>Licenses & credentials</Text>
+            <Text style={styles.payoutSub}>Verify your license & insurance to earn the Verified Pro badge.</Text>
+          </View>
+          <MaterialCommunityIcons name="chevron-right" size={22} color={colors.onSurfaceTertiary} />
+        </Pressable>
+
         <Text style={styles.section}>Client jobs</Text>
         {jobs.length === 0 ? (
           <View style={styles.empty}><MaterialCommunityIcons name="clipboard-text-outline" size={30} color={colors.onSurfaceTertiary} /><Text style={styles.emptyText}>No jobs yet. Tap + to start one for a client.</Text></View>

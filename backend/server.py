@@ -3012,6 +3012,220 @@ async def close_bulk_deal(deal_id: str, user: dict = Depends(get_current_user)):
     return {"ok": True, "discount_pct": tier["pct"]}
 
 
+# ================================================================ AR & Avatar Personalization (Sheet #38)
+PREF_OPTIONS = {
+    "avatar_gender": ["Neutral", "Woman", "Man"],
+    "avatar_look": ["Friendly", "Seasoned Pro", "Designer", "Coach"],
+    "avatar_gear": ["Tool belt", "Hard hat", "Safety vest", "Casual"],
+    "avatar_skin": ["#F2D3B3", "#E5B98D", "#C68642", "#8D5524", "#5C3A21"],
+    "voice": ["Calm", "Enthusiastic", "Contractor", "Pro Explainer"],
+    "verbosity": ["Minimal", "Balanced", "Detailed"],
+    "overlay_palette": ["High Contrast", "Warm", "Cool", "Colorblind-safe"],
+    "highlight_style": ["Arrow", "Circle", "Zone glow", "Pointer"],
+    "text_size": ["Small", "Medium", "Large", "Extra Large"],
+    "cue_speed": ["Slow", "Normal", "Fast"],
+    "theme": ["Dark", "Light", "Toolbox", "Blueprint"],
+    "notification_sound": ["Subtle", "Energetic", "Silent"],
+}
+
+DEFAULT_PREFS = {
+    "avatar_gender": "Neutral", "avatar_look": "Friendly", "avatar_gear": "Tool belt", "avatar_skin": "#E5B98D",
+    "voice": "Calm", "verbosity": "Balanced", "jit_coaching": True,
+    "overlay_palette": "High Contrast", "highlight_style": "Arrow", "text_size": "Medium", "cue_speed": "Normal",
+    "theme": "Dark", "notification_sound": "Subtle", "preset": None,
+}
+
+PREF_PRESETS = {
+    "trusted_foreman": {"label": "Trusted Foreman", "icon": "account-hard-hat",
+        "prefs": {"avatar_look": "Seasoned Pro", "avatar_gear": "Hard hat", "voice": "Contractor", "verbosity": "Balanced", "theme": "Toolbox", "highlight_style": "Zone glow"}},
+    "diy_hero": {"label": "My DIY Hero", "icon": "star-face",
+        "prefs": {"avatar_look": "Friendly", "avatar_gear": "Casual", "voice": "Enthusiastic", "verbosity": "Detailed", "theme": "Dark", "notification_sound": "Energetic"}},
+    "safety_first": {"label": "Safety-First Mode", "icon": "shield-check",
+        "prefs": {"avatar_gear": "Safety vest", "voice": "Pro Explainer", "verbosity": "Detailed", "overlay_palette": "High Contrast", "highlight_style": "Circle", "text_size": "Large", "cue_speed": "Slow", "jit_coaching": True}},
+    "silent": {"label": "Silent Mode", "icon": "volume-off",
+        "prefs": {"voice": "Calm", "verbosity": "Minimal", "jit_coaching": False, "notification_sound": "Silent", "cue_speed": "Fast"}},
+}
+
+
+def _merged_prefs(user: dict) -> dict:
+    return {**DEFAULT_PREFS, **(user.get("preferences") or {})}
+
+
+@api_router.get("/preferences")
+async def get_preferences(user: dict = Depends(get_current_user)):
+    return {
+        "preferences": _merged_prefs(user),
+        "options": PREF_OPTIONS,
+        "presets": [{"id": k, "label": v["label"], "icon": v["icon"]} for k, v in PREF_PRESETS.items()],
+    }
+
+
+@api_router.put("/preferences")
+async def update_preferences(payload: dict, user: dict = Depends(get_current_user)):
+    prefs = _merged_prefs(user)
+    for k, v in payload.items():
+        if k == "jit_coaching":
+            prefs[k] = bool(v)
+        elif k in PREF_OPTIONS and v in PREF_OPTIONS[k]:
+            prefs[k] = v
+            prefs["preset"] = None  # manual edits clear preset
+    await db.users.update_one({"id": user["id"]}, {"$set": {"preferences": prefs}})
+    return {"preferences": prefs}
+
+
+@api_router.post("/preferences/preset/{preset_id}")
+async def apply_preset(preset_id: str, user: dict = Depends(get_current_user)):
+    preset = PREF_PRESETS.get(preset_id)
+    if not preset:
+        raise HTTPException(status_code=404, detail="Preset not found.")
+    prefs = {**_merged_prefs(user), **preset["prefs"], "preset": preset_id}
+    await db.users.update_one({"id": user["id"]}, {"$set": {"preferences": prefs}})
+    return {"preferences": prefs}
+
+
+@api_router.post("/preferences/reset")
+async def reset_preferences(user: dict = Depends(get_current_user)):
+    await db.users.update_one({"id": user["id"]}, {"$set": {"preferences": dict(DEFAULT_PREFS)}})
+    return {"preferences": dict(DEFAULT_PREFS)}
+
+
+# ================================================================ Contractor Licensing & Credential Checker (Sheet #40)
+CREDENTIAL_TYPES = ["Contractor License", "Trade License", "Liability Insurance",
+                    "Workers' Comp", "Certification", "Surety Bond"]
+CRED_EXPIRING_DAYS = 30
+
+
+def _cred_status(c: dict) -> str:
+    exp = c.get("expires_at")
+    if exp:
+        try:
+            d = datetime.fromisoformat(exp.replace("Z", "+00:00"))
+            if d.tzinfo is None:
+                d = d.replace(tzinfo=timezone.utc)
+            now = datetime.now(timezone.utc)
+            if d < now:
+                return "expired"
+            if (d - now).days <= CRED_EXPIRING_DAYS and c.get("status") == "verified":
+                return "expiring"
+        except Exception:
+            pass
+    return c.get("status", "pending")
+
+
+def _cred_public(c: dict) -> dict:
+    return {
+        "id": c["id"], "type": c.get("type"), "number": c.get("number", ""),
+        "issuer": c.get("issuer", ""), "specialty": c.get("specialty", ""),
+        "expires_at": c.get("expires_at"), "status": _cred_status(c),
+        "has_doc": bool(c.get("doc_base64")), "verified_at": c.get("verified_at"),
+        "note": c.get("note", ""), "created_at": c.get("created_at"),
+    }
+
+
+async def _pro_compliance(pro_user_id: str) -> dict:
+    creds = await db.pro_credentials.find({"pro_user_id": pro_user_id}, {"_id": 0}).to_list(50)
+    statuses = [_cred_status(c) for c in creds]
+    verified = [c for c, s in zip(creds, statuses) if s in ("verified", "expiring")]
+    licensed = any("License" in (c.get("type") or "") for c in verified)
+    insured = any("Insurance" in (c.get("type") or "") for c in verified)
+    if "expired" in statuses:
+        overall = "action_required"
+    elif "expiring" in statuses:
+        overall = "expiring_soon"
+    elif verified:
+        overall = "compliant"
+    elif creds:
+        overall = "under_review"
+    else:
+        overall = "not_submitted"
+    return {"overall": overall, "licensed": licensed, "insured": insured,
+            "verified_count": len(verified), "total": len(creds)}
+
+
+class CredentialReq(BaseModel):
+    type: str
+    number: str = ""
+    issuer: str = ""
+    specialty: str = ""
+    expires_at: Optional[str] = None
+    doc_base64: Optional[str] = None
+
+
+@api_router.get("/pro/credentials")
+async def list_credentials(user: dict = Depends(get_current_user)):
+    prof = await db.pro_profiles.find_one({"user_id": user["id"]}, {"_id": 0})
+    if not prof:
+        raise HTTPException(status_code=403, detail="Apply as a pro to manage credentials.")
+    creds = await db.pro_credentials.find({"pro_user_id": user["id"]}, {"_id": 0}).sort("created_at", -1).to_list(50)
+    return {"credentials": [_cred_public(c) for c in creds],
+            "compliance": await _pro_compliance(user["id"]),
+            "types": CREDENTIAL_TYPES}
+
+
+@api_router.post("/pro/credentials")
+async def add_credential(req: CredentialReq, user: dict = Depends(get_current_user)):
+    prof = await db.pro_profiles.find_one({"user_id": user["id"]}, {"_id": 0})
+    if not prof:
+        raise HTTPException(status_code=403, detail="Apply as a pro before submitting credentials.")
+    if req.type not in CREDENTIAL_TYPES:
+        raise HTTPException(status_code=400, detail="Invalid credential type.")
+    doc = {
+        "id": new_id(), "pro_user_id": user["id"], "pro_name": prof.get("name") or user.get("name"),
+        "pro_email": user.get("email"), "type": req.type, "number": req.number.strip()[:60],
+        "issuer": req.issuer.strip()[:100], "specialty": req.specialty.strip()[:80],
+        "expires_at": req.expires_at, "doc_base64": req.doc_base64, "status": "pending",
+        "created_at": now_iso(),
+    }
+    await db.pro_credentials.insert_one(dict(doc))
+    return {"ok": True, "credential": _cred_public(doc)}
+
+
+@api_router.delete("/pro/credentials/{cred_id}")
+async def delete_credential(cred_id: str, user: dict = Depends(get_current_user)):
+    await db.pro_credentials.delete_one({"id": cred_id, "pro_user_id": user["id"]})
+    return {"ok": True}
+
+
+@api_router.get("/admin/credentials")
+async def admin_credentials(status: Optional[str] = None, admin: dict = Depends(require_admin)):
+    creds = await db.pro_credentials.find({}, {"_id": 0, "doc_base64": 0}).sort("created_at", -1).to_list(500)
+    out = []
+    for c in creds:
+        pub = _cred_public(c)
+        pub["pro_name"] = c.get("pro_name")
+        pub["pro_email"] = c.get("pro_email")
+        pub["pro_user_id"] = c.get("pro_user_id")
+        if not status or pub["status"] == status:
+            out.append(pub)
+    counts = {"pending": 0, "expiring": 0, "expired": 0, "verified": 0}
+    for c in creds:
+        s = _cred_status(c)
+        counts[s] = counts.get(s, 0) + 1
+    return {"credentials": out, "counts": counts}
+
+
+class CredDecisionReq(BaseModel):
+    status: str          # verified | rejected
+    note: str = ""
+
+
+@api_router.patch("/admin/credentials/{cred_id}")
+async def admin_decide_credential(cred_id: str, req: CredDecisionReq, admin: dict = Depends(require_admin)):
+    if req.status not in ("verified", "rejected"):
+        raise HTTPException(status_code=400, detail="Status must be 'verified' or 'rejected'.")
+    c = await db.pro_credentials.find_one({"id": cred_id}, {"_id": 0})
+    if not c:
+        raise HTTPException(status_code=404, detail="Credential not found.")
+    upd = {"status": req.status, "note": req.note[:300], "verified_at": now_iso() if req.status == "verified" else None}
+    await db.pro_credentials.update_one({"id": cred_id}, {"$set": upd})
+    title = "Credential verified ✅" if req.status == "verified" else "Credential needs attention"
+    body = (f"Your {c.get('type')} was verified — your Verified Pro badge is active."
+            if req.status == "verified" else
+            f"Your {c.get('type')} couldn't be verified. {req.note or 'Please re-submit valid documentation.'}")
+    await push_notification(c["pro_user_id"], title=title, body=body, ntype="system", meta={"credential_id": cred_id})
+    return {"ok": True, "compliance": await _pro_compliance(c["pro_user_id"])}
+
+
 
 # ---------------------------------------------------------------- community (Pro-Earn)
 class PostReq(BaseModel):

@@ -16,8 +16,9 @@ import { NotificationsModule } from "@/src/components/admin/NotificationsModule"
 import { AutomationModule } from "@/src/components/admin/AutomationModule";
 import { SuppliersModule } from "@/src/components/admin/SuppliersModule";
 import { FeaturesModule } from "@/src/components/admin/FeaturesModule";
+import { CredentialsModule } from "@/src/components/admin/CredentialsModule";
 
-type Mod = "overview" | "finance" | "crm" | "vendors" | "suppliers" | "proleads" | "proaccounts" | "notifications" | "automations" | "features" | "email" | "affiliate" | "feedback" | "tickets" | "blog";
+type Mod = "overview" | "finance" | "crm" | "vendors" | "suppliers" | "proleads" | "proaccounts" | "credentials" | "notifications" | "automations" | "features" | "email" | "affiliate" | "feedback" | "tickets" | "blog";
 const MODULES: { key: Mod; label: string; icon: string }[] = [
   { key: "overview", label: "Overview", icon: "view-dashboard-outline" },
   { key: "finance", label: "CFO Dashboard", icon: "finance" },
@@ -28,6 +29,7 @@ const MODULES: { key: Mod; label: string; icon: string }[] = [
   { key: "suppliers", label: "Wholesalers & RFQs", icon: "truck-delivery-outline" },
   { key: "proleads", label: "Pro Leads", icon: "account-hard-hat" },
   { key: "proaccounts", label: "Pro Accounts", icon: "briefcase-check-outline" },
+  { key: "credentials", label: "Credential Checks", icon: "certificate-outline" },
   { key: "notifications", label: "Broadcast", icon: "bullhorn-outline" },
   { key: "automations", label: "Automations", icon: "robot-outline" },
   { key: "features", label: "Feature Flags", icon: "flask-outline" },
@@ -103,6 +105,7 @@ export default function AdminWorkstation() {
         {mod === "suppliers" && <SuppliersModule />}
         {mod === "proleads" && <ProLeadsModule />}
         {mod === "proaccounts" && <ProAccountsModule />}
+        {mod === "credentials" && <CredentialsModule />}
         {mod === "notifications" && <NotificationsModule />}
         {mod === "automations" && <AutomationModule />}
         {mod === "features" && <FeaturesModule />}

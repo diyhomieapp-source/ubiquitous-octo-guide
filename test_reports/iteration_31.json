@@ -1,0 +1,59 @@
+{
+  "summary": "Sheet #38 (AR/Avatar Personalization) + #40 (Contractor Credentials) validated. Backend: 22/22 pytest passed (test_personalize_credentials_sheet38_40.py). Frontend mobile: /personalize renders with 47 pz- testIDs, all 4 preset chips work (Safety-First applied → preview updated to Pro Explainer voice · Detailed guidance, safety-vest gear), manual chip taps clear preset and persist (Blueprint theme, Large text_size, JIT toggle off all confirmed via GET). Pro credentials mobile: /pro/credentials add-form works (added TEST_UI cred → 'pending' badge appears, delete works, status card shows 'Expiring soon · 1/2 verified'). Admin /admin: Credentials Checks nav renders CredentialsModule with 5 filter chips + counts (0 pending · 1 expiring · 0 expired · 0 verified after cleanup). Verify button transitioned a seeded pending cred to verified and moved it between filter buckets in real-time. TWO BUGS FOUND — see frontend_issues.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "personalize.tsx",
+        "issue": "avatar_skin swatches are NEVER rendered. The SECTIONS array (lines 14-26) omits the 'avatar_skin' key even though the backend returns 5 hex options and the review spec calls for 'skin swatches (pz-avatar_skin-<hex>)'. Result: pz-avatar_skin-* testIDs do not exist in the DOM; users cannot change avatar_skin from the UI. Reference: /app/frontend/app/personalize.tsx:14-26.",
+        "testID": "pz-avatar_skin-<hex> (all 5 missing)",
+        "priority": "HIGH"
+      },
+      {
+        "component": "pro/index.tsx",
+        "issue": "pro-credentials-banner is only rendered when pro_profile.status === 'verified' (line 90 gate). This creates a chicken-and-egg problem: a pending Pro cannot reach /pro/credentials from the UI to submit their license/insurance — they are blocked on the 'Verification pending' screen. The credentials screen is only accessible via deep-link. Consider: (a) always route pending pros to /pro/credentials from the pending screen, or (b) show pro-credentials-banner inside the pending-state block too. Reference: /app/frontend/app/pro/index.tsx:90-97,131. Reproduced with pat_pro_test whose profile status is 'pending' (was documented as 'verified' but has drifted).",
+        "testID": "pro-credentials-banner",
+        "priority": "HIGH"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "personalize.tsx",
+        "issues": [
+          "Preview card shows only the gear icon, but ignores avatar_gender / avatar_look choices (only stringifies them below). Consider using a stronger visual signal when Woman/Man is picked — minor UX polish."
+        ]
+      }
+    ],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_personalize_credentials_sheet38_40.py",
+    "/app/test_reports/pytest/sheet38_40_results.xml"
+  ],
+  "action_items": [
+    "HIGH: Add 'avatar_skin' to the SECTIONS array in /app/frontend/app/personalize.tsx (or add a dedicated swatch renderer using the existing isColor code path). Backend already returns options.avatar_skin as 5 hex values; render them as pz-avatar_skin-<hex> chips using the swatch/swatchOn styles that already exist.",
+    "HIGH: Expose /pro/credentials from the 'Verification pending' state in /app/frontend/app/pro/index.tsx (line 96 block). Currently pending pros cannot reach /pro/credentials except by deep link. Either render pro-credentials-banner inside the pending-state block, or auto-route pending pros with 0 credentials to /pro/credentials.",
+    "OPTIONAL: pat_pro_test seed profile is now status='pending' (test_credentials.md says 'verified'). Either update the seed to force status='verified' on startup or update the doc.",
+    "OPTIONAL: server.py is now ~6638 lines — worth splitting into modules (existing recommendation from prior iterations, still not blocking)."
+  ],
+  "critical_code_review_comments": [
+    "server.py #38: _merged_prefs (L3050) applies defaults over user prefs — good. PUT /preferences correctly ignores unknown keys and invalid enum values (L3069) and clears preset on manual edits (L3071). Verified in test_put_ignores_invalid_option_values and test_put_persists_and_clears_preset.",
+    "server.py #40: _cred_status (L3098) correctly promotes verified creds to 'expiring' within 30 days of expiry; unverified expired creds fall through to 'expired'. _pro_compliance (L3125) transitions match spec (action_required > expiring_soon > compliant > under_review > not_submitted).",
+    "server.py admin_decide_credential (L3212) validates status ∈ {verified, rejected} and returns 404 for unknown id — verified in test_admin_invalid_status_400 & test_admin_unknown_id_404.",
+    "personalize.tsx (L14-26): SECTIONS omits avatar_skin — this is the root cause of the missing swatches bug.",
+    "pro/index.tsx (L90): status !== 'verified' gate blocks pro-credentials-banner. Design gap noted above."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_personalize_credentials_sheet38_40.py (NEW, 22 tests, 100% pass)"
+  ],
+  "success_rate": {
+    "backend": "100% (22/22 pytest)",
+    "frontend": "78% (7 of 9 spec items pass fully — 2 bugs: missing avatar_skin swatches, unreachable pro-credentials-banner for pending pros)"
+  },
+  "seed_data_creation": "Created + verified + cleaned up one TEST_UI Trade License credential on pat_pro_test to exercise admin Verify button. All TEST_ data removed after run. Preferences on demo_home were left at defaults (post-reset).",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend #38+#40 tests are idempotent (test_personalize_credentials_sheet38_40.py) and safe to re-run. All Pytest fixtures reset state per test (POST /preferences/reset, DELETE cred after add). The two known bugs are: (1) SECTIONS array in personalize.tsx missing 'avatar_skin' → pz-avatar_skin-<hex> testIDs never render; (2) pro-credentials-banner only shows when status='verified' → pending Pro's cannot submit credentials from the UI. Both are frontend-only fixes; backend APIs are correct.",
+  "rca_of_issue": "Bug #1 RCA: /app/frontend/app/personalize.tsx SECTIONS constant lists 11 keys but is missing 'avatar_skin'. The render loop map(SECTIONS...) therefore never emits the swatch section. Backend returns options.avatar_skin correctly. Fix: add { key: 'avatar_skin', label: 'Skin tone', icon: 'palette' } to SECTIONS — the isColor branch (L100-106) already handles rendering. Bug #2 RCA: pro/index.tsx returns from the pending block at line 96-97 before reaching the banner (L131). Access to the credentials submission page is therefore gated by an approval that requires… credentials. Fix: render <Pressable testID='pro-credentials-banner'> inside the pending-state block too, or auto-redirect pending pros with 0 verified creds to /pro/credentials."
+}
