@@ -270,3 +270,14 @@ New features are now built as SEPARATE engine modules (audit_engine, certificati
 - User pasted a SECOND "#63" (Sponsored Brand Partnership & Product Campaign) — same domain as campaign_engine. EXTENDED it (DRY, no dup module): product-offer CTA {label,url,type} with attribution (POST /campaigns/{slug}/cta-click), user feedback/sentiment (POST /campaigns/{slug}/feedback), and partner-dashboard analytics now include cta_clicks/avg_rating/learned_pct/comments. Frontend: CTA button + "Sponsored/never charged" transparency in campaign modal; admin analytics show CTA/rating/learned. Curl-verified + screenshot confirmed. (Not separately run through testing_agent — self-verified.)
 
 ### PENDING QUEUE (unchanged): #61 Beta Launch/Onboarding; #62(A) Pro Pricing/Quote Engine; Global Skills Index & Community Impact Leaderboard; #64 Community Events. Deferred: server.py refactor, #59 lifecycle auto-prune.
+
+---
+## Session update (fork) cont. — Sheet #64 shipped
+- **#64 Data, Analytics & Project Reporting Export Engine** — NEW `export_engine.py`: user selects any subset of 7 data types, exports JSON/CSV, or creates an audit-trailed EXPIRING share link with a branded printable HTML report (download-limit + expiry enforced). Admin platform-KPI export + job log. User `/export` screen + admin ExportModule. Verified iteration 43 (backend 14/14 + frontend E2E). Established engine modules now: audit, certification, education, campaign, export.
+
+### PENDING QUEUE (updated):
+- #61 Beta Feature Launch, Guided Onboarding & First-Touch Support Engine.
+- #62(A) Dynamic Pro Pricing Calculator & AI Quote Engine (still pending).
+- Global Skills Index & Community Impact Leaderboard.
+- (User hinted more: Resell Partner SDK, Payment Gateway Upgrades, Advanced Reporting, MVP Launch/QA checklist.)
+- Deferred: server.py refactor; #59 lifecycle auto-prune/anonymize.
