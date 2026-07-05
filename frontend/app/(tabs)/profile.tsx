@@ -190,6 +190,8 @@ export default function Profile() {
             testID="profile-faq" onPress={() => router.push("/support/faq")} />
           <MenuRow icon="palette-swatch-outline" label="Personalize" sub="Avatar, voice, AR overlays & app theme"
             testID="profile-personalize" onPress={() => router.push("/personalize")} />
+          <MenuRow icon="api" label="Developer & API" sub="API keys, webhooks & platform integrations"
+            testID="profile-developer" onPress={() => router.push("/developer")} />
           <MenuRow icon="flask-outline" label="Beta Features" sub="Try experiments early & shape what ships"
             testID="profile-beta" onPress={() => router.push("/beta")} last />
         </View>

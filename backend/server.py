@@ -7,9 +7,11 @@ import re
 from pathlib import Path
 from datetime import datetime, timezone, timedelta
 import secrets
+import hmac
+import hashlib
 from typing import List, Optional
 
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, status
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, Header
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
@@ -3224,6 +3226,205 @@ async def admin_decide_credential(cred_id: str, req: CredDecisionReq, admin: dic
             f"Your {c.get('type')} couldn't be verified. {req.note or 'Please re-submit valid documentation.'}")
     await push_notification(c["pro_user_id"], title=title, body=body, ntype="system", meta={"credential_id": cred_id})
     return {"ok": True, "compliance": await _pro_compliance(c["pro_user_id"])}
+
+
+# ================================================================ Open API, Webhooks & Partner Platform (Sheet #46)
+API_SCOPES = ["projects:read", "projects:write", "orders:read", "community:read", "events:read"]
+WEBHOOK_EVENTS = ["project.completed", "order.confirmed", "testimonial.posted",
+                  "badge.earned", "campaign.joined", "credential.verified"]
+API_ENVIRONMENTS = ["test", "live"]
+
+
+def _sign_payload(secret: str, body: str) -> str:
+    return "sha256=" + hmac.new(secret.encode(), body.encode(), hashlib.sha256).hexdigest()
+
+
+async def get_api_key_user(x_api_key: Optional[str] = Header(default=None)):
+    if not x_api_key:
+        raise HTTPException(status_code=401, detail="Missing X-API-Key header.")
+    key = await db.api_keys.find_one({"key": x_api_key, "active": True}, {"_id": 0})
+    if not key:
+        raise HTTPException(status_code=401, detail="Invalid or revoked API key.")
+    user = await db.users.find_one({"id": key["user_id"]}, {"_id": 0})
+    if not user:
+        raise HTTPException(status_code=401, detail="Key owner not found.")
+    await db.api_keys.update_one({"id": key["id"]}, {"$set": {"last_used": now_iso()}, "$inc": {"call_count": 1}})
+    return {"user": user, "key": key}
+
+
+def _require_scope(ctx: dict, scope: str):
+    if scope not in (ctx["key"].get("scopes") or []):
+        raise HTTPException(status_code=403, detail=f"API key missing required scope: {scope}")
+
+
+async def fire_event(user_id: str, event: str, payload: dict):
+    """Dispatch a platform event to all matching active webhooks for the user."""
+    hooks = await db.webhooks.find({"user_id": user_id, "active": True, "events": event}, {"_id": 0}).to_list(50)
+    for h in hooks:
+        await _deliver_webhook(h, event, payload)
+
+
+async def _deliver_webhook(hook: dict, event: str, payload: dict):
+    body = json.dumps({"event": event, "data": payload, "sent_at": now_iso()})
+    status_code, ok = 0, False
+    try:
+        async with httpx.AsyncClient(timeout=6) as client_http:
+            resp = await client_http.post(hook["url"], content=body, headers={
+                "Content-Type": "application/json",
+                "X-DIYhomie-Event": event,
+                "X-DIYhomie-Signature": _sign_payload(hook.get("secret", ""), body),
+            })
+            status_code = resp.status_code
+            ok = 200 <= status_code < 300
+    except Exception as e:
+        status_code, ok = 0, False
+        logger.info(f"webhook delivery failed: {e}")
+    await db.webhooks.update_one({"id": hook["id"]}, {
+        "$set": {"last_status": status_code, "last_delivery": now_iso()},
+        "$inc": {"failures": 0 if ok else 1, "deliveries": 1},
+    })
+    await db.webhook_deliveries.insert_one({
+        "id": new_id(), "webhook_id": hook["id"], "user_id": hook["user_id"], "event": event,
+        "status_code": status_code, "ok": ok, "created_at": now_iso(),
+    })
+    return ok
+
+
+# ---- developer: API keys
+class ApiKeyReq(BaseModel):
+    label: str
+    scopes: List[str] = ["projects:read"]
+    environment: str = "test"
+
+
+def _key_public(k: dict, reveal: bool = False) -> dict:
+    masked = k["key"] if reveal else (k["key"][:12] + "…" + k["key"][-4:])
+    return {"id": k["id"], "label": k["label"], "scopes": k.get("scopes", []),
+            "environment": k.get("environment", "test"), "key": masked, "active": k.get("active", True),
+            "call_count": k.get("call_count", 0), "last_used": k.get("last_used"), "created_at": k.get("created_at")}
+
+
+@api_router.get("/developer/meta")
+async def developer_meta(user: dict = Depends(get_current_user)):
+    return {"scopes": API_SCOPES, "events": WEBHOOK_EVENTS, "environments": API_ENVIRONMENTS,
+            "base_url": "/api/v1", "docs": [
+                {"method": "GET", "path": "/api/v1/me", "scope": "—", "desc": "Authenticated key owner profile"},
+                {"method": "GET", "path": "/api/v1/projects", "scope": "projects:read", "desc": "List your projects"},
+                {"method": "GET", "path": "/api/v1/community", "scope": "community:read", "desc": "Recent community stories"},
+            ]}
+
+
+@api_router.get("/developer/keys")
+async def list_api_keys(user: dict = Depends(get_current_user)):
+    keys = await db.api_keys.find({"user_id": user["id"]}, {"_id": 0}).sort("created_at", -1).to_list(100)
+    return {"keys": [_key_public(k) for k in keys]}
+
+
+@api_router.post("/developer/keys")
+async def create_api_key(req: ApiKeyReq, user: dict = Depends(get_current_user)):
+    env = req.environment if req.environment in API_ENVIRONMENTS else "test"
+    scopes = [s for s in req.scopes if s in API_SCOPES] or ["projects:read"]
+    raw = f"dk_{env}_{secrets.token_urlsafe(24)}"
+    doc = {"id": new_id(), "user_id": user["id"], "label": req.label.strip()[:60] or "Untitled key",
+           "scopes": scopes, "environment": env, "key": raw, "active": True,
+           "call_count": 0, "last_used": None, "created_at": now_iso()}
+    await db.api_keys.insert_one(dict(doc))
+    return {"key": _key_public(doc, reveal=True), "warning": "Store this key now — it won't be shown in full again."}
+
+
+@api_router.post("/developer/keys/{key_id}/revoke")
+async def revoke_api_key(key_id: str, user: dict = Depends(get_current_user)):
+    res = await db.api_keys.update_one({"id": key_id, "user_id": user["id"]}, {"$set": {"active": False}})
+    if not res.matched_count:
+        raise HTTPException(status_code=404, detail="Key not found.")
+    return {"ok": True}
+
+
+# ---- developer: webhooks
+class WebhookReq(BaseModel):
+    url: str
+    events: List[str] = []
+
+
+def _hook_public(h: dict) -> dict:
+    return {"id": h["id"], "url": h["url"], "events": h.get("events", []), "active": h.get("active", True),
+            "secret": h.get("secret"), "failures": h.get("failures", 0), "deliveries": h.get("deliveries", 0),
+            "last_status": h.get("last_status"), "created_at": h.get("created_at")}
+
+
+@api_router.get("/developer/webhooks")
+async def list_webhooks(user: dict = Depends(get_current_user)):
+    hooks = await db.webhooks.find({"user_id": user["id"]}, {"_id": 0}).sort("created_at", -1).to_list(100)
+    return {"webhooks": [_hook_public(h) for h in hooks]}
+
+
+@api_router.post("/developer/webhooks")
+async def create_webhook(req: WebhookReq, user: dict = Depends(get_current_user)):
+    if not req.url.startswith("http"):
+        raise HTTPException(status_code=400, detail="Provide a valid https URL.")
+    events = [e for e in req.events if e in WEBHOOK_EVENTS] or WEBHOOK_EVENTS
+    doc = {"id": new_id(), "user_id": user["id"], "url": req.url.strip(), "events": events,
+           "secret": "whsec_" + secrets.token_urlsafe(18), "active": True, "failures": 0,
+           "deliveries": 0, "last_status": None, "created_at": now_iso()}
+    await db.webhooks.insert_one(dict(doc))
+    return {"webhook": _hook_public(doc)}
+
+
+@api_router.delete("/developer/webhooks/{hook_id}")
+async def delete_webhook(hook_id: str, user: dict = Depends(get_current_user)):
+    await db.webhooks.delete_one({"id": hook_id, "user_id": user["id"]})
+    return {"ok": True}
+
+
+@api_router.post("/developer/webhooks/{hook_id}/test")
+async def test_webhook(hook_id: str, user: dict = Depends(get_current_user)):
+    h = await db.webhooks.find_one({"id": hook_id, "user_id": user["id"]}, {"_id": 0})
+    if not h:
+        raise HTTPException(status_code=404, detail="Webhook not found.")
+    ok = await _deliver_webhook(h, "ping.test", {"message": "Hello from DIYhomie", "user_id": user["id"]})
+    return {"ok": ok, "delivered": ok, "note": "Delivered a signed ping.test event." if ok else "Endpoint did not return 2xx."}
+
+
+# ---- public v1 API (authenticated by X-API-Key)
+@api_router.get("/v1/me")
+async def v1_me(ctx: dict = Depends(get_api_key_user)):
+    u = ctx["user"]
+    return {"id": u["id"], "name": u.get("name"), "email": u.get("email"), "environment": ctx["key"]["environment"]}
+
+
+@api_router.get("/v1/projects")
+async def v1_projects(ctx: dict = Depends(get_api_key_user)):
+    _require_scope(ctx, "projects:read")
+    rows = await db.projects.find({"user_id": ctx["user"]["id"]}, {"_id": 0}).sort("created_at", -1).to_list(100)
+    return {"projects": [{"id": r["id"], "title": r.get("title"), "status": r.get("status"),
+                          "created_at": r.get("created_at")} for r in rows]}
+
+
+@api_router.get("/v1/community")
+async def v1_community(ctx: dict = Depends(get_api_key_user)):
+    _require_scope(ctx, "community:read")
+    rows = await db.community.find({"removed": {"$ne": True}}, {"_id": 0}).sort("created_at", -1).to_list(30)
+    return {"stories": [{"id": r["id"], "title": r.get("title"), "created_at": r.get("created_at")} for r in rows]}
+
+
+# ---- admin: partner registry & audit
+@api_router.get("/admin/partners")
+async def admin_partners(admin: dict = Depends(require_admin)):
+    keys = await db.api_keys.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
+    hooks = await db.webhooks.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
+    total_calls = sum(k.get("call_count", 0) for k in keys)
+    total_deliveries = sum(h.get("deliveries", 0) for h in hooks)
+    # enrich with owner email
+    emails = {}
+    for uid in {k["user_id"] for k in keys} | {h["user_id"] for h in hooks}:
+        u = await db.users.find_one({"id": uid}, {"_id": 0, "email": 1, "name": 1})
+        emails[uid] = u.get("email") if u else uid
+    return {
+        "keys": [{**_key_public(k), "owner": emails.get(k["user_id"])} for k in keys],
+        "webhooks": [{**_hook_public(h), "owner": emails.get(h["user_id"])} for h in hooks],
+        "totals": {"keys": len(keys), "active_keys": sum(1 for k in keys if k.get("active")),
+                   "webhooks": len(hooks), "api_calls": total_calls, "webhook_deliveries": total_deliveries},
+    }
 
 
 

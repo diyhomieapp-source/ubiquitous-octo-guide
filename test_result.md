@@ -258,3 +258,10 @@ NOTE: generation is a single backend call, so stages are time-progressed (approx
 - #40 Contractor Licensing/Credential Checker: pro_credentials collection, /api/pro/credentials (GET/POST/DELETE) + compliance, /api/admin/credentials (+counts) + PATCH verify/reject. app/pro/credentials.tsx, admin CredentialsModule (nav admin-nav-credentials), pro dashboard banner (also shown to PENDING pros now). TESTED backend + admin verify E2E green.
 - pat_pro_test@diyhomie.com is now status=pending (has a submitted credential) — can submit creds; use admin to verify.
 - STILL QUEUED: #41 Tool Rental & Peer Lending, #42 Resell/Donation Marketplace (both extend #35 Materials Exchange), #43 AR Instruction Builder, #44 Order/Supply-Chain Tracking, #45 Skill Exchange Marketplace.
+
+## Iteration 4 — API/Webhook Platform #46 (main agent, forked)
+- Added imports hmac/hashlib/Header. Collections: api_keys, webhooks, webhook_deliveries.
+- Developer endpoints: /api/developer/{meta,keys(GET/POST),keys/{id}/revoke,webhooks(GET/POST),webhooks/{id}(DELETE),webhooks/{id}/test}. Scoped public API: /api/v1/{me,projects,community} via X-API-Key header (get_api_key_user + _require_scope). Webhooks signed HMAC-SHA256 (X-DIYhomie-Signature); fire_event() helper for real dispatch. Admin: /api/admin/partners (registry + usage totals).
+- Frontend app/developer.tsx (API Keys / Webhooks / API Docs tabs; key copy via expo-clipboard). Admin PartnersModule (nav admin-nav-partners). Profile row profile-developer.
+- CURL-VERIFIED E2E: create key → v1/me + v1/projects 200, no key → 401, webhook create + test-fire (delivery logged), admin partners totals. Lint clean. Frontend E2E via agent PENDING (pattern-consistent with verified screens).
+- STILL QUEUED: #41 Tool Rental & Peer Lending, #42 Resell/Donation Marketplace (extend #35 Materials Exchange), #43 AR Instruction Builder, #44 Order/Supply-Chain Tracking, #45 Skill Exchange Marketplace.
