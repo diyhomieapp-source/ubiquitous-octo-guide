@@ -1,7 +1,7 @@
 // Single source of truth for help/legal content + contact + social links.
 
 export const CONTACT = {
-  email: "support@diyhomie.app",
+  email: "support@diyhomie.com",
   hours: "We reply within 1 business day (Mon–Fri).",
   socials: [
     { label: "Instagram", icon: "instagram", url: "https://instagram.com/diyhomie" },
@@ -91,7 +91,7 @@ export const LEGAL: Record<string, LegalDoc> = {
       { heading: "Third parties", text: "We share limited data with service providers needed to run the app: AI providers (for generating guides/images), WeatherAPI.com (for conditions), and Stripe (for payments). They process data only to provide their service." },
       { heading: "Your choices", text: "You can update your profile, remove your location, or request account deletion by contacting support. Disabling location simply turns off weather-aware tips." },
       { heading: "Security", text: "We use industry-standard measures to protect your data, but no system is 100% secure." },
-      { heading: "Contact", text: "Questions about privacy? Email support@diyhomie.app." },
+      { heading: "Contact", text: "Questions about privacy? Email support@diyhomie.com." },
     ],
   },
 };

@@ -2,7 +2,7 @@ import { View, Text, StyleSheet, ScrollView } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { colors, spacing, font, type } from "@/src/theme";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
-import { LEGAL } from "@/src/content/appContent";
+import { LEGAL, CONTACT } from "@/src/content/appContent";
 
 export default function LegalDocScreen() {
   const { doc } = useLocalSearchParams<{ doc?: string }>();
@@ -19,7 +19,7 @@ export default function LegalDocScreen() {
             <Text style={styles.text}>{s.text}</Text>
           </View>
         ))}
-        <Text style={styles.footer}>Questions? Email support@diyhomie.app</Text>
+        <Text style={styles.footer}>Questions? Email {CONTACT.email}</Text>
       </ScrollView>
     </View>
   );
