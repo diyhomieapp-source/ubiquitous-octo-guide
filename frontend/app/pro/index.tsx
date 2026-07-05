@@ -95,6 +95,11 @@ export default function ProDashboard() {
           <MaterialCommunityIcons name={banned ? "account-cancel" : "clock-outline"} size={44} color={banned ? colors.error : colors.warning} />
           <Text style={styles.gateTitle}>{banned ? "Account suspended" : "Verification pending"}</Text>
           <Text style={styles.gateSub}>{banned ? "Please contact support@diyhomie.com." : "Our team is reviewing your license & insurance. You'll get access to your dashboard once verified."}</Text>
+          {!banned && (
+            <Pressable testID="pro-credentials-banner" style={styles.primaryBtn} onPress={() => router.push("/pro/credentials")}>
+              <Text style={styles.primaryText}>SUBMIT LICENSES & CREDENTIALS</Text>
+            </Pressable>
+          )}
         </View>
       </View>
     );

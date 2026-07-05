@@ -15,6 +15,7 @@ const SECTIONS: { key: string; label: string; icon: string }[] = [
   { key: "avatar_gender", label: "Avatar", icon: "account-outline" },
   { key: "avatar_look", label: "Personality", icon: "emoticon-outline" },
   { key: "avatar_gear", label: "Gear", icon: "hard-hat" },
+  { key: "avatar_skin", label: "Skin tone", icon: "palette" },
   { key: "voice", label: "Voice style", icon: "microphone-outline" },
   { key: "verbosity", label: "Guidance detail", icon: "text-box-outline" },
   { key: "overlay_palette", label: "AR overlay palette", icon: "palette-outline" },
