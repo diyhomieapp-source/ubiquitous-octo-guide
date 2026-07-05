@@ -36,6 +36,7 @@ import education_engine
 import campaign_engine
 import export_engine
 import appstore_engine
+import monitoring_engine
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -8810,6 +8811,11 @@ appstore_engine.configure(db, logger)
 app.include_router(appstore_engine.build_user_router(get_current_user))
 app.include_router(appstore_engine.build_admin_router(require_admin))
 
+# DevOps Monitoring & Platform Reliability (Sheet #67) — admin/founder ops.
+monitoring_engine.configure(db, logger)
+app.include_router(monitoring_engine.build_admin_router(require_admin))
+app.middleware("http")(monitoring_engine.monitoring_middleware)
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
@@ -8878,6 +8884,8 @@ async def _ensure_indexes():
         await db.campaign_participation.create_index([("campaign_id", 1), ("user_id", 1)])
         await db.campaign_participation.create_index("user_id")
         await db.export_jobs.create_index("token")
+        await db.error_events.create_index([("at", -1)])
+        await db.incidents.create_index([("status", 1), ("at", -1)])
         logger.info("indexes ensured")
     except Exception as e:
         logger.warning(f"index ensure: {e}")
