@@ -3158,6 +3158,274 @@ async def admin_campaigns(admin: dict = Depends(require_admin)):
     return rows
 
 
+# ================================================================ Pro/Material Wholesaler & Supplier Suite (Sheet #33)
+SUPPLIER_CATEGORIES = ["Lumber", "Building Materials", "Electrical", "Plumbing", "Paint", "Landscaping", "Roofing", "Tools"]
+MATERIAL_ORDER_STATUSES = ["rfq", "quoted", "confirmed", "fulfilled", "cancelled"]
+
+SUPPLIER_SEED = [
+    {"id": "sup-lonestar", "name": "Lone Star Lumber & Supply", "categories": ["Lumber", "Building Materials"],
+     "location": "Austin, TX", "pro_only": True, "hours": "Mon–Sat 6a–6p", "phone": "(512) 555-0142",
+     "min_order_cents": 15000, "delivery": True, "pickup": True,
+     "blurb": "Regional yard for framing lumber, sheet goods & bulk fasteners. Pro pricing on volume.",
+     "products": [
+        {"sku": "2X4-8-SPF", "name": "2x4x8 SPF Stud", "unit": "ea", "price_cents": 349},
+        {"sku": "OSB-716", "name": "7/16\" OSB Sheathing 4x8", "unit": "sheet", "price_cents": 1899},
+        {"sku": "TREX-DECK", "name": "Composite Deck Board 5/4x6x16", "unit": "ea", "price_cents": 2799},
+        {"sku": "SCREW-3IN", "name": "Exterior Screws 3\" (5lb)", "unit": "box", "price_cents": 3299}]},
+    {"id": "sup-hillcountry", "name": "Hill Country Electrical Wholesale", "categories": ["Electrical"],
+     "location": "Austin, TX", "pro_only": True, "hours": "Mon–Fri 7a–5p", "phone": "(512) 555-0177",
+     "min_order_cents": 10000, "delivery": True, "pickup": True,
+     "blurb": "Contractor-grade wire, breakers, panels & fixtures. Same-day will-call.",
+     "products": [
+        {"sku": "ROMEX-12-250", "name": "12/2 Romex NM-B 250ft", "unit": "roll", "price_cents": 12999},
+        {"sku": "BRK-20A", "name": "20A Single-Pole Breaker", "unit": "ea", "price_cents": 899},
+        {"sku": "PANEL-200", "name": "200A Main Load Center", "unit": "ea", "price_cents": 18999}]},
+    {"id": "sup-colorworks", "name": "ColorWorks Paint Depot", "categories": ["Paint"],
+     "location": "Round Rock, TX", "pro_only": False, "hours": "Daily 7a–7p", "phone": "(512) 555-0199",
+     "min_order_cents": 5000, "delivery": True, "pickup": True,
+     "blurb": "Bulk interior/exterior paint, primers & sundries with contractor tinting.",
+     "products": [
+        {"sku": "PAINT-INT-5G", "name": "Interior Eggshell Paint 5-gal", "unit": "pail", "price_cents": 15999},
+        {"sku": "PRIMER-5G", "name": "Multi-Surface Primer 5-gal", "unit": "pail", "price_cents": 11999},
+        {"sku": "ROLLER-KIT", "name": "Pro Roller & Tray Kit", "unit": "kit", "price_cents": 2499}]},
+]
+
+
+async def seed_suppliers():
+    for s in SUPPLIER_SEED:
+        exists = await db.suppliers.find_one({"id": s["id"]})
+        if exists:
+            continue
+        prods = s.pop("products", [])
+        await db.suppliers.insert_one({**s, "active": True, "verified": True, "stripe_account_id": None, "created_at": now_iso()})
+        for p in prods:
+            await db.supplier_products.insert_one({
+                "id": new_id(), "supplier_id": s["id"], "sku": p["sku"], "name": p["name"],
+                "unit": p["unit"], "price_cents": p["price_cents"], "image": None, "created_at": now_iso(),
+            })
+    logger.info("suppliers seeded")
+
+
+def _supplier_public(s: dict) -> dict:
+    return {
+        "id": s["id"], "name": s.get("name"), "categories": s.get("categories", []),
+        "location": s.get("location", ""), "pro_only": bool(s.get("pro_only")),
+        "hours": s.get("hours", ""), "phone": s.get("phone", ""), "blurb": s.get("blurb", ""),
+        "min_order_cents": s.get("min_order_cents", 0), "delivery": bool(s.get("delivery")),
+        "pickup": bool(s.get("pickup")), "verified": bool(s.get("verified")),
+        "can_pay_online": bool(s.get("stripe_account_id")),
+    }
+
+
+class OrderItem(BaseModel):
+    sku: Optional[str] = None
+    name: str
+    qty: float = 1
+    unit: str = "ea"
+    grade: Optional[str] = None
+    cut_length: Optional[str] = None
+    unit_price_cents: int = 0
+
+
+class MaterialOrderReq(BaseModel):
+    supplier_id: str
+    project_id: Optional[str] = None
+    mode: str = "rfq"  # rfq | order
+    fulfillment: str = "delivery"  # delivery | pickup
+    items: List[OrderItem] = []
+    note: str = ""
+
+
+@api_router.get("/suppliers")
+async def list_suppliers(category: Optional[str] = None, user: dict = Depends(get_current_user)):
+    q: dict = {"active": True}
+    if category and category in SUPPLIER_CATEGORIES:
+        q["categories"] = category
+    rows = await db.suppliers.find(q, {"_id": 0}).sort("name", 1).to_list(200)
+    return {"categories": SUPPLIER_CATEGORIES, "suppliers": [_supplier_public(s) for s in rows]}
+
+
+@api_router.get("/suppliers/{supplier_id}")
+async def supplier_detail(supplier_id: str, user: dict = Depends(get_current_user)):
+    s = await db.suppliers.find_one({"id": supplier_id, "active": True}, {"_id": 0})
+    if not s:
+        raise HTTPException(status_code=404, detail="Supplier not found.")
+    products = await db.supplier_products.find({"supplier_id": supplier_id}, {"_id": 0}).sort("name", 1).to_list(500)
+    return {"supplier": _supplier_public(s), "products": products}
+
+
+@api_router.post("/material-orders")
+async def create_material_order(req: MaterialOrderReq, user: dict = Depends(get_current_user)):
+    s = await db.suppliers.find_one({"id": req.supplier_id, "active": True}, {"_id": 0})
+    if not s:
+        raise HTTPException(status_code=404, detail="Supplier not found.")
+    if not req.items:
+        raise HTTPException(status_code=400, detail="Add at least one item.")
+    items = [{
+        "sku": i.sku, "name": i.name[:140], "qty": max(0.0, float(i.qty)), "unit": i.unit[:16],
+        "grade": (i.grade or "")[:60], "cut_length": (i.cut_length or "")[:40],
+        "unit_price_cents": max(0, int(i.unit_price_cents)),
+        "line_cents": int(max(0, int(i.unit_price_cents)) * max(0.0, float(i.qty))),
+    } for i in req.items]
+    subtotal = sum(i["line_cents"] for i in items)
+    mode = req.mode if req.mode in ("rfq", "order") else "rfq"
+    order = {
+        "id": new_id(), "user_id": user["id"], "supplier_id": s["id"], "supplier_name": s["name"],
+        "project_id": req.project_id, "mode": mode,
+        "fulfillment": req.fulfillment if req.fulfillment in ("delivery", "pickup") else "delivery",
+        "items": items, "subtotal_cents": subtotal, "quoted_cents": None,
+        "status": "rfq" if mode == "rfq" else "confirmed", "note": req.note[:1000],
+        "events": [{"status": "created", "at": now_iso()}], "created_at": now_iso(), "updated_at": now_iso(),
+    }
+    await db.material_orders.insert_one(dict(order))
+    await push_notification(user["id"], title="Order submitted",
+                            body=f"Your {'RFQ' if mode=='rfq' else 'order'} to {s['name']} was received.",
+                            ntype="project", meta={"order_id": order["id"]})
+    await emit_event("material_order_created", user["id"], {"supplier": s["name"], "subtotal_cents": subtotal})
+    return {k: v for k, v in order.items()}
+
+
+@api_router.get("/material-orders")
+async def list_material_orders(user: dict = Depends(get_current_user)):
+    rows = await db.material_orders.find({"user_id": user["id"]}, {"_id": 0}).sort("updated_at", -1).to_list(300)
+    return rows
+
+
+@api_router.get("/material-orders/{order_id}")
+async def material_order_detail(order_id: str, user: dict = Depends(get_current_user)):
+    o = await db.material_orders.find_one({"id": order_id, "user_id": user["id"]}, {"_id": 0})
+    if not o:
+        raise HTTPException(status_code=404, detail="Order not found.")
+    return o
+
+
+@api_router.post("/material-orders/{order_id}/pay")
+async def pay_material_order(order_id: str, req: OriginReq, user: dict = Depends(get_current_user)):
+    o = await db.material_orders.find_one({"id": order_id, "user_id": user["id"]}, {"_id": 0})
+    if not o:
+        raise HTTPException(status_code=404, detail="Order not found.")
+    amount = o.get("quoted_cents") or o.get("subtotal_cents") or 0
+    if amount <= 0:
+        raise HTTPException(status_code=400, detail="Awaiting supplier quote before payment.")
+    s = await db.suppliers.find_one({"id": o["supplier_id"]}, {"_id": 0})
+    acct = (s or {}).get("stripe_account_id")
+    if not STRIPE_SECRET_KEY or "sk_test_emergent" in STRIPE_SECRET_KEY:
+        raise HTTPException(status_code=503, detail="Payments not configured on this environment.")
+    if not acct:
+        raise HTTPException(status_code=400, detail="This supplier isn't set up for online payment yet — arrange payment directly.")
+    host = (req.origin_url or "").rstrip("/") or "https://diyhomie.app"
+    fee = int(amount * PLATFORM_FEE_PCT)
+    try:
+        session = await asyncio.to_thread(lambda: stripe.checkout.Session.create(
+            mode="payment", payment_method_types=["card"],
+            line_items=[{"price_data": {"currency": "usd", "unit_amount": amount,
+                         "product_data": {"name": f"Materials order — {s['name']}"}}, "quantity": 1}],
+            payment_intent_data={"application_fee_amount": fee, "transfer_data": {"destination": acct}},
+            customer_email=user.get("email"),
+            metadata={"material_order_id": o["id"]},
+            success_url=f"{host}/orders/{o['id']}?paid=1", cancel_url=f"{host}/orders/{o['id']}",
+        ))
+    except Exception as e:
+        logger.error(f"material order pay error: {e}")
+        raise HTTPException(status_code=502, detail="Could not start payment.")
+    return {"checkout_url": session.url}
+
+
+# ---- admin supplier management
+class SupplierReq(BaseModel):
+    name: str
+    categories: List[str] = []
+    location: str = ""
+    pro_only: bool = True
+    hours: str = ""
+    phone: str = ""
+    blurb: str = ""
+    min_order_cents: int = 0
+    delivery: bool = True
+    pickup: bool = True
+
+
+@api_router.get("/admin/suppliers")
+async def admin_list_suppliers(admin: dict = Depends(require_admin)):
+    rows = await db.suppliers.find({}, {"_id": 0}).sort("name", 1).to_list(500)
+    out = []
+    for s in rows:
+        pc = await db.supplier_products.count_documents({"supplier_id": s["id"]})
+        oc = await db.material_orders.count_documents({"supplier_id": s["id"]})
+        out.append({**_supplier_public(s), "active": bool(s.get("active", True)), "product_count": pc, "order_count": oc})
+    return out
+
+
+@api_router.post("/admin/suppliers")
+async def admin_create_supplier(req: SupplierReq, admin: dict = Depends(require_admin)):
+    doc = {"id": new_id(), **req.model_dump(), "active": True, "verified": True,
+           "stripe_account_id": None, "created_at": now_iso()}
+    await db.suppliers.insert_one(dict(doc))
+    return _supplier_public(doc)
+
+
+@api_router.post("/admin/suppliers/{supplier_id}/products/import")
+async def admin_import_products(supplier_id: str, payload: dict, admin: dict = Depends(require_admin)):
+    """CSV import: payload {csv: 'sku,name,unit,price'} — one product per line."""
+    s = await db.suppliers.find_one({"id": supplier_id}, {"_id": 0})
+    if not s:
+        raise HTTPException(status_code=404, detail="Supplier not found.")
+    csv_text = (payload.get("csv") or "").strip()
+    if not csv_text:
+        raise HTTPException(status_code=400, detail="Provide CSV rows: sku,name,unit,price")
+    added = 0
+    for line in csv_text.splitlines():
+        parts = [p.strip() for p in line.split(",")]
+        if len(parts) < 4 or parts[0].lower() == "sku":
+            continue
+        sku, name, unit, price = parts[0], parts[1], parts[2], parts[3]
+        try:
+            cents = int(round(float(price.replace("$", "")) * 100))
+        except ValueError:
+            continue
+        await db.supplier_products.insert_one({
+            "id": new_id(), "supplier_id": supplier_id, "sku": sku[:60], "name": name[:140],
+            "unit": unit[:16] or "ea", "price_cents": cents, "image": None, "created_at": now_iso(),
+        })
+        added += 1
+    return {"ok": True, "added": added}
+
+
+@api_router.post("/admin/suppliers/{supplier_id}/toggle")
+async def admin_toggle_supplier(supplier_id: str, active: bool, admin: dict = Depends(require_admin)):
+    res = await db.suppliers.update_one({"id": supplier_id}, {"$set": {"active": active}})
+    if not res.matched_count:
+        raise HTTPException(status_code=404, detail="Supplier not found.")
+    return {"ok": True}
+
+
+@api_router.get("/admin/material-orders")
+async def admin_list_orders(admin: dict = Depends(require_admin)):
+    return await db.material_orders.find({}, {"_id": 0}).sort("updated_at", -1).to_list(500)
+
+
+@api_router.patch("/admin/material-orders/{order_id}")
+async def admin_update_order(order_id: str, status: str, quoted_cents: Optional[int] = None, admin: dict = Depends(require_admin)):
+    if status not in MATERIAL_ORDER_STATUSES:
+        raise HTTPException(status_code=400, detail="Invalid status.")
+    o = await db.material_orders.find_one({"id": order_id}, {"_id": 0})
+    if not o:
+        raise HTTPException(status_code=404, detail="Order not found.")
+    upd: dict = {"status": status, "updated_at": now_iso()}
+    if quoted_cents is not None:
+        upd["quoted_cents"] = int(quoted_cents)
+    await db.material_orders.update_one(
+        {"id": order_id},
+        {"$set": upd, "$push": {"events": {"status": status, "at": now_iso()}}},
+    )
+    body = {"quoted": "Your supplier sent a quote — review & pay.", "confirmed": "Your materials order is confirmed.",
+            "fulfilled": "Your materials order was fulfilled.", "cancelled": "Your materials order was cancelled."}.get(status)
+    if body:
+        await push_notification(o["user_id"], title=f"Order update: {o['supplier_name']}", body=body,
+                                ntype="project", meta={"order_id": order_id})
+    return {"ok": True}
+
+
 # ---------------------------------------------------------------- support tickets
 class TicketReq(BaseModel):
     category: str
@@ -5172,6 +5440,7 @@ async def _startup_seed_community():
     await seed_community()
     await seed_vendors()
     await seed_pros()
+    await seed_suppliers()
 
 
 @app.on_event("startup")
