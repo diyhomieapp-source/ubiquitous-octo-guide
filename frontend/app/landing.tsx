@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, Pressable, Linking } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable } from "react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
@@ -9,9 +9,6 @@ import * as Haptics from "expo-haptics";
 import { colors, spacing, radius, font, type } from "@/src/theme";
 import { Logo } from "@/src/components/Logo";
 
-// Paste real store URLs here once the apps are published — buttons go live instantly.
-const APP_STORE_URL = "";
-const PLAY_STORE_URL = "";
 const DIY_BG = require("../assets/diy-bg.png");
 
 export default function Landing() {
@@ -19,10 +16,6 @@ export default function Landing() {
   const insets = useSafeAreaInsets();
 
   const start = () => { Haptics.selectionAsync(); router.push("/survey"); };
-  const openStore = (url: string) => {
-    if (url) Linking.openURL(url).catch(() => {});
-    else start();
-  };
 
   return (
     <View style={styles.root}>
@@ -83,23 +76,6 @@ export default function Landing() {
             <Text style={styles.signinText}>I already have an account</Text>
           </Pressable>
 
-          <View style={styles.badges}>
-            <Pressable testID="badge-appstore" style={styles.badge} onPress={() => openStore(APP_STORE_URL)}>
-              <MaterialCommunityIcons name="apple" size={26} color="#fff" />
-              <View>
-                <Text style={styles.badgeSmall}>Download on the</Text>
-                <Text style={styles.badgeBig}>App Store</Text>
-              </View>
-            </Pressable>
-            <Pressable testID="badge-playstore" style={styles.badge} onPress={() => openStore(PLAY_STORE_URL)}>
-              <MaterialCommunityIcons name="google-play" size={22} color="#fff" />
-              <View>
-                <Text style={styles.badgeSmall}>GET IT ON</Text>
-                <Text style={styles.badgeBig}>Google Play</Text>
-              </View>
-            </Pressable>
-          </View>
-          <Text style={styles.badgeNote}>iOS & Android coming soon</Text>
         </View>
       </ScrollView>
     </View>
@@ -126,10 +102,4 @@ const styles = StyleSheet.create({
   pillText: { color: colors.onSurface, fontFamily: font.bold, fontSize: type.sm },
   signin: { paddingVertical: spacing.md, marginTop: spacing.xs },
   signinText: { color: colors.onSurfaceTertiary, fontFamily: font.medium, fontSize: type.base },
-
-  badges: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: spacing.md, marginTop: spacing["2xl"] },
-  badge: { flexDirection: "row", alignItems: "center", gap: spacing.sm, backgroundColor: "#000", borderColor: "#333", borderWidth: 1, borderRadius: radius.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, minWidth: 150 },
-  badgeSmall: { color: "#bbb", fontFamily: font.medium, fontSize: 10, letterSpacing: 0.5 },
-  badgeBig: { color: "#fff", fontFamily: font.bold, fontSize: type.lg, marginTop: -1 },
-  badgeNote: { color: colors.onSurfaceTertiary, fontFamily: font.regular, fontSize: type.sm, marginTop: spacing.md },
 });
