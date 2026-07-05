@@ -7300,7 +7300,8 @@ async def admin_get_prompt(key: str, admin: dict = Depends(require_admin)):
     meta = PROMPT_REGISTRY.get(key, {})
     st = await db.prompt_stats.find_one({"key": key}, {"_id": 0}) or {}
     audit = await db.prompt_audit.find({"key": key}, {"_id": 0}).sort("at", -1).to_list(30)
-    return {**d, "default": meta.get("default"), "vars": meta.get("vars", []), "stats": st, "audit": audit}
+    return {**d, "has_pending": bool(d.get("pending")), "default": meta.get("default"),
+            "vars": meta.get("vars", []), "stats": st, "audit": audit}
 
 
 @api_router.put("/admin/prompts/{key}")
