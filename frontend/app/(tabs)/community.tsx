@@ -47,6 +47,14 @@ export default function Community() {
           <MaterialCommunityIcons name="magnify" size={20} color={colors.onSurfaceTertiary} />
           <Text style={styles.searchPlaceholder}>Search guides, tips & fixes…</Text>
         </Pressable>
+        <Pressable testID="community-neighborhood" style={styles.nbBanner} onPress={() => router.push("/neighborhood")}>
+          <View style={styles.nbBannerIcon}><MaterialCommunityIcons name="map-marker-radius" size={22} color={colors.onBrandPrimary} /></View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.nbBannerTitle}>Your Neighborhood</Text>
+            <Text style={styles.nbBannerSub}>Nearby projects · borrow tools · ask locals</Text>
+          </View>
+          <MaterialCommunityIcons name="chevron-right" size={22} color={colors.onSurfaceTertiary} />
+        </Pressable>
       </View>
 
       {loading ? (
@@ -141,6 +149,10 @@ const styles = StyleSheet.create({
   sub: { color: colors.onSurfaceTertiary, fontFamily: font.regular, fontSize: type.base, marginTop: 2, lineHeight: 19 },
   searchBar: { flexDirection: "row", alignItems: "center", gap: spacing.sm, backgroundColor: colors.surfaceSecondary, borderColor: colors.border, borderWidth: 1, borderRadius: radius.md, paddingHorizontal: spacing.md, height: 44, marginTop: spacing.md },
   searchPlaceholder: { color: colors.onSurfaceTertiary, fontFamily: font.medium, fontSize: type.base },
+  nbBanner: { flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: colors.surfaceSecondary, borderColor: colors.brandPrimary, borderWidth: 1.5, borderRadius: radius.md, padding: spacing.md, marginTop: spacing.md },
+  nbBannerIcon: { width: 42, height: 42, borderRadius: radius.sm, backgroundColor: colors.brandPrimary, alignItems: "center", justifyContent: "center" },
+  nbBannerTitle: { color: colors.onSurface, fontFamily: font.bold, fontSize: type.base },
+  nbBannerSub: { color: colors.onSurfaceTertiary, fontFamily: font.regular, fontSize: type.sm, marginTop: 1 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   feedHead: { flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingHorizontal: spacing.lg, marginBottom: spacing.sm },
   livePulse: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.success },

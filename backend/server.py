@@ -73,6 +73,26 @@ def new_id() -> str:
     return str(uuid.uuid4())
 
 
+def _neighborhood_key(location: str) -> str:
+    """Derive an anonymized grouping key from a user's location (city/ZIP).
+    Never uses street-level data — only the primary city/ZIP token."""
+    loc = (location or "").strip().lower()
+    if not loc:
+        return ""
+    primary = loc.split(",")[0].strip()
+    return " ".join(primary.split())
+
+
+def _neighborhood_tag(location: str) -> str:
+    """Human-friendly, anonymized neighborhood label (e.g. 'East Austin', 'ZIP 78701')."""
+    key = _neighborhood_key(location)
+    if not key:
+        return ""
+    if key.replace("-", "").replace(" ", "").isdigit():
+        return f"ZIP {key}"
+    return key.title()
+
+
 def public_user(u: dict) -> dict:
     return {
         "id": u["id"],
@@ -93,6 +113,8 @@ def public_user(u: dict) -> dict:
         "avatar_base64": u.get("avatar_base64"),
         "bio": u.get("bio", ""),
         "share_public": u.get("share_public", False),
+        "neighborhood_optin": u.get("neighborhood_optin", False),
+        "neighborhood_tag": _neighborhood_tag(u.get("location", "")),
     }
 
 
@@ -2185,6 +2207,267 @@ async def verify_reply(post_id: str, reply_id: str, user: dict = Depends(get_cur
     return {"ok": True, "rewarded_user": reply["author"]}
 
 
+# ---------------------------------------------------------------- Neighborhood Network & Peer Exchange (Sheet #26)
+NEIGHBOR_KINDS = {"help", "qa", "spotlight"}
+
+
+class NeighborJoinReq(BaseModel):
+    optin: bool = True
+
+
+class NeighborPostReq(BaseModel):
+    kind: str  # help | qa | spotlight
+    title: str
+    body: str = ""
+    image_base64: Optional[str] = None
+
+
+class NeighborOfferReq(BaseModel):
+    body: str = ""
+
+
+class NeighborFlagReq(BaseModel):
+    reason: str = ""
+
+
+def _first_name(u: dict) -> str:
+    return (u.get("name") or u.get("email", "").split("@")[0] or "Neighbor").split(" ")[0]
+
+
+async def _trusted_score(uid: str) -> int:
+    """Verified contributions used for the Trusted Neighbor badge."""
+    shared = await db.timeline.count_documents({"user_id": uid, "shared": True})
+    resolved_helps = await db.neighborhood_posts.count_documents(
+        {"resolved": True, "offers.user_id": uid, "removed": {"$ne": True}}
+    )
+    return int(shared) + int(resolved_helps)
+
+
+def _sanitize_post(p: dict, viewer_id: str, author_map: dict) -> dict:
+    """Strip internal fields and only reveal contact when mutually opted-in."""
+    author_email = author_map.get(p["user_id"], "")
+    offers_out = []
+    for o in p.get("offers", []):
+        shared = bool(o.get("contact_shared"))
+        can_see = viewer_id in (p["user_id"], o["user_id"])
+        offers_out.append({
+            "id": o["id"], "author": o["author"], "body": o.get("body", ""),
+            "created_at": o["created_at"], "contact_shared": shared,
+            # contact revealed only to the two parties AND only after author approval
+            "author_email": (author_email if shared and can_see else None),
+            "offerer_email": (author_map.get(o["user_id"]) if shared and can_see else None),
+            "is_mine": o["user_id"] == viewer_id,
+        })
+    return {
+        "id": p["id"], "kind": p["kind"], "title": p["title"], "body": p.get("body", ""),
+        "image_base64": p.get("image_base64"),
+        "author": p.get("author"), "is_mine": p["user_id"] == viewer_id,
+        "resolved": bool(p.get("resolved")), "promoted_global": bool(p.get("promoted_global")),
+        "offer_count": len(p.get("offers", [])), "offers": offers_out,
+        "flagged": any(f.get("user_id") == viewer_id for f in p.get("flags", [])),
+        "created_at": p["created_at"],
+    }
+
+
+@api_router.post("/neighborhood/join")
+async def neighborhood_join(req: NeighborJoinReq, user: dict = Depends(get_current_user)):
+    key = _neighborhood_key(user.get("location", ""))
+    if req.optin and not key:
+        raise HTTPException(status_code=400, detail="Add your city or ZIP in Profile first so we can find your neighborhood.")
+    await db.users.update_one({"id": user["id"]}, {"$set": {"neighborhood_optin": req.optin}})
+    return {"optin": req.optin, "neighborhood_tag": _neighborhood_tag(user.get("location", ""))}
+
+
+@api_router.get("/neighborhood")
+async def neighborhood_overview(user: dict = Depends(get_current_user)):
+    key = _neighborhood_key(user.get("location", ""))
+    tag = _neighborhood_tag(user.get("location", ""))
+    optin = bool(user.get("neighborhood_optin"))
+    if not optin or not key:
+        return {"optin": optin, "has_location": bool(key), "neighborhood_tag": tag,
+                "impact": None, "feed": [], "neighbors": []}
+
+    members = await db.users.find({"neighborhood_optin": True}, {"_id": 0, "id": 1, "name": 1, "email": 1, "location": 1}).to_list(2000)
+    members = [m for m in members if _neighborhood_key(m.get("location", "")) == key]
+    member_ids = [m["id"] for m in members]
+
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
+    homes_month = await db.timeline.count_documents({"user_id": {"$in": member_ids}, "created_at": {"$gte": cutoff}})
+    saved_cur = db.timeline.aggregate([
+        {"$match": {"user_id": {"$in": member_ids}}},
+        {"$group": {"_id": None, "saved": {"$sum": "$money_saved_cents"}, "n": {"$sum": 1}}},
+    ])
+    saved_row = await saved_cur.to_list(1)
+    saved_total = int(saved_row[0]["saved"]) if saved_row else 0
+    total_projects = int(saved_row[0]["n"]) if saved_row else 0
+
+    # local project feed — recent completed projects by opted-in neighbors
+    feed_rows = await db.timeline.find(
+        {"user_id": {"$in": member_ids}}, {"_id": 0}
+    ).sort("created_at", -1).to_list(40)
+    name_by_id = {m["id"]: _first_name(m) for m in members}
+    feed = [{
+        "id": r.get("id") or r.get("project_id"),
+        "author": name_by_id.get(r["user_id"], "Neighbor"),
+        "is_mine": r["user_id"] == user["id"],
+        "title": r.get("story_title") or r.get("title"),
+        "skill_tag": r.get("skill_tag"),
+        "money_saved_cents": r.get("money_saved_cents") or 0,
+        "photo": r.get("after_photo") or r.get("before_photo"),
+        "created_at": r.get("created_at"),
+    } for r in feed_rows][:20]
+
+    # neighbors + trusted badges (top contributors)
+    neighbors = []
+    for m in members:
+        score = await _trusted_score(m["id"])
+        neighbors.append({"name": _first_name(m), "trusted": score >= 3, "contributions": score, "is_mine": m["id"] == user["id"]})
+    neighbors.sort(key=lambda x: -x["contributions"])
+
+    return {
+        "optin": True, "has_location": True, "neighborhood_tag": tag,
+        "impact": {
+            "members": len(members),
+            "homes_month": homes_month,
+            "saved_total_cents": saved_total,
+            "total_projects": total_projects,
+        },
+        "feed": feed,
+        "neighbors": neighbors[:12],
+    }
+
+
+@api_router.get("/neighborhood/posts")
+async def neighborhood_posts(kind: Optional[str] = None, user: dict = Depends(get_current_user)):
+    key = _neighborhood_key(user.get("location", ""))
+    if not user.get("neighborhood_optin") or not key:
+        return []
+    q: dict = {"neighborhood_key": key, "removed": {"$ne": True}}
+    if kind and kind in NEIGHBOR_KINDS:
+        q["kind"] = kind
+    rows = await db.neighborhood_posts.find(q, {"_id": 0}).sort("created_at", -1).to_list(200)
+
+    # lazy auto-promotion: unanswered Q&A older than 12h promotes to the global feed
+    promo_cut = (datetime.now(timezone.utc) - timedelta(hours=12)).isoformat()
+    for r in rows:
+        if r["kind"] == "qa" and not r.get("promoted_global") and not r.get("offers") and r["created_at"] < promo_cut:
+            await db.neighborhood_posts.update_one({"id": r["id"]}, {"$set": {"promoted_global": True}})
+            r["promoted_global"] = True
+
+    author_map = {}
+    ids = {r["user_id"] for r in rows} | {o["user_id"] for r in rows for o in r.get("offers", [])}
+    async for u in db.users.find({"id": {"$in": list(ids)}}, {"_id": 0, "id": 1, "email": 1}):
+        author_map[u["id"]] = u.get("email", "")
+    return [_sanitize_post(r, user["id"], author_map) for r in rows]
+
+
+@api_router.post("/neighborhood/posts")
+async def neighborhood_create_post(req: NeighborPostReq, user: dict = Depends(get_current_user)):
+    key = _neighborhood_key(user.get("location", ""))
+    if not user.get("neighborhood_optin") or not key:
+        raise HTTPException(status_code=403, detail="Join your neighborhood first.")
+    if req.kind not in NEIGHBOR_KINDS:
+        raise HTTPException(status_code=400, detail="Invalid post type.")
+    if not req.title.strip():
+        raise HTTPException(status_code=400, detail="Add a short title.")
+    post = {
+        "id": new_id(), "neighborhood_key": key, "kind": req.kind,
+        "user_id": user["id"], "author": _first_name(user),
+        "title": req.title.strip()[:140], "body": req.body.strip()[:2000],
+        "image_base64": req.image_base64,
+        "offers": [], "resolved": False, "flags": [], "removed": False,
+        "promoted_global": False, "created_at": now_iso(),
+    }
+    await db.neighborhood_posts.insert_one(dict(post))
+    author_map = {user["id"]: user.get("email", "")}
+    return _sanitize_post(post, user["id"], author_map)
+
+
+@api_router.post("/neighborhood/posts/{post_id}/offer")
+async def neighborhood_offer(post_id: str, req: NeighborOfferReq, user: dict = Depends(get_current_user)):
+    post = await db.neighborhood_posts.find_one({"id": post_id, "removed": {"$ne": True}}, {"_id": 0})
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found.")
+    if post["user_id"] == user["id"]:
+        raise HTTPException(status_code=400, detail="You can't respond to your own post.")
+    if any(o["user_id"] == user["id"] for o in post.get("offers", [])):
+        raise HTTPException(status_code=400, detail="You already offered to help.")
+    offer = {"id": new_id(), "user_id": user["id"], "author": _first_name(user),
+             "body": req.body.strip()[:1000], "contact_shared": False, "created_at": now_iso()}
+    await db.neighborhood_posts.update_one({"id": post_id}, {"$push": {"offers": offer}})
+    return {"ok": True}
+
+
+@api_router.post("/neighborhood/posts/{post_id}/reveal/{offer_id}")
+async def neighborhood_reveal(post_id: str, offer_id: str, user: dict = Depends(get_current_user)):
+    """Author explicitly approves sharing contact with a specific helper (mutual reveal)."""
+    post = await db.neighborhood_posts.find_one({"id": post_id}, {"_id": 0})
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found.")
+    if post["user_id"] != user["id"]:
+        raise HTTPException(status_code=403, detail="Only the author can share contact.")
+    if not any(o["id"] == offer_id for o in post.get("offers", [])):
+        raise HTTPException(status_code=404, detail="Offer not found.")
+    await db.neighborhood_posts.update_one(
+        {"id": post_id, "offers.id": offer_id}, {"$set": {"offers.$.contact_shared": True}}
+    )
+    return {"ok": True}
+
+
+@api_router.post("/neighborhood/posts/{post_id}/resolve")
+async def neighborhood_resolve(post_id: str, user: dict = Depends(get_current_user)):
+    post = await db.neighborhood_posts.find_one({"id": post_id}, {"_id": 0})
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found.")
+    if post["user_id"] != user["id"]:
+        raise HTTPException(status_code=403, detail="Only the author can resolve this.")
+    await db.neighborhood_posts.update_one({"id": post_id}, {"$set": {"resolved": True}})
+    return {"ok": True}
+
+
+@api_router.post("/neighborhood/posts/{post_id}/flag")
+async def neighborhood_flag(post_id: str, req: NeighborFlagReq, user: dict = Depends(get_current_user)):
+    post = await db.neighborhood_posts.find_one({"id": post_id}, {"_id": 0})
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found.")
+    if any(f.get("user_id") == user["id"] for f in post.get("flags", [])):
+        return {"ok": True, "already": True}
+    flag = {"user_id": user["id"], "reason": req.reason.strip()[:300], "created_at": now_iso()}
+    await db.neighborhood_posts.update_one({"id": post_id}, {"$push": {"flags": flag}})
+    return {"ok": True}
+
+
+# ---- admin moderation
+@api_router.get("/admin/neighborhood/flags")
+async def admin_neighborhood_flags(admin: dict = Depends(require_admin)):
+    rows = await db.neighborhood_posts.find(
+        {"flags.0": {"$exists": True}, "removed": {"$ne": True}}, {"_id": 0}
+    ).sort("created_at", -1).to_list(200)
+    return [{
+        "id": r["id"], "kind": r["kind"], "title": r["title"], "body": r.get("body", ""),
+        "author": r.get("author"), "neighborhood": _neighborhood_tag(r["neighborhood_key"]),
+        "flag_count": len(r.get("flags", [])), "flags": r.get("flags", []),
+        "created_at": r["created_at"],
+    } for r in rows]
+
+
+@api_router.post("/admin/neighborhood/posts/{post_id}/remove")
+async def admin_neighborhood_remove(post_id: str, admin: dict = Depends(require_admin)):
+    res = await db.neighborhood_posts.update_one({"id": post_id}, {"$set": {"removed": True, "removed_at": now_iso()}})
+    if not res.matched_count:
+        raise HTTPException(status_code=404, detail="Post not found.")
+    return {"ok": True}
+
+
+@api_router.post("/admin/neighborhood/posts/{post_id}/dismiss")
+async def admin_neighborhood_dismiss(post_id: str, admin: dict = Depends(require_admin)):
+    """Clear flags without removing (false alarm)."""
+    res = await db.neighborhood_posts.update_one({"id": post_id}, {"$set": {"flags": []}})
+    if not res.matched_count:
+        raise HTTPException(status_code=404, detail="Post not found.")
+    return {"ok": True}
+
+
 # ---------------------------------------------------------------- support tickets
 class TicketReq(BaseModel):
     category: str
@@ -4161,6 +4444,9 @@ async def _ensure_indexes():
         await db.users.create_index("crm_tags")
         await db.vendors.create_index("id")
         await db.vendors.create_index("category")
+        await db.neighborhood_posts.create_index([("neighborhood_key", 1), ("created_at", -1)])
+        await db.neighborhood_posts.create_index("id")
+        await db.users.create_index("neighborhood_optin")
         logger.info("indexes ensured")
     except Exception as e:
         logger.warning(f"index ensure: {e}")
