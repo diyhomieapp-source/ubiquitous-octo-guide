@@ -210,6 +210,8 @@ export default function Profile() {
             testID="profile-data" onPress={() => router.push("/data")} />
           <MenuRow icon="shield-check-outline" label="Privacy & Activity" sub="Your activity log, data use & consent controls"
             testID="profile-privacy" onPress={() => router.push("/privacy")} />
+          <MenuRow icon="certificate-outline" label="DIYhomie Verified" sub="Your certificates & shareable Verified status"
+            testID="profile-certifications" onPress={() => router.push("/certifications")} />
           <MenuRow icon="flask-outline" label="Beta Features" sub="Try experiments early & shape what ships"
             testID="profile-beta" onPress={() => router.push("/beta")} last />
         </View>

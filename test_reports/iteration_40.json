@@ -1,0 +1,31 @@
+{
+  "summary": "Info Sheet #60 'DIYhomie Verified' Certification & Lifetime Credentialing tested end-to-end. Backend: 14/14 pytest tests PASSED — user status/certificates shape (level/label/active/total/is_verified/to_next), eligible list, generate + idempotent-existing:true, generate 404 for non-completed, share returns cert_-prefixed token+url and reuses it on second call, public verify JSON (valid/status/title/holder/code_compliant/pro_validated/certificate_id), public verify HTML (contains DIYhomie branding), verify 404 not_found, auto-issuance on POST /api/projects/{id}/complete (fresh project auto-creates a project_completion cert visible in /certifications), admin list + q/status filters, admin analytics (total/active/revoked/shared/tiers{verified,advanced,master}/by_room/verified_users), admin validate→pro_validated=true, admin revoke→user status flips (share_token verify JSON returns valid:false, status:revoked), admin reinstate→active again, and non-admin (demo_home) hits /admin/certifications and /admin/certifications/analytics → 403 Forbidden. Frontend (demo_home): Profile row 'DIYhomie Verified' (profile-certifications) opens /certifications; hero showed 'DIYhomie Verified · Advanced', 3 active/2 pro-validated, 'Complete 2 more to reach Master'; 'Ready to certify' listed one eligible project with Certify button (cert-generate-*); 3 cert-card rows each with cert-open-* View & share button. Tapping Certify updated hero live to '4 active certificates' and cards to 4. Frontend (admin Diyhomieapp): /admin -> admin-nav-certs opens CertificationsModule showing Issued/Active/Revoked/Shared/Verified-users stats, Verified tiers (verified/advanced/master + pro-validated), 'Certificates by area' bar chart (bathroom/other/outdoor/kitchen), search (cert-admin-search) filtered 4→1 rows for 'Hard', and each active cert-admin-row shows Validate + Revoke buttons (Validate click removed the button since pro_validated flipped to true and analytics Pro-validated stat went 2→3). All required testIDs present and interactive.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_certifications_sheet60.py",
+    "/app/test_reports/pytest/certifications_sheet60_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "certification_engine.py is well-scoped (~350 lines) and cleanly isolated from server.py — good.",
+    "issue_for_completion() is idempotent via find_one on {project_id, kind:'project_completion'} before inserting — good.",
+    "Share endpoint reuses existing share_token when present so URLs are stable — good.",
+    "Public verify endpoint correctly returns valid:false for revoked certs while still surfacing the branded HTML with a red revoked banner — good.",
+    "Non-admin actions on /api/admin/certifications/* properly return 403 via require_admin dependency."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_certifications_sheet60.py (new)"
+  ],
+  "success_rate": {"backend": "100% (14/14)", "frontend": "100% (user + admin certification flows working with all testIDs)"},
+  "seed_data_creation": "Created 1 fresh TEST_ project on demo_home for auto-issuance test (which also created a project_completion certificate). Prior demo_home certificates from earlier iterations remain — expected (certificates are append-only credentials).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "For frontend Alert.alert revoke confirmation: React Native Web renders Alert as an in-app modal (not a browser dialog), so page.on('dialog') will NOT capture it. To exercise the modal 'Revoke' destructive button, target it specifically inside the modal container (last matching Pressable). Backend already validates the full revoke->reinstate loop so admin confirm-modal is optional. Login route is /auth?mode=login; LOGIN button text is 'LOG IN'. EXPO_PUBLIC_BACKEND_URL in frontend/.env is the source of truth for testing (EXPO_BACKEND_URL env var is not set at shell level).",
+  "rca_of_issue": "No bugs found. All 9 review-request bullets verified green: (1) GET /certifications status+certificates shape ✓ (2) GET /certifications/eligible ✓ (3) generate returns existing:true idempotent and 404 for non-completed ✓ (4) share returns cert_-token+url and reuses ✓ (5) public verify JSON+HTML incl. revoked=valid:false ✓ (6) auto-issuance on POST /projects/{id}/complete ✓ (7) admin list/analytics/revoke/reinstate/validate + non-admin 403 ✓ (8) frontend /certifications user screen with hero + eligible + cards + live update after certify ✓ (9) frontend /admin Verified & Certs module with analytics, search, and per-cert actions ✓."
+}

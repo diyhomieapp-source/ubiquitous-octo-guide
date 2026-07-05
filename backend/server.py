@@ -31,6 +31,7 @@ from passlib.context import CryptContext
 import email_engine
 import affiliate_engine
 import audit_engine
+import certification_engine
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -1420,6 +1421,10 @@ async def complete_project(project_id: str, req: CompleteProjectReq, user: dict 
 
     after = await _journey_data(user)
     new_achievements = [a for a in after["achievements"] if a["earned"] and a["id"] not in before_ids]
+    try:
+        await certification_engine.issue_for_completion(user, project, entry)
+    except Exception as e:
+        logger.warning(f"certificate issue failed: {e}")
     try:
         await emit_event("project_completed", user["id"], {
             "projects_completed": after["projects_completed"],
@@ -8774,6 +8779,12 @@ app.include_router(audit_engine.build_user_router(get_current_user))
 app.include_router(audit_engine.build_admin_router(require_admin))
 app.middleware("http")(audit_engine.audit_middleware)
 
+# DIYhomie Verified — certification & lifetime credentialing engine (Sheet #60).
+certification_engine.configure(db, logger)
+app.include_router(certification_engine.build_user_router(get_current_user))
+app.include_router(certification_engine.build_public_router())
+app.include_router(certification_engine.build_admin_router(require_admin))
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
@@ -8833,6 +8844,10 @@ async def _ensure_indexes():
         await db.audit_events.create_index("target_id")
         await db.audit_alerts.create_index([("status", 1), ("at", -1)])
         await db.consent_registry.create_index([("user_id", 1), ("type", 1), ("at", -1)])
+        await db.certificates.create_index([("user_id", 1), ("issued_at", -1)])
+        await db.certificates.create_index("project_id")
+        await db.certificates.create_index("share_token")
+        await db.certificates.create_index("status")
         logger.info("indexes ensured")
     except Exception as e:
         logger.warning(f"index ensure: {e}")
