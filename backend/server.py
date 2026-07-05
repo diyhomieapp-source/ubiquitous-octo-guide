@@ -3343,6 +3343,7 @@ class SupplierReq(BaseModel):
     min_order_cents: int = 0
     delivery: bool = True
     pickup: bool = True
+    stripe_account_id: Optional[str] = None
 
 
 @api_router.get("/admin/suppliers")
@@ -3359,7 +3360,7 @@ async def admin_list_suppliers(admin: dict = Depends(require_admin)):
 @api_router.post("/admin/suppliers")
 async def admin_create_supplier(req: SupplierReq, admin: dict = Depends(require_admin)):
     doc = {"id": new_id(), **req.model_dump(), "active": True, "verified": True,
-           "stripe_account_id": None, "created_at": now_iso()}
+           "created_at": now_iso()}
     await db.suppliers.insert_one(dict(doc))
     return _supplier_public(doc)
 
@@ -3424,6 +3425,331 @@ async def admin_update_order(order_id: str, status: str, quoted_cents: Optional[
         await push_notification(o["user_id"], title=f"Order update: {o['supplier_name']}", body=body,
                                 ntype="project", meta={"order_id": order_id})
     return {"ok": True}
+
+
+# ================================================================ Loyalty, Rewards & Recognition (Sheet #34)
+LOYALTY_TIERS = [
+    {"key": "bronze", "label": "Bronze Builder", "min": 0},
+    {"key": "silver", "label": "Silver Craftsman", "min": 6},
+    {"key": "gold", "label": "Gold Contributor", "min": 18},
+    {"key": "platinum", "label": "Platinum Legend", "min": 45},
+]
+
+LOYALTY_BADGES = [
+    {"key": "first_fix", "label": "First Fix", "icon": "hammer-wrench", "metric": "projects", "threshold": 1, "desc": "Complete your first project"},
+    {"key": "project_mentor", "label": "Project Mentor", "icon": "school-outline", "metric": "helps", "threshold": 3, "desc": "Help 3 neighbors finish a project"},
+    {"key": "homeowner_legend", "label": "Homeowner Legend", "icon": "crown-outline", "metric": "projects", "threshold": 10, "desc": "Complete 10 projects"},
+    {"key": "connector", "label": "Community Connector", "icon": "account-group-outline", "metric": "referrals", "threshold": 3, "desc": "3 invited neighbors start building"},
+    {"key": "neighborhood_hero", "label": "Neighborhood Hero", "icon": "shield-star-outline", "metric": "percentile", "threshold": 95, "desc": "Top 5% contributor in your area"},
+]
+
+# Reward catalog — redeemable with earned credits. Value-based, never engagement tricks.
+LOYALTY_REWARDS = [
+    {"id": "guide_unlock", "label": "Unlock a premium expert guide", "cost": 100, "kind": "guide", "icon": "book-lock-open-outline"},
+    {"id": "showcase_feature", "label": "Feature your project in the community showcase", "cost": 250, "kind": "showcase", "icon": "star-outline"},
+    {"id": "pro_week", "label": "7 days of DIYhomie Pro", "cost": 500, "kind": "subscription", "icon": "rocket-launch-outline"},
+    {"id": "donation_ramp", "label": "Donate to “Build a ramp for a neighbor in need”", "cost": 300, "kind": "donation", "icon": "hand-heart-outline"},
+]
+
+REFERRAL_LOYALTY_CREDITS = 50  # in-app loyalty credits per verified conversion
+
+
+async def award_loyalty_credits(user_id: str, amount: int, reason: str, meta: dict = None):
+    """Grant in-app loyalty credits with an audit-logged ledger entry."""
+    if amount == 0:
+        return
+    await db.users.update_one({"id": user_id}, {"$inc": {"credits": amount}})
+    await db.credit_ledger.insert_one({
+        "id": new_id(), "user_id": user_id, "amount": amount, "reason": reason,
+        "meta": meta or {}, "created_at": now_iso(),
+    })
+
+
+async def _loyalty_contrib(uid: str) -> dict:
+    projects = await db.timeline.count_documents({"user_id": uid})
+    helps = await db.neighborhood_posts.count_documents(
+        {"resolved": True, "offers.user_id": uid, "removed": {"$ne": True}})
+    referrals = await db.referrals.count_documents({"referrer_id": uid, "status": "converted"})
+    score = int(projects) * 2 + int(helps) * 3 + int(referrals) * 5
+    return {"projects": int(projects), "helps": int(helps), "referrals": int(referrals), "score": score}
+
+
+def _tier_for(score: int) -> dict:
+    current = LOYALTY_TIERS[0]
+    nxt = None
+    for i, t in enumerate(LOYALTY_TIERS):
+        if score >= t["min"]:
+            current = t
+            nxt = LOYALTY_TIERS[i + 1] if i + 1 < len(LOYALTY_TIERS) else None
+    out = {"key": current["key"], "label": current["label"], "min": current["min"]}
+    if nxt:
+        out["next"] = {"key": nxt["key"], "label": nxt["label"], "remaining": max(0, nxt["min"] - score), "at": nxt["min"]}
+    else:
+        out["next"] = None
+    return out
+
+
+async def _region_member_ids(key: str) -> List[str]:
+    if not key:
+        return []
+    members = await db.users.find({"neighborhood_optin": True}, {"_id": 0, "id": 1, "location": 1}).to_list(4000)
+    return [m["id"] for m in members if _neighborhood_key(m.get("location", "")) == key]
+
+
+@api_router.get("/loyalty/me")
+async def loyalty_me(user: dict = Depends(get_current_user)):
+    contrib = await _loyalty_contrib(user["id"])
+    tier = _tier_for(contrib["score"])
+    key = _neighborhood_key(user.get("location", ""))
+
+    # percentile within region (only meaningful if opted in + enough neighbors)
+    percentile = 0
+    if key:
+        ids = await _region_member_ids(key)
+        if user["id"] not in ids:
+            ids = ids + [user["id"]]
+        if len(ids) >= 2:
+            scores = []
+            for mid in ids:
+                c = await _loyalty_contrib(mid)
+                scores.append((mid, c["score"]))
+            scores.sort(key=lambda x: x[1])
+            rank = next((i for i, (mid, _s) in enumerate(scores) if mid == user["id"]), 0)
+            percentile = round((rank / (len(scores) - 1)) * 100) if len(scores) > 1 else 0
+
+    badges = []
+    for b in LOYALTY_BADGES:
+        if b["metric"] == "percentile":
+            earned = percentile >= b["threshold"]
+            prog = min(1.0, percentile / b["threshold"]) if b["threshold"] else 0
+        else:
+            val = contrib.get(b["metric"], 0)
+            earned = val >= b["threshold"]
+            prog = min(1.0, val / b["threshold"]) if b["threshold"] else 0
+        badges.append({**b, "earned": bool(earned), "progress": round(prog, 2)})
+
+    # regional impact metrics (real counts; energy/CO2 are estimates w/ disclaimer)
+    impact = None
+    if key:
+        ids = await _region_member_ids(key)
+        if user["id"] not in ids:
+            ids = ids + [user["id"]]
+        year_cut = (datetime.now(timezone.utc) - timedelta(days=365)).isoformat()
+        homes_year = await db.timeline.count_documents({"user_id": {"$in": ids}, "created_at": {"$gte": year_cut}})
+        saved_cur = db.timeline.aggregate([
+            {"$match": {"user_id": {"$in": ids}}},
+            {"$group": {"_id": None, "saved": {"$sum": "$money_saved_cents"}, "n": {"$sum": 1}}},
+        ])
+        saved_row = await saved_cur.to_list(1)
+        saved_cents = int(saved_row[0]["saved"]) if saved_row else 0
+        total_projects = int(saved_row[0]["n"]) if saved_row else 0
+        impact = {
+            "region": _neighborhood_tag(user.get("location", "")),
+            "neighbors": len(ids),
+            "homes_upgraded_year": int(homes_year),
+            "money_saved_cents": saved_cents,
+            "time_saved_hours": total_projects * 3,      # ~3 hrs saved per logged project
+            "co2_saved_kg": total_projects * 12,          # estimate — energy/waste avoided
+            "estimate_note": "Time & CO₂ figures are community estimates, not guarantees.",
+        }
+
+    return {
+        "contribution": contrib,
+        "tier": tier,
+        "percentile": percentile,
+        "badges": badges,
+        "credits": user.get("credits", 0),
+        "referral_code": user.get("referral_code"),
+        "leaderboard_optin": bool(user.get("leaderboard_optin")),
+        "has_location": bool(key),
+        "impact": impact,
+        "rewards": LOYALTY_REWARDS,
+    }
+
+
+class OptinReq(BaseModel):
+    optin: bool = True
+
+
+@api_router.post("/loyalty/leaderboard/optin")
+async def loyalty_leaderboard_optin(req: OptinReq, user: dict = Depends(get_current_user)):
+    await db.users.update_one({"id": user["id"]}, {"$set": {"leaderboard_optin": req.optin}})
+    return {"optin": req.optin}
+
+
+@api_router.get("/loyalty/leaderboard")
+async def loyalty_leaderboard(user: dict = Depends(get_current_user)):
+    key = _neighborhood_key(user.get("location", ""))
+    if not key:
+        return {"needs_location": True, "optin": bool(user.get("leaderboard_optin")), "entries": []}
+    if not user.get("leaderboard_optin"):
+        return {"needs_optin": True, "optin": False, "entries": []}
+    # only rank opted-in members in the region
+    members = await db.users.find(
+        {"leaderboard_optin": True}, {"_id": 0, "id": 1, "name": 1, "location": 1}).to_list(4000)
+    members = [m for m in members if _neighborhood_key(m.get("location", "")) == key]
+    entries = []
+    for m in members:
+        c = await _loyalty_contrib(m["id"])
+        entries.append({
+            "is_me": m["id"] == user["id"],
+            "name": (m.get("name") or "Neighbor") if m["id"] == user["id"] else _anon_name(m.get("name")),
+            "score": c["score"], "projects": c["projects"], "helps": c["helps"],
+            "tier": _tier_for(c["score"])["label"],
+        })
+    entries.sort(key=lambda x: x["score"], reverse=True)
+    for i, e in enumerate(entries):
+        e["rank"] = i + 1
+    return {"region": _neighborhood_tag(user.get("location", "")), "optin": True, "entries": entries[:50]}
+
+
+def _anon_name(name: Optional[str]) -> str:
+    if not name:
+        return "A neighbor"
+    parts = name.strip().split()
+    first = parts[0]
+    last_i = parts[-1][0].upper() + "." if len(parts) > 1 else ""
+    return f"{first} {last_i}".strip()
+
+
+class RedeemReq(BaseModel):
+    reward_id: str
+
+
+@api_router.post("/loyalty/redeem")
+async def loyalty_redeem(req: RedeemReq, user: dict = Depends(get_current_user)):
+    reward = next((r for r in LOYALTY_REWARDS if r["id"] == req.reward_id), None)
+    if not reward:
+        raise HTTPException(status_code=404, detail="Reward not found.")
+    balance = user.get("credits", 0)
+    if balance < reward["cost"]:
+        raise HTTPException(status_code=402, detail=f"You need {reward['cost'] - balance} more credits to redeem this.")
+    await db.users.update_one({"id": user["id"]}, {"$inc": {"credits": -reward["cost"]}})
+    await db.credit_ledger.insert_one({
+        "id": new_id(), "user_id": user["id"], "amount": -reward["cost"],
+        "reason": f"redeem:{reward['id']}", "meta": {"kind": reward["kind"], "label": reward["label"]},
+        "created_at": now_iso(),
+    })
+    grant = {"ok": True}
+    if reward["kind"] == "subscription":
+        until = (datetime.now(timezone.utc) + timedelta(days=7)).isoformat()
+        await db.users.update_one({"id": user["id"]}, {"$set": {"pro_trial_until": until}})
+        grant["pro_trial_until"] = until
+    elif reward["kind"] == "donation":
+        await db.loyalty_donations.insert_one({
+            "id": new_id(), "user_id": user["id"], "campaign": "ramp_for_neighbor",
+            "credits": reward["cost"], "created_at": now_iso()})
+    await push_notification(user["id"], title="Reward redeemed 🎉",
+                            body=f"You redeemed: {reward['label']}.", ntype="system",
+                            meta={"reward": reward["id"]})
+    new_balance = balance - reward["cost"]
+    grant["credits"] = new_balance
+    grant["message"] = f"Redeemed “{reward['label']}”. {new_balance} credits left."
+    return grant
+
+
+@api_router.get("/loyalty/campaigns")
+async def loyalty_campaigns(user: dict = Depends(get_current_user)):
+    key = _neighborhood_key(user.get("location", ""))
+    rows = await db.loyalty_campaigns.find({"active": True}, {"_id": 0}).sort("created_at", -1).to_list(100)
+    out = []
+    for c in rows:
+        region_ok = (not c.get("region")) or c.get("region") == key
+        if not region_ok:
+            continue
+        joined = user["id"] in c.get("participant_ids", [])
+        out.append({
+            "id": c["id"], "title": c["title"], "blurb": c.get("blurb", ""),
+            "goal": c.get("goal", 0), "progress": len(c.get("participant_ids", [])),
+            "reward_credits": c.get("reward_credits", 0), "icon": c.get("icon", "bullhorn-outline"),
+            "region": _neighborhood_tag(c["region"]) if c.get("region") else "Everywhere",
+            "ends_at": c.get("ends_at"), "joined": joined,
+        })
+    return {"campaigns": out}
+
+
+@api_router.post("/loyalty/campaigns/{campaign_id}/join")
+async def loyalty_campaign_join(campaign_id: str, user: dict = Depends(get_current_user)):
+    c = await db.loyalty_campaigns.find_one({"id": campaign_id, "active": True}, {"_id": 0})
+    if not c:
+        raise HTTPException(status_code=404, detail="Campaign not found.")
+    if user["id"] in c.get("participant_ids", []):
+        return {"ok": True, "joined": True}
+    await db.loyalty_campaigns.update_one({"id": campaign_id}, {"$addToSet": {"participant_ids": user["id"]}})
+    reward = int(c.get("reward_credits", 0))
+    if reward:
+        await award_loyalty_credits(user["id"], reward, f"campaign_join:{campaign_id}", {"title": c["title"]})
+    await push_notification(user["id"], title=f"You joined: {c['title']}",
+                            body="Thanks for stepping up for your community!" + (f" +{reward} credits" if reward else ""),
+                            ntype="social", meta={"campaign_id": campaign_id})
+    return {"ok": True, "joined": True, "reward_credits": reward}
+
+
+# ---- admin loyalty
+class CampaignReq(BaseModel):
+    title: str
+    blurb: str = ""
+    goal: int = 0
+    reward_credits: int = 0
+    region: Optional[str] = None   # neighborhood_key or None for everywhere
+    icon: str = "bullhorn-outline"
+    ends_at: Optional[str] = None
+
+
+@api_router.get("/admin/loyalty/campaigns")
+async def admin_loyalty_campaigns(admin: dict = Depends(require_admin)):
+    rows = await db.loyalty_campaigns.find({}, {"_id": 0}).sort("created_at", -1).to_list(200)
+    for c in rows:
+        c["participants"] = len(c.get("participant_ids", []))
+        c.pop("participant_ids", None)
+    return rows
+
+
+@api_router.post("/admin/loyalty/campaigns")
+async def admin_create_campaign(req: CampaignReq, admin: dict = Depends(require_admin)):
+    doc = {"id": new_id(), **req.model_dump(), "active": True, "participant_ids": [], "created_at": now_iso()}
+    await db.loyalty_campaigns.insert_one(dict(doc))
+    doc.pop("participant_ids", None)
+    return doc
+
+
+@api_router.post("/admin/loyalty/campaigns/{campaign_id}/toggle")
+async def admin_toggle_campaign(campaign_id: str, active: bool, admin: dict = Depends(require_admin)):
+    res = await db.loyalty_campaigns.update_one({"id": campaign_id}, {"$set": {"active": active}})
+    if not res.matched_count:
+        raise HTTPException(status_code=404, detail="Campaign not found.")
+    return {"ok": True}
+
+
+@api_router.get("/admin/loyalty/ledger")
+async def admin_loyalty_ledger(admin: dict = Depends(require_admin)):
+    rows = await db.credit_ledger.find({}, {"_id": 0}).sort("created_at", -1).to_list(200)
+    donations = await db.loyalty_donations.aggregate([
+        {"$group": {"_id": "$campaign", "credits": {"$sum": "$credits"}, "count": {"$sum": 1}}}]).to_list(50)
+    total_awarded = sum(r["amount"] for r in rows if r["amount"] > 0)
+    total_redeemed = -sum(r["amount"] for r in rows if r["amount"] < 0)
+    return {"ledger": rows, "totals": {"awarded": total_awarded, "redeemed": total_redeemed},
+            "donations": [{"campaign": d["_id"], "credits": d["credits"], "count": d["count"]} for d in donations]}
+
+
+async def seed_loyalty_campaigns():
+    seeds = [
+        {"id": "camp-cleanup", "title": "Spring Neighborhood Cleanup Challenge",
+         "blurb": "Log a cleanup, yard, or exterior project this month and earn bonus credits.",
+         "goal": 25, "reward_credits": 40, "region": None, "icon": "broom", "ends_at": None},
+        {"id": "camp-ramp", "title": "Build a Ramp for a Neighbor in Need",
+         "blurb": "Pool skills & materials to build accessibility ramps locally. Redeem credits to donate.",
+         "goal": 10, "reward_credits": 0, "region": None, "icon": "hand-heart-outline", "ends_at": None},
+        {"id": "camp-storm", "title": "Storm Recovery Mutual Aid",
+         "blurb": "Neighbors helping neighbors repair storm damage — join to be matched with requests.",
+         "goal": 15, "reward_credits": 25, "region": None, "icon": "weather-lightning-rainy", "ends_at": None},
+    ]
+    for s in seeds:
+        exists = await db.loyalty_campaigns.find_one({"id": s["id"]})
+        if not exists:
+            await db.loyalty_campaigns.insert_one({**s, "active": True, "participant_ids": [], "created_at": now_iso()})
+    logger.info("loyalty campaigns seeded")
+
 
 
 # ---------------------------------------------------------------- support tickets
@@ -3841,6 +4167,9 @@ async def grant_referral_reward(referred_user_id: str):
         "status": "converted", "reward_granted": granted,
         "reward_pending": not granted, "converted_at": now_iso(),
     }})
+    # Loyalty: award in-app credits for a verified conversion (stacks per convert)
+    await award_loyalty_credits(rec["referrer_id"], REFERRAL_LOYALTY_CREDITS,
+                                "referral_converted", {"referred_id": referred_user_id})
 
 
 async def flush_referrer_pending(referrer_user_id: str):
@@ -5441,6 +5770,7 @@ async def _startup_seed_community():
     await seed_vendors()
     await seed_pros()
     await seed_suppliers()
+    await seed_loyalty_campaigns()
 
 
 @app.on_event("startup")

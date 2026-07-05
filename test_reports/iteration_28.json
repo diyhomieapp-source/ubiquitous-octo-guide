@@ -1,0 +1,56 @@
+{
+  "summary": "Sheet #34 Loyalty, Rewards & Recognition end-to-end verified. Backend: 15/15 pytest passed (test_loyalty_sheet34.py) — /loyalty/me returns full shape (Gold Contributor tier, 82 credits, 19 projects, 5 badges w/ earned+progress, Austin impact block w/ neighbors+homes+money+time+CO2, 4 rewards); leaderboard opt-out→needs_optin→opt-in→ranked entries with is_me flag and anonymized names (first+initial for non-me); campaigns returns the 3 seeded (camp-cleanup, camp-ramp, camp-storm); join is idempotent and awards reward_credits on first join (verified +25 credits for camp-storm); redeem returns 402 with 'credits' in message when insufficient (pro_week costs 500 vs 82 balance); unknown reward → 404; admin GET/POST/toggle campaigns work (created TEST_ campaign, toggled inactive, verified via list; unknown campaign 404); admin ledger returns {ledger, totals{awarded,redeemed}, donations}. Regression: admin POST /admin/suppliers with stripe_account_id persists and returns can_pay_online=true (also verified false when omitted). Frontend (mobile 390x844, demo_home@diyhomie.com): Profile → 'Rewards & Recognition' row (testID profile-loyalty) opens /loyalty. Overview tab renders tier card (Gold Contributor, 82 credits, 7 pts to Platinum), 3 stat tiles (19 projects, 0 helps, 0 referrals), 5 badge grid with earned checkmarks (First Fix, Homeowner Legend, Neighborhood Hero earned), and Austin impact card (7 neighbors, 19 homes, $0 saved, 57 hrs, 228 kg, estimate disclaimer). Rewards tab lists all 4 rewards with correct testIDs (loy-redeem-guide_unlock/showcase_feature/pro_week/donation_ramp) all showing 'Locked' state because 82<100 (see minor UX note below). Leaderboard tab (already opted-in from backend test) renders ranked list with 'Jordan (you)' #1 marked by brand border. Campaigns tab lists 3 campaigns; camp-storm already 'Joined ✓' from backend test, tapping loy-camp-join-camp-ramp flipped 'Join campaign' → 'Joined ✓'. Regression #1: /suppliers/does-not-exist-xyz shows the new error state ('Supplier not found.' + 'Try again' testID supd-retry) instead of stuck spinner/silent back — fix works. Regression #2: /admin → Wholesalers & RFQs → Suppliers → Add supplier form now has the new-sup-stripe TextInput with placeholder 'Stripe Connect account id (acct_…) — optional, enables online pay'; the backend accepts it and can_pay_online flips true. No React Native red screens. No new deprecated packages introduced this iteration.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "app/loyalty.tsx Rewards.Pressable",
+        "issue": "The redeem button is `disabled={!can || busy===r.id}`, which makes onPress a no-op when the user is short on credits, so the intended 'Not enough credits' Alert.alert branch inside redeem() is dead code. The spec explicitly says 'tapping guide_unlock when short on credits shows an alert'. The current UI signals the shortfall only via the 'Locked' label + faded pill. Consider removing the `!can` from `disabled` (keep only `busy===r.id`) so the Alert fires and users see how many more credits they need — the redeem() function already handles the short-balance path safely before hitting the API.",
+        "testID": "loy-redeem-guide_unlock",
+        "priority": "LOW"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "app/loyalty.tsx Rewards row",
+        "issues": [
+          "'Locked' state uses colors.onSurfaceTertiary on colors.surface — reads clearly but tap-target on the Pressable is only ~28px tall (paddingVertical: spacing.xs). Consider bumping to spacing.sm to meet the 44px minimum recommended by mobile guidelines."
+        ]
+      }
+    ],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_loyalty_sheet34.py",
+    "/app/test_reports/pytest/loyalty_sheet34.xml"
+  ],
+  "action_items": [
+    "(Optional UX polish) In app/loyalty.tsx Rewards, drop `!can` from the Pressable `disabled` so a tap on an unaffordable reward triggers the existing Alert.alert('Not enough credits', ...) branch — currently that code path is unreachable because the button is disabled first.",
+    "(Optional) Increase reward pill vertical padding to bring the touch target closer to 44pt (currently ~28px).",
+    "Nothing else — all Sheet #34 backend endpoints and mobile flows pass. Both wholesaler regressions (supd-retry error state + new-sup-stripe field) work end-to-end."
+  ],
+  "critical_code_review_comments": [
+    "server.py:3499 /loyalty/me: correctly composes contribution + tier + percentile + badges + impact; percentile calc iterates over region members (fine for small preview; could get expensive if a region gets big, consider caching per-user daily).",
+    "server.py:3574 leaderboard/optin: idempotent PATCH-style POST returning {optin}. Good.",
+    "server.py:3606 _anon_name: correctly emits 'First X.' for non-me entries; test confirms.",
+    "server.py:3619 /loyalty/redeem: 402 with human message, ledger entry, notification, kind-specific side-effects (pro_trial_until for subscription, loyalty_donations for donation). Balance decrement uses $inc — safe. If two concurrent redeems happen credits could go negative; consider a conditional update with $inc guarded by {credits: {$gte: cost}} check + retry.",
+    "server.py:3671 campaign join: uses $addToSet — safely idempotent. award_loyalty_credits only invoked when not previously in participant_ids because of the early-return above — correct.",
+    "loyalty.tsx: 322 lines, single file, StyleSheet.create used, all text wrapped in <Text>, testIDs on every interactive, no HTML. Clean.",
+    "loyalty.tsx Redeem.disabled contains !can, which makes the 'Not enough credits' Alert unreachable — see ui_bugs above.",
+    "suppliers/[id].tsx: proper error catch → error state with supd-retry, KeyboardAvoidingView + keyboardShouldPersistTaps='handled', no silent router.back(). Fix looks correct.",
+    "SuppliersModule.tsx AddSupplierForm: new-sup-stripe added with autoCapitalize='none' and correctly wired into the POST body. Good."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_loyalty_sheet34.py (new)"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "seed_data_creation": "Created TEST_ campaign 'TEST_ Campaign QA' (toggled inactive) and TEST_ suppliers 'TEST_ StripeSup QA' (with acct_test_qa_12345), 'TEST_ NoStripeSup QA'. demo_home joined camp-storm (via backend) and camp-ramp (via UI). demo_home leaderboard_optin flipped false→true during tests (ends in true). Credit balance moved from 57→82 (25 credits from camp-storm join reward).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Sheet #34 passes. If retesting: demo_home now has 82 credits, is opted-in to leaderboard, joined camp-storm+camp-ramp. Loyalty testIDs on /loyalty: loy-back, loy-tab-{overview,rewards,leaderboard,campaigns}, loy-redeem-{guide_unlock,showcase_feature,pro_week,donation_ramp}, loy-lb-optin (only shown pre-optin), loy-camp-join-<campaign_id>, loy-add-location (if user has no location). Profile row testID: profile-loyalty. Wholesaler regression testIDs: supd-back, supd-retry (error state), new-sup-stripe (admin). Preview URL: https://step-by-step-diy.preview.emergentagent.com. Note the Rewards button is Pressable-disabled when short on credits, so the Alert isn't reachable — the 'Locked' label is the only signal.",
+  "rca_of_issue": "N/A — no bugs to root-cause this iteration. Only a minor UX deviation from spec: /loyalty.tsx line 145 sets `disabled={!can || busy===r.id}` on the redeem Pressable, causing the Alert.alert branch at line 123 to be unreachable. Fix: change to `disabled={busy===r.id}` (button style already visually indicates locked)."
+}

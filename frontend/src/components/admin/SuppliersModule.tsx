@@ -233,6 +233,7 @@ function AddSupplierForm({ onCreated }: { onCreated: () => void }) {
   const [proOnly, setProOnly] = useState(true);
   const [delivery, setDelivery] = useState(true);
   const [pickup, setPickup] = useState(true);
+  const [stripeAcct, setStripeAcct] = useState("");
   const [busy, setBusy] = useState(false);
 
   const create = async () => {
@@ -243,6 +244,7 @@ function AddSupplierForm({ onCreated }: { onCreated: () => void }) {
         name: name.trim(), categories: cats, location: location.trim(), blurb: blurb.trim(),
         min_order_cents: Math.round((parseFloat(min.replace(/[^0-9.]/g, "")) || 0) * 100),
         pro_only: proOnly, delivery, pickup,
+        stripe_account_id: stripeAcct.trim() || null,
       } });
       onCreated();
     } catch (e: any) { Alert.alert("Couldn't create", e?.message || "Try again."); }
@@ -257,6 +259,7 @@ function AddSupplierForm({ onCreated }: { onCreated: () => void }) {
       <TextInput testID="new-sup-location" style={styles.input} value={location} onChangeText={setLocation} placeholder="Location / service area" placeholderTextColor={colors.onSurfaceTertiary} />
       <TextInput style={styles.input} value={min} onChangeText={setMin} keyboardType="decimal-pad" placeholder="Minimum order ($)" placeholderTextColor={colors.onSurfaceTertiary} />
       <TextInput style={[styles.input, { minHeight: 60, textAlignVertical: "top" }]} value={blurb} onChangeText={setBlurb} placeholder="Short blurb" placeholderTextColor={colors.onSurfaceTertiary} multiline />
+      <TextInput testID="new-sup-stripe" style={styles.input} value={stripeAcct} onChangeText={setStripeAcct} autoCapitalize="none" placeholder="Stripe Connect account id (acct_…) — optional, enables online pay" placeholderTextColor={colors.onSurfaceTertiary} />
       <Text style={styles.miniLabel}>CATEGORIES</Text>
       <View style={styles.chipWrap}>
         {CATEGORIES.map((c) => (

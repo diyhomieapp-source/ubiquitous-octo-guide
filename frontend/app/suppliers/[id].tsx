@@ -28,14 +28,18 @@ export default function SupplierDetail() {
   const [note, setNote] = useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
+    setError(null);
     try {
       const d = await api<{ supplier: Supplier; products: Product[] }>(`/suppliers/${id}`);
       setSupplier(d.supplier); setProducts(d.products);
       setFulfillment(d.supplier.delivery ? "delivery" : "pickup");
-    } catch { router.back(); } finally { setLoading(false); }
-  }, [id, router]);
+    } catch (e: any) {
+      setError(e?.status === 403 ? "This supplier is available to verified Pro members only." : (e?.message || "Couldn't load this supplier."));
+    } finally { setLoading(false); }
+  }, [id]);
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   const setQty = (p: Product, qty: number) => {
@@ -69,7 +73,21 @@ export default function SupplierDetail() {
     finally { setSubmitting(false); }
   };
 
-  if (loading || !supplier) return <View style={styles.center}><ActivityIndicator size="large" color={colors.brandPrimary} /></View>;
+  if (loading) return <View style={styles.center}><ActivityIndicator size="large" color={colors.brandPrimary} /></View>;
+  if (error || !supplier) return (
+    <View style={styles.root}>
+      <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
+        <Pressable testID="supd-back" hitSlop={10} onPress={() => router.back()}><MaterialCommunityIcons name="chevron-left" size={28} color={colors.onSurface} /></Pressable>
+        <Text style={styles.headerTitle}>Supplier</Text>
+        <View style={{ width: 28 }} />
+      </View>
+      <View style={styles.errWrap}>
+        <MaterialCommunityIcons name="store-alert-outline" size={40} color={colors.onSurfaceTertiary} />
+        <Text style={styles.errText}>{error || "Supplier not found."}</Text>
+        <Pressable testID="supd-retry" style={styles.retryBtn} onPress={load}><Text style={styles.retryText}>Try again</Text></Pressable>
+      </View>
+    </View>
+  );
 
   return (
     <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === "ios" ? "padding" : undefined}>
@@ -138,6 +156,10 @@ export default function SupplierDetail() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.surface },
   center: { flex: 1, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center" },
+  errWrap: { flex: 1, alignItems: "center", justifyContent: "center", gap: spacing.md, padding: spacing.xl },
+  errText: { color: colors.onSurfaceSecondary, fontFamily: font.medium, fontSize: type.base, textAlign: "center", lineHeight: 22 },
+  retryBtn: { borderColor: colors.brandPrimary, borderWidth: 1.5, borderRadius: radius.md, paddingHorizontal: spacing.xl, paddingVertical: spacing.sm },
+  retryText: { color: colors.brandPrimary, fontFamily: font.bold, fontSize: type.base },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.lg, paddingBottom: spacing.md, borderBottomColor: colors.border, borderBottomWidth: 1 },
   headerTitle: { flex: 1, textAlign: "center", color: colors.onSurface, fontFamily: font.display, fontSize: 20 },
   bulkNote: { color: colors.onSurfaceTertiary, fontFamily: font.regular, fontSize: type.sm, marginBottom: spacing.md },
