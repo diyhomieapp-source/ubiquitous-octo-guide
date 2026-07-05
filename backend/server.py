@@ -2588,6 +2588,431 @@ async def public_portfolio(token: str):
     return await _portfolio_data(u)
 
 
+# ================================================================ Real Estate / Listing Mode (Sheet #34)
+DISCLOSURE_RULES = {
+    "electrical": "Electrical work performed — disclose scope & any permits pulled.",
+    "plumbing": "Plumbing work performed — disclose repairs/replacements & leaks history.",
+    "roof": "Roofing work — disclose age, repairs & any warranty transfer.",
+    "hvac": "HVAC system serviced/replaced — provide install date & warranty.",
+    "structural": "Structural / framing work — disclose permits & engineer sign-off if any.",
+    "foundation": "Foundation work — disclose repairs & transferable warranty.",
+    "window": "Window/door replacements — note energy ratings & warranty.",
+    "water": "Water intrusion / waterproofing addressed — disclose prior moisture issues.",
+}
+
+
+def _diy_pro_label(e: dict) -> str:
+    return "Pro" if (e.get("pro_job_id") or e.get("source") == "pro") else "DIY"
+
+
+def _improvement_confidence(e: dict) -> str:
+    has_photo = bool(e.get("after_photo") or e.get("before_photo"))
+    has_cost = bool(e.get("cost_cents"))
+    if has_photo and has_cost:
+        return "documented"
+    if has_photo or has_cost:
+        return "partial"
+    return "self-reported"
+
+
+def _disclosure_checklist(projects: list, systems: list) -> list:
+    text = " ".join([(p.get("title") or "") + " " + (p.get("skill_tag") or "") for p in projects]).lower()
+    text += " " + " ".join([(s.get("type") or "") + " " + (s.get("name") or "") for s in systems]).lower()
+    out = []
+    for key, msg in DISCLOSURE_RULES.items():
+        if key in text:
+            out.append({"key": key, "requirement": msg})
+    return out
+
+
+async def _realestate_ai_summary(data: dict) -> dict:
+    projects = data.get("projects", [])
+    if not projects:
+        return {"summary": "No logged improvements yet — complete projects to build a resale-ready record.", "estimate_cents": 0, "roi_pct": 0}
+    lines = []
+    for p in projects[:25]:
+        yr = (p.get("created_at") or "")[:4]
+        lines.append(f"- {p.get('story_title') or p.get('title')} ({yr}) · ${int((p.get('cost_cents') or 0)/100)} materials · {p.get('room') or 'home'}")
+    invested = data["totals"]["invested_cents"]
+    system = ("You are a real-estate value analyst for home improvements. Given a homeowner's logged projects, "
+              "write a concise buyer-facing 'What's been improved?' summary (2-3 sentences) and estimate the net "
+              "market value added. Be conservative and always frame estimates as approximate. Return JSON: "
+              "{'summary': str, 'estimate_cents': int (estimated resale value added in US cents), 'roi_pct': int (percent return vs materials invested)}.")
+    user_text = f"Materials invested total: ${invested/100:.0f}\nProjects:\n" + "\n".join(lines)
+    data_out = await _llm_json(system, user_text, max_tokens=500)
+    est = int(data_out.get("estimate_cents") or 0)
+    if est <= 0:  # heuristic fallback
+        est = int(invested * 1.6)
+    roi = int(data_out.get("roi_pct") or (round(100 * (est - invested) / invested) if invested else 0))
+    return {"summary": data_out.get("summary") or "Multiple documented improvements increase this home's appeal and value.",
+            "estimate_cents": est, "roi_pct": roi}
+
+
+async def _realestate_report(user: dict) -> dict:
+    data = await _portfolio_data(user)
+    timeline = await db.timeline.find({"user_id": user["id"]}, {"_id": 0}).sort("created_at", -1).to_list(500)
+    improvements = []
+    for e in timeline:
+        improvements.append({
+            "title": e.get("story_title") or e.get("title"),
+            "room": e.get("room"), "skill_tag": e.get("skill_tag"),
+            "cost_cents": e.get("cost_cents") or 0, "created_at": e.get("created_at"),
+            "label": _diy_pro_label(e), "confidence": _improvement_confidence(e),
+            "after_photo": e.get("after_photo"),
+        })
+    # cache AI summary keyed by project count to avoid recompute cost
+    cache = user.get("realestate_ai") or {}
+    if cache.get("count") == len(timeline) and cache.get("summary"):
+        ai = {"summary": cache["summary"], "estimate_cents": cache.get("estimate_cents", 0), "roi_pct": cache.get("roi_pct", 0)}
+    else:
+        ai = await _realestate_ai_summary(data)
+        await db.users.update_one({"id": user["id"]}, {"$set": {"realestate_ai": {**ai, "count": len(timeline)}}})
+    return {
+        **data,
+        "improvements": improvements,
+        "diy_count": sum(1 for i in improvements if i["label"] == "DIY"),
+        "pro_count": sum(1 for i in improvements if i["label"] == "Pro"),
+        "ai_summary": ai["summary"],
+        "value_add": {"estimate_cents": ai["estimate_cents"], "roi_pct": ai["roi_pct"],
+                      "disclaimer": "Estimated value-add is an AI approximation, not an appraisal. Consult a licensed appraiser/agent."},
+        "disclosure_checklist": _disclosure_checklist(data["projects"], data["systems"]),
+    }
+
+
+@api_router.get("/realestate/report")
+async def realestate_report(user: dict = Depends(get_current_user)):
+    report = await _realestate_report(user)
+    report["share_token"] = user.get("portfolio_token")
+    report["is_public"] = bool(user.get("portfolio_public"))
+    return report
+
+
+@api_router.post("/realestate/share")
+async def realestate_share(req: ShareReq, user: dict = Depends(get_current_user)):
+    token = user.get("portfolio_token") or secrets.token_urlsafe(9)
+    await db.users.update_one({"id": user["id"]}, {"$set": {"portfolio_token": token, "portfolio_public": req.public}})
+    return {"share_token": token, "is_public": req.public}
+
+
+@api_router.get("/realestate/public/{token}")
+async def realestate_public(token: str):
+    u = await db.users.find_one({"portfolio_token": token, "portfolio_public": True}, {"_id": 0})
+    if not u:
+        raise HTTPException(status_code=404, detail="This home report is private or does not exist.")
+    return await _realestate_report(u)
+
+
+# ================================================================ Sustainability & Circular Economy (Sheet #35)
+# category -> (waste lbs diverted, CO2 kg avoided) per typical listing — conservative estimates
+ECO_FACTORS = {
+    "Lumber & Wood": (40, 30), "Flooring & Tile": (55, 45), "Paint & Finishes": (12, 18),
+    "Doors & Windows": (70, 60), "Fixtures & Lighting": (15, 20), "Appliances": (120, 90),
+    "Hardware & Fasteners": (5, 4), "Drywall & Insulation": (35, 28), "Plumbing": (18, 15),
+    "Electrical": (10, 12), "Landscaping & Masonry": (60, 25), "Other": (20, 15),
+}
+ECO_CATEGORIES = list(ECO_FACTORS.keys())
+CONDITIONS = ["New / unopened", "Like new", "Good", "Fair — usable"]
+FULFILLMENTS = ["Local pickup", "Can deliver", "In exchange for help"]
+
+# Curated green-product catalog with certifications for the Eco Finder
+GREEN_CERTS = ["ENERGY STAR", "GREENGUARD Gold", "Low-VOC", "FSC Certified", "WaterSense", "Recycled Content"]
+GREEN_CATALOG = [
+    {"name": "Low-VOC Interior Paint", "match": ["paint", "primer", "wall", "finish"], "category": "Paint & Finishes", "certs": ["Low-VOC", "GREENGUARD Gold"], "blurb": "Near-zero fumes, safer indoor air."},
+    {"name": "FSC-Certified Framing Lumber", "match": ["lumber", "2x4", "stud", "board", "wood", "framing"], "category": "Lumber & Wood", "certs": ["FSC Certified"], "blurb": "Responsibly sourced wood."},
+    {"name": "Reclaimed Hardwood Flooring", "match": ["floor", "hardwood", "plank", "tile"], "category": "Flooring & Tile", "certs": ["Recycled Content", "FSC Certified"], "blurb": "Salvaged character wood — diverts waste."},
+    {"name": "ENERGY STAR LED Fixtures", "match": ["light", "bulb", "fixture", "lamp", "led"], "category": "Fixtures & Lighting", "certs": ["ENERGY STAR"], "blurb": "Up to 90% less energy than incandescent."},
+    {"name": "WaterSense Low-Flow Faucet", "match": ["faucet", "sink", "plumb", "tap", "shower"], "category": "Plumbing", "certs": ["WaterSense"], "blurb": "Cuts water use ~20% with no pressure loss."},
+    {"name": "Recycled-Content Insulation", "match": ["insulation", "drywall", "attic", "wall"], "category": "Drywall & Insulation", "certs": ["Recycled Content", "GREENGUARD Gold"], "blurb": "Made from recycled fiber, great R-value."},
+    {"name": "ENERGY STAR Appliance", "match": ["appliance", "fridge", "washer", "dryer", "dishwasher", "hvac"], "category": "Appliances", "certs": ["ENERGY STAR"], "blurb": "Lower utility bills, qualifies for rebates."},
+    {"name": "Reclaimed Doors & Windows", "match": ["door", "window"], "category": "Doors & Windows", "certs": ["Recycled Content"], "blurb": "Salvage-yard finds, unique & affordable."},
+]
+
+RESTORE_DIRECTORY = [
+    {"name": "Habitat for Humanity ReStore", "type": "Donation resale", "note": "Building materials & appliances — proceeds fund local housing."},
+    {"name": "Local C&D Recycling Center", "type": "Recycling", "note": "Construction & demolition debris drop-off."},
+    {"name": "Freecycle / Buy Nothing Group", "type": "Community give", "note": "Free local reuse network."},
+]
+
+
+def _eco_for(category: str) -> dict:
+    w, c = ECO_FACTORS.get(category, ECO_FACTORS["Other"])
+    return {"waste_lbs": w, "co2_kg": c}
+
+
+def _listing_public(l: dict, owner: bool = False) -> dict:
+    out = {
+        "id": l["id"], "type": l["type"], "category": l["category"], "title": l["title"],
+        "description": l.get("description", ""), "condition": l.get("condition"),
+        "price_cents": l.get("price_cents", 0), "is_donation": l.get("price_cents", 0) == 0,
+        "fulfillment": l.get("fulfillment"), "region": _neighborhood_tag(l.get("neighborhood_key", "")),
+        "image_base64": l.get("image_base64"), "status": l.get("status", "active"),
+        "owner_name": _anon_name(l.get("owner_name")), "eco": l.get("eco", {}),
+        "claims": len(l.get("claim_ids", [])), "created_at": l.get("created_at"), "is_owner": owner,
+    }
+    return out
+
+
+class ListingReq(BaseModel):
+    type: str = "offer"          # offer | request
+    category: str = "Other"
+    title: str
+    description: str = ""
+    condition: Optional[str] = None
+    price_cents: int = 0          # 0 = free / donation
+    fulfillment: str = "Local pickup"
+    image_base64: Optional[str] = None
+
+
+@api_router.get("/circular/meta")
+async def circular_meta(user: dict = Depends(get_current_user)):
+    return {"categories": ECO_CATEGORIES, "conditions": CONDITIONS, "fulfillments": FULFILLMENTS,
+            "certs": GREEN_CERTS, "restore_directory": RESTORE_DIRECTORY}
+
+
+@api_router.get("/circular/listings")
+async def circular_listings(type: Optional[str] = None, category: Optional[str] = None,
+                            user: dict = Depends(get_current_user)):
+    q: dict = {"status": "active"}
+    if type in ("offer", "request"):
+        q["type"] = type
+    if category:
+        q["category"] = category
+    rows = await db.material_listings.find(q, {"_id": 0}).sort("created_at", -1).to_list(200)
+    return {"listings": [_listing_public(l, owner=l["user_id"] == user["id"]) for l in rows]}
+
+
+@api_router.get("/circular/mine")
+async def circular_mine(user: dict = Depends(get_current_user)):
+    rows = await db.material_listings.find({"user_id": user["id"]}, {"_id": 0}).sort("created_at", -1).to_list(200)
+    return {"listings": [_listing_public(l, owner=True) for l in rows]}
+
+
+@api_router.post("/circular/listings")
+async def create_listing(req: ListingReq, user: dict = Depends(get_current_user)):
+    if not req.title.strip():
+        raise HTTPException(status_code=400, detail="Title is required.")
+    doc = {
+        "id": new_id(), "user_id": user["id"], "owner_name": user.get("name") or user["email"].split("@")[0],
+        "type": req.type if req.type in ("offer", "request") else "offer",
+        "category": req.category if req.category in ECO_CATEGORIES else "Other",
+        "title": req.title.strip()[:120], "description": req.description.strip()[:1000],
+        "condition": req.condition, "price_cents": max(0, req.price_cents),
+        "fulfillment": req.fulfillment, "image_base64": (req.image_base64 or None),
+        "neighborhood_key": _neighborhood_key(user.get("location", "")),
+        "eco": _eco_for(req.category), "status": "active", "claim_ids": [], "created_at": now_iso(),
+    }
+    await db.material_listings.insert_one(dict(doc))
+    return _listing_public(doc, owner=True)
+
+
+@api_router.post("/circular/listings/{listing_id}/claim")
+async def claim_listing(listing_id: str, user: dict = Depends(get_current_user)):
+    l = await db.material_listings.find_one({"id": listing_id, "status": "active"}, {"_id": 0})
+    if not l:
+        raise HTTPException(status_code=404, detail="Listing not found or closed.")
+    if l["user_id"] == user["id"]:
+        raise HTTPException(status_code=400, detail="You can't claim your own listing.")
+    if user["id"] in l.get("claim_ids", []):
+        return {"ok": True, "already": True}
+    await db.material_listings.update_one({"id": listing_id}, {"$addToSet": {"claim_ids": user["id"]}})
+    verb = "wants" if l["type"] == "offer" else "can help with"
+    await push_notification(l["user_id"], title="Someone's interested 🤝",
+                            body=f"A neighbor {verb} “{l['title']}”. Open Materials Exchange to connect.",
+                            ntype="social", meta={"listing_id": listing_id})
+    return {"ok": True, "contact": "Owner notified — they'll connect once they accept. Contact stays private until both agree."}
+
+
+@api_router.post("/circular/listings/{listing_id}/close")
+async def close_listing(listing_id: str, user: dict = Depends(get_current_user)):
+    l = await db.material_listings.find_one({"id": listing_id, "user_id": user["id"]}, {"_id": 0})
+    if not l:
+        raise HTTPException(status_code=404, detail="Listing not found.")
+    await db.material_listings.update_one({"id": listing_id}, {"$set": {"status": "completed", "completed_at": now_iso()}})
+    # award eco impact + loyalty for a completed give/exchange (offers only)
+    if l["type"] == "offer":
+        await award_loyalty_credits(user["id"], 15, f"circular_give:{listing_id}", {"title": l["title"]})
+    return {"ok": True}
+
+
+@api_router.get("/circular/impact")
+async def circular_impact(user: dict = Depends(get_current_user)):
+    completed = await db.material_listings.find(
+        {"user_id": user["id"], "type": "offer", "status": "completed"}, {"_id": 0}).to_list(500)
+    waste = sum(l.get("eco", {}).get("waste_lbs", 0) for l in completed)
+    co2 = sum(l.get("eco", {}).get("co2_kg", 0) for l in completed)
+    donations = [l for l in completed if l.get("price_cents", 0) == 0]
+    # simple tax write-off estimate: donated items ~ $25 avg fair value each (IRS thrift-value style, disclaimer)
+    writeoff_cents = len(donations) * 2500
+    active = await db.material_listings.count_documents({"user_id": user["id"], "status": "active"})
+
+    # regional leaderboard of top givers
+    key = _neighborhood_key(user.get("location", ""))
+    board = []
+    if key:
+        agg = await db.material_listings.aggregate([
+            {"$match": {"neighborhood_key": key, "type": "offer", "status": "completed"}},
+            {"$group": {"_id": "$user_id", "name": {"$first": "$owner_name"},
+                        "gives": {"$sum": 1}, "waste": {"$sum": "$eco.waste_lbs"}}},
+            {"$sort": {"gives": -1}}, {"$limit": 20},
+        ]).to_list(20)
+        for i, a in enumerate(agg):
+            board.append({"rank": i + 1, "name": (user.get("name") if a["_id"] == user["id"] else _anon_name(a.get("name"))),
+                          "is_me": a["_id"] == user["id"], "gives": a["gives"], "waste_lbs": a["waste"]})
+    return {
+        "totals": {"gives": len(completed), "waste_lbs": waste, "co2_kg": co2,
+                   "writeoff_cents": writeoff_cents, "active_listings": active},
+        "writeoff_note": "Estimated donation fair-value for informational purposes only — keep receipts and consult a tax advisor.",
+        "region": _neighborhood_tag(user.get("location", "")) if key else None,
+        "leaderboard": board, "restore_directory": RESTORE_DIRECTORY,
+    }
+
+
+@api_router.get("/circular/eco-alternatives")
+async def eco_alternatives(query: str = "", user: dict = Depends(get_current_user)):
+    q = (query or "").lower()
+    matches = []
+    for item in GREEN_CATALOG:
+        score = sum(1 for m in item["match"] if m in q) if q else 0
+        if score > 0 or not q:
+            matches.append({**{k: v for k, v in item.items() if k != "match"}, "_score": score})
+    matches.sort(key=lambda x: x["_score"], reverse=True)
+    for m in matches:
+        m.pop("_score", None)
+    return {"query": query, "alternatives": matches[:8] if q else matches}
+
+
+# ================================================================ Neighborhood Bulk Buying (Sheet #36)
+BULK_CATEGORIES = ["Lumber & Wood", "Mulch & Soil", "Fencing", "Concrete & Masonry", "Roofing",
+                   "Paint & Stain", "Flooring & Tile", "Gravel & Aggregate", "Tools & Equipment", "Other"]
+# discount tiers by number of committed participants
+BULK_TIERS = [{"min": 2, "pct": 5}, {"min": 4, "pct": 15}, {"min": 6, "pct": 25}]
+
+
+def _bulk_tier(participants: int) -> dict:
+    current = {"min": 1, "pct": 0}
+    nxt = None
+    for i, t in enumerate(BULK_TIERS):
+        if participants >= t["min"]:
+            current = t
+            nxt = BULK_TIERS[i + 1] if i + 1 < len(BULK_TIERS) else None
+        elif nxt is None:
+            nxt = t
+            break
+    return {"pct": current["pct"], "next": nxt}
+
+
+def _bulk_public(d: dict, uid: str) -> dict:
+    parts = d.get("participants", [])
+    n = len(parts)
+    tier = _bulk_tier(n)
+    mine = next((p for p in parts if p["user_id"] == uid), None)
+    unit_cents = int(d["price_full_cents"] * (100 - tier["pct"]) / 100)
+    return {
+        "id": d["id"], "title": d["title"], "category": d["category"], "item": d.get("item", ""),
+        "unit": d.get("unit", "unit"), "price_full_cents": d["price_full_cents"],
+        "unit_price_cents": unit_cents, "discount_pct": tier["pct"], "next_tier": tier["next"],
+        "participants": n, "target": d.get("target", BULK_TIERS[-1]["min"]),
+        "total_qty": sum(p.get("qty", 1) for p in parts),
+        "region": _neighborhood_tag(d.get("neighborhood_key", "")), "ends_at": d.get("ends_at"),
+        "status": d.get("status", "open"), "creator_name": _anon_name(d.get("creator_name")),
+        "is_creator": d["creator_id"] == uid, "my_qty": mine.get("qty") if mine else 0, "joined": bool(mine),
+        "created_at": d.get("created_at"),
+    }
+
+
+class BulkReq(BaseModel):
+    title: str
+    category: str = "Other"
+    item: str = ""
+    unit: str = "unit"
+    price_full_cents: int
+    window_days: int = 30
+
+
+@api_router.get("/bulk/meta")
+async def bulk_meta(user: dict = Depends(get_current_user)):
+    return {"categories": BULK_CATEGORIES, "tiers": BULK_TIERS}
+
+
+@api_router.get("/bulk/deals")
+async def bulk_deals(user: dict = Depends(get_current_user)):
+    now = now_iso()
+    # auto-expire
+    await db.bulk_deals.update_many({"status": "open", "ends_at": {"$lt": now}}, {"$set": {"status": "locked"}})
+    key = _neighborhood_key(user.get("location", ""))
+    rows = await db.bulk_deals.find({"status": {"$in": ["open", "locked"]}}, {"_id": 0}).sort("created_at", -1).to_list(200)
+    rows = [d for d in rows if (not d.get("neighborhood_key")) or d.get("neighborhood_key") == key or d["creator_id"] == user["id"]]
+    return {"deals": [_bulk_public(d, user["id"]) for d in rows]}
+
+
+@api_router.post("/bulk/deals")
+async def create_bulk_deal(req: BulkReq, user: dict = Depends(get_current_user)):
+    if not req.title.strip() or req.price_full_cents <= 0:
+        raise HTTPException(status_code=400, detail="Title and a valid unit price are required.")
+    ends = (datetime.now(timezone.utc) + timedelta(days=max(1, min(90, req.window_days)))).isoformat()
+    doc = {
+        "id": new_id(), "creator_id": user["id"], "creator_name": user.get("name") or user["email"].split("@")[0],
+        "title": req.title.strip()[:120], "category": req.category if req.category in BULK_CATEGORIES else "Other",
+        "item": req.item.strip()[:300], "unit": req.unit.strip()[:20] or "unit",
+        "price_full_cents": req.price_full_cents, "target": BULK_TIERS[-1]["min"],
+        "neighborhood_key": _neighborhood_key(user.get("location", "")),
+        "participants": [{"user_id": user["id"], "name": doc_name(user), "qty": 1}],
+        "status": "open", "ends_at": ends, "created_at": now_iso(),
+    }
+    await db.bulk_deals.insert_one(dict(doc))
+    return _bulk_public(doc, user["id"])
+
+
+def doc_name(user: dict) -> str:
+    return user.get("name") or user["email"].split("@")[0]
+
+
+class JoinBulkReq(BaseModel):
+    qty: int = 1
+
+
+@api_router.post("/bulk/deals/{deal_id}/join")
+async def join_bulk_deal(deal_id: str, req: JoinBulkReq, user: dict = Depends(get_current_user)):
+    d = await db.bulk_deals.find_one({"id": deal_id, "status": "open"}, {"_id": 0})
+    if not d:
+        raise HTTPException(status_code=404, detail="Deal not found or no longer open.")
+    parts = [p for p in d.get("participants", []) if p["user_id"] != user["id"]]
+    parts.append({"user_id": user["id"], "name": doc_name(user), "qty": max(1, req.qty)})
+    await db.bulk_deals.update_one({"id": deal_id}, {"$set": {"participants": parts}})
+    if d["creator_id"] != user["id"]:
+        await push_notification(d["creator_id"], title="New neighbor joined your bulk buy 🛒",
+                                body=f"“{d['title']}” now has {len(parts)} participants — bigger discount unlocking!",
+                                ntype="social", meta={"deal_id": deal_id})
+    d["participants"] = parts
+    return _bulk_public(d, user["id"])
+
+
+@api_router.post("/bulk/deals/{deal_id}/leave")
+async def leave_bulk_deal(deal_id: str, user: dict = Depends(get_current_user)):
+    d = await db.bulk_deals.find_one({"id": deal_id}, {"_id": 0})
+    if not d:
+        raise HTTPException(status_code=404, detail="Deal not found.")
+    parts = [p for p in d.get("participants", []) if p["user_id"] != user["id"]]
+    await db.bulk_deals.update_one({"id": deal_id}, {"$set": {"participants": parts}})
+    return {"ok": True}
+
+
+@api_router.post("/bulk/deals/{deal_id}/close")
+async def close_bulk_deal(deal_id: str, user: dict = Depends(get_current_user)):
+    d = await db.bulk_deals.find_one({"id": deal_id, "creator_id": user["id"]}, {"_id": 0})
+    if not d:
+        raise HTTPException(status_code=404, detail="Deal not found or you're not the organizer.")
+    await db.bulk_deals.update_one({"id": deal_id}, {"$set": {"status": "fulfilled", "fulfilled_at": now_iso()}})
+    tier = _bulk_tier(len(d.get("participants", [])))
+    for p in d.get("participants", []):
+        await push_notification(p["user_id"], title="Bulk buy confirmed ✅",
+                                body=f"“{d['title']}” locked in at {tier['pct']}% off. The organizer will coordinate pickup/delivery.",
+                                ntype="system", meta={"deal_id": deal_id})
+    await award_loyalty_credits(user["id"], 20, f"bulk_organized:{deal_id}", {"title": d["title"]})
+    return {"ok": True, "discount_pct": tier["pct"]}
+
+
+
 # ---------------------------------------------------------------- community (Pro-Earn)
 class PostReq(BaseModel):
     title: str

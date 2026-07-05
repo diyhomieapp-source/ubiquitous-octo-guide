@@ -1,0 +1,46 @@
+{
+  "summary": "Sheets #34 (Real Estate/Listing Mode), #35 (Materials Exchange), #36 (Neighborhood Bulk Buying) validated E2E. Backend: 23/23 pytest passed. Frontend: all three screens load from Profile menu, testIDs match spec (profile-realestate/circular/bulk, re-share-btn, circ-tab-*, circ-title/submit, circ-green-search, bulk-add/title/price/submit, bulk-close-<id>). Cross-user flows verified (claim by pat_pro_test → owner notified; bulk join by 2nd user → 5% discount tier unlocked; leave, close by creator all pass). Public share endpoints work without auth; wrong token → 404 as expected. AI summary generated and cached.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "realestate.tsx value card",
+        "issue": "For demo_home (19 Emergency-logged projects with $0 cost_cents), ai_summary correctly narrates the improvements but value_add.estimate_cents = 0 and roi_pct = 0 are displayed as '$0 · +0% vs materials invested ($0)'. Not a bug, but the AI narrative and the $0 value contradict visually. Consider suppressing the value card (or showing 'Not enough cost data') when invested_cents == 0.",
+        "testID": "re-share-btn area (value card above)",
+        "priority": "LOW"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_realestate_circular_bulk_sheet34_36.py",
+    "/app/test_reports/pytest/realestate_circular_bulk.xml"
+  ],
+  "action_items": [
+    "OPTIONAL: When totals.invested_cents == 0 on /realestate, hide or downgrade the 'Estimated value added' hero to avoid a confusing '$0 · +0%' next to an AI narrative describing multiple repairs (realestate.tsx lines 67-72).",
+    "OPTIONAL long-term: /app/backend/server.py is 6423 lines — split into feature-level modules for maintainability (not a blocker for this iteration).",
+    "OPTIONAL: The /realestate/share endpoint mints a shared portfolio_token; toggling public=false on /portfolio/share also flips is_public on the RE report (shared state is fine, but worth documenting so users know)."
+  ],
+  "critical_code_review_comments": [
+    "server.py L2959 uses helper doc_name(user) inside dict literal that is later re-referenced; the helper is defined after create_bulk_deal (L2966). Works because Python resolves at call time, but move the helper above create_bulk_deal for clarity.",
+    "server.py close_bulk_deal (L3000-3012) returns 404 for both 'not found' and 'not the creator' — good security (doesn't leak existence), keep as-is.",
+    "server.py claim_listing self-claim rejected with 400 (L2814) as documented in the note."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_realestate_circular_bulk_sheet34_36.py (new pytest file, 23 tests)"
+  ],
+  "success_rate": {
+    "backend": "100% (23/23)",
+    "frontend": "100% (all three modules load; every advertised testID resolves; create/claim/close/share/join/leave flows verified visually and via console)"
+  },
+  "seed_data_creation": "Registered pat_pro_test@diyhomie.com / Test1234 (Austin, TX) if not present — used as the 2nd user for cross-user claim + bulk-join. UI test also created 1 material_listing and 1 bulk_deal titled 'TEST_ UI ...' which remain in the DB (the deal was closed to 'fulfilled'; the material_listing remains open — main agent can leave it or purge).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Test file test_realestate_circular_bulk_sheet34_36.py is idempotent and safe to re-run. It logs in as demo_home + pat_pro_test and creates TEST_-prefixed items which it closes/marks fulfilled. If pat_pro_test doesn't exist yet, the fixture auto-registers it. AI summary caching (users.realestate_ai) keys off project count; if you seed more projects, the cache invalidates automatically.",
+  "rca_of_issue": "No issues found — all three sheets pass. Only cosmetic follow-up: hide $0/0% hero when invested_cents is 0."
+}

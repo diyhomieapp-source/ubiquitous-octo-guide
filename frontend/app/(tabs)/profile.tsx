@@ -156,6 +156,8 @@ export default function Profile() {
             testID="profile-home" onPress={() => router.push("/home-profile")} />
           <MenuRow icon="file-document-outline" label="Home Portfolio & Docs" sub="Export & share records for insurance / resale"
             testID="profile-portfolio" onPress={() => router.push("/portfolio")} />
+          <MenuRow icon="home-city-outline" label="Listing / Real Estate Mode" sub="Resale-ready report: value-add, disclosures & agent share"
+            testID="profile-realestate" onPress={() => router.push("/realestate")} />
           <MenuRow icon="account-hard-hat-outline" label="Find a Pro" sub="Vetted local pros for above-DIY jobs"
             testID="profile-pros" onPress={() => router.push("/pros")} />
           <MenuRow icon="shield-alert-outline" label="Report an Emergency" sub="Storm, flood, fire, burst pipe — instant triage"
@@ -164,6 +166,10 @@ export default function Profile() {
             testID="profile-neighborhood" onPress={() => router.push("/neighborhood")} />
           <MenuRow icon="medal-outline" label="Rewards & Recognition" sub="Badges, credits, leaderboard & local impact"
             testID="profile-loyalty" onPress={() => router.push("/loyalty")} />
+          <MenuRow icon="recycle-variant" label="Materials Exchange" sub="Give, get & recycle surplus materials nearby"
+            testID="profile-circular" onPress={() => router.push("/circular")} />
+          <MenuRow icon="cart-percent" label="Neighborhood Bulk Buying" sub="Group orders for wholesale discounts"
+            testID="profile-bulk" onPress={() => router.push("/bulk")} />
           <MenuRow icon="warehouse" label="Order Materials" sub="Wholesale suppliers · bulk & RFQ ordering"
             testID="profile-suppliers" onPress={() => router.push("/suppliers")} />
           <MenuRow icon={user?.is_pro ? "briefcase-check-outline" : "hammer-wrench"} label={user?.is_pro ? "Pro Dashboard" : "Become a Pro"} sub={user?.is_pro ? "Manage client jobs, proposals & invoices" : "Run your contracting business on DIYhomie"}
