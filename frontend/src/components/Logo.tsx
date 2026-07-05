@@ -65,7 +65,9 @@ export function Logo({ size = "md", showWordmark = true, animated = true, intera
   }, [float, animated]);
   const floatY = float.interpolate({ inputRange: [0, 1], outputRange: [0, -3] });
 
-  // Interactive "spring to life" — grows out & pops up on hover (web) / press (mobile).
+  // Interactive "spring to life" — a springy lean-in on hover (web) / press (mobile).
+  // Kept subtle & anchored so the face never leaves the frame and the tile
+  // bottom stays covered.
   const engage = useRef(new Animated.Value(0)).current;
   const setEngaged = (on: boolean) => {
     if (!interactive) return;
@@ -73,16 +75,16 @@ export function Logo({ size = "md", showWordmark = true, animated = true, intera
     Animated.spring(engage, {
       toValue: on ? 1 : 0,
       useNativeDriver: Platform.OS !== "web",
-      friction: 5,
-      tension: 140,
+      friction: 4,
+      tension: 120,
     }).start();
   };
 
-  // Scale up + lift, anchored at the base so he "grows out" of the tile.
-  const mScale = engage.interpolate({ inputRange: [0, 1], outputRange: [1, 1.22] });
-  const engageY = engage.interpolate({ inputRange: [0, 1], outputRange: [0, -(mH * 0.11) - 7] });
-  const translateY = Animated.add(floatY, engageY);
-  const tileScale = engage.interpolate({ inputRange: [0, 1], outputRange: [1, 1.06] });
+  // Gentle pop + playful tilt (no vertical lift → stays fully framed).
+  const mScale = engage.interpolate({ inputRange: [0, 1], outputRange: [1, 1.07] });
+  const mRotate = engage.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "-4deg"] });
+  const translateY = floatY;
+  const tileScale = engage.interpolate({ inputRange: [0, 1], outputRange: [1, 1.04] });
 
   return (
     <View style={styles.row}>
@@ -107,7 +109,7 @@ export function Logo({ size = "md", showWordmark = true, animated = true, intera
           pointerEvents="none"
           style={[
             styles.mascotWrap,
-            { width: mW, height: mH, left: (dim - mW) / 2, bottom: -dim * 0.1, transform: [{ translateY }, { scale: mScale }] },
+            { width: mW, height: mH, left: (dim - mW) / 2, bottom: -dim * 0.1, transform: [{ translateY }, { rotate: mRotate }, { scale: mScale }] },
           ]}
         >
           <Image source={MASCOT} style={styles.mascot} contentFit="contain" />

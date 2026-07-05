@@ -111,15 +111,21 @@ export default function Home() {
       {/* avatar stage */}
       <View style={styles.stage}>
         <View style={styles.avatarGlow} pointerEvents="none" />
-        <Animated.View style={[styles.avatarRing, { transform: [{ translateY }] }]}>
-          <View style={styles.avatarInner}>
-            <Logo size="lg" showWordmark={false} />
-          </View>
-        </Animated.View>
+        <Pressable testID="home-open-live" onPress={() => { Haptics.selectionAsync(); router.push("/homie"); }}>
+          <Animated.View style={[styles.avatarRing, { transform: [{ translateY }] }]}>
+            <View style={styles.avatarInner}>
+              <Logo size="lg" showWordmark={false} />
+            </View>
+          </Animated.View>
+        </Pressable>
         <Text style={styles.greet}>
           {user?.name ? `Hey ${user.name.split(" ")[0]} —` : "Hey there —"}{"\n"}what are we building?
         </Text>
         <Text style={styles.greetSub}>{"Tell me any repair, project or upgrade. I'll build your step-by-step plan."}</Text>
+        <Pressable testID="home-talk-live" style={styles.talkLive} onPress={() => { Haptics.selectionAsync(); router.push("/homie"); }}>
+          <MaterialCommunityIcons name="account-voice" size={16} color="#FF6A00" />
+          <Text style={styles.talkLiveText}>Talk to Homie live</Text>
+        </Pressable>
       </View>
 
       {/* bottom interaction zone */}
@@ -188,6 +194,8 @@ const styles = StyleSheet.create({
   avatarInner: { width: 132, height: 132, borderRadius: 66, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,106,0,0.10)" },
   greet: { color: "#fff", fontFamily: font.display, fontSize: 40, lineHeight: 40, textAlign: "center", marginTop: spacing["2xl"] },
   greetSub: { color: "rgba(255,255,255,0.55)", fontFamily: font.regular, fontSize: type.lg, lineHeight: 24, textAlign: "center", marginTop: spacing.md, maxWidth: 320 },
+  talkLive: { flexDirection: "row", alignItems: "center", gap: spacing.xs, backgroundColor: "rgba(255,106,0,0.12)", borderColor: "rgba(255,106,0,0.45)", borderWidth: 1, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, borderRadius: radius.pill, marginTop: spacing.xl },
+  talkLiveText: { color: "#FF6A00", fontFamily: font.bold, fontSize: type.base },
 
   bottom: { paddingHorizontal: spacing.lg },
   resumePill: { flexDirection: "row", alignItems: "center", gap: spacing.sm, backgroundColor: "rgba(255,255,255,0.06)", borderColor: "rgba(255,106,0,0.4)", borderWidth: 1, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, marginBottom: spacing.md, alignSelf: "flex-start", maxWidth: "100%" },
