@@ -1,0 +1,26 @@
+{
+  "summary": "Sheet #52 (Smart Home Remodel Kit & AR Project Package Engine) — Backend 14/14 pytest passed and Frontend flows verified end-to-end on mobile and web. Kit catalog, meta, detail, build manifest, start->project(+order), orders/mine (progress), arrived, leftover (Materials Exchange listings), admin CRUD/toggle/analytics, and 403 for non-admin all working. Frontend /kits shows 5 seeded kits, category chips, search, detail sheet with add-ons/upsells updating Smart Table total live, Start-this-project creates project and navigates to /project/[id] which renders steps and guide (no crash). My Kits tab shows started kits with Open guide, Kit arrived/Leftovers listed. Admin /admin -> Project Kits shows 5 analytics stat cards, per-kit active toggle + delete, and New kit builder (kit-add-toggle -> kit-add-comp/kit-add-step -> kit-new-create). No deprecated Expo packages detected in kits.tsx/KitsModule. No React Native red screen.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_kits_sheet52.py",
+    "/app/test_reports/pytest/kits_sheet52_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py is now ~7,974 lines — well past the 700-line threshold. Not caused by this iteration, but worth flagging: consider splitting kits/admin_kits into a dedicated router module in a follow-up.",
+    "In _kit_manifest est_hours is passed through unfiltered from selected components — subtotal correctly includes optional+upsell selections; verified via test_build_with_optional_increases_subtotal.",
+    "kit_leftover falls back to category 'Other' when not in ECO_CATEGORIES (safe)."
+  ],
+  "updated_files": ["/app/backend/tests/test_kits_sheet52.py"],
+  "success_rate": {"backend": "100% (14/14)", "frontend": "100% of tested flows"},
+  "seed_data_creation": "Backend test lifecycle created 1 additional kit_order for demo user (luxury-vinyl-flooring — fallback slug) with arrived+leftover state; 2 TEST_ leftover material listings created (both prefixed TEST_ for easy cleanup). No admin test kit remains (create->toggle->update->delete cycle self-cleans).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Demo user (demo_home@diyhomie.com) now has 2 kit orders (Kitchen Mini-Makeover + Luxury Vinyl Plank Floor Kit) both in 'arrived' state with leftovers_listed=true — this affects admin analytics 'orders' and any UI counts. Frontend auth token field is 'access_token' (not 'token'). Route ordering in server.py verified: /kits/orders/mine and /admin/kits/analytics are declared before /kits/{slug} and /admin/kits/{slug} — no ordering bugs surfaced."
+}

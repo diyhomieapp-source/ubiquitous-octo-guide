@@ -19,8 +19,9 @@ import { FeaturesModule } from "@/src/components/admin/FeaturesModule";
 import { CredentialsModule } from "@/src/components/admin/CredentialsModule";
 import { PartnersModule } from "@/src/components/admin/PartnersModule";
 import { PromptLibraryModule } from "@/src/components/admin/PromptLibraryModule";
+import { KitsModule } from "@/src/components/admin/KitsModule";
 
-type Mod = "overview" | "finance" | "crm" | "vendors" | "suppliers" | "proleads" | "proaccounts" | "credentials" | "partners" | "prompts" | "notifications" | "automations" | "features" | "email" | "affiliate" | "feedback" | "tickets" | "blog";
+type Mod = "overview" | "finance" | "crm" | "vendors" | "suppliers" | "kits" | "proleads" | "proaccounts" | "credentials" | "partners" | "prompts" | "notifications" | "automations" | "features" | "email" | "affiliate" | "feedback" | "tickets" | "blog";
 const MODULES: { key: Mod; label: string; icon: string }[] = [
   { key: "overview", label: "Overview", icon: "view-dashboard-outline" },
   { key: "finance", label: "CFO Dashboard", icon: "finance" },
@@ -29,6 +30,7 @@ const MODULES: { key: Mod; label: string; icon: string }[] = [
   { key: "affiliate", label: "Affiliate Widget", icon: "cart-percent" },
   { key: "vendors", label: "Vendors", icon: "domain" },
   { key: "suppliers", label: "Wholesalers & RFQs", icon: "truck-delivery-outline" },
+  { key: "kits", label: "Project Kits", icon: "package-variant-closed" },
   { key: "proleads", label: "Pro Leads", icon: "account-hard-hat" },
   { key: "proaccounts", label: "Pro Accounts", icon: "briefcase-check-outline" },
   { key: "credentials", label: "Credential Checks", icon: "certificate-outline" },
@@ -107,6 +109,7 @@ export default function AdminWorkstation() {
         {mod === "affiliate" && <AffiliateModule />}
         {mod === "vendors" && <VendorsModule />}
         {mod === "suppliers" && <SuppliersModule />}
+        {mod === "kits" && <KitsModule />}
         {mod === "proleads" && <ProLeadsModule />}
         {mod === "proaccounts" && <ProAccountsModule />}
         {mod === "credentials" && <CredentialsModule />}

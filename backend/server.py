@@ -7439,6 +7439,421 @@ async def prompt_feedback(req: PromptFeedbackReq, user: dict = Depends(get_curre
     return {"ok": True}
 
 
+# ================================================================ Smart Remodel Kits & AR Project Packages (Sheet #52)
+KIT_CATEGORIES = ["Kitchen", "Bathroom", "Flooring", "Painting", "Outdoor", "Storage", "Lighting", "General"]
+
+
+class KitComponent(BaseModel):
+    id: Optional[str] = None
+    name: str
+    kind: str = "material"  # material | tool | safety
+    qty: float = 1
+    unit: str = ""
+    price_cents: int = 0
+    sku: Optional[str] = None
+    affiliate_url: Optional[str] = None
+    optional: bool = False
+    default_on: bool = True
+    eco: bool = False
+
+
+class KitUpsell(BaseModel):
+    id: Optional[str] = None
+    name: str
+    description: str = ""
+    price_cents: int = 0
+    affiliate_url: Optional[str] = None
+
+
+class KitStep(BaseModel):
+    title: str
+    instruction: str
+    ar_hint: str = ""
+    phase: str = "install"  # prep | install | finish
+
+
+class KitReq(BaseModel):
+    slug: Optional[str] = None
+    name: str
+    category: str = "General"
+    icon: str = "toolbox-outline"
+    tagline: str = ""
+    description: str = ""
+    property_types: List[str] = []
+    difficulty: str = "Intermediate"
+    est_hours: float = 4
+    timeline_days: int = 1
+    components: List[KitComponent] = []
+    upsells: List[KitUpsell] = []
+    steps: List[KitStep] = []
+    featured: bool = False
+    active: bool = True
+
+
+class KitBuildReq(BaseModel):
+    option_ids: List[str] = []   # optional component ids the user turned ON
+    upsell_ids: List[str] = []
+
+
+class KitLeftoverItem(BaseModel):
+    title: str
+    category: str = "Other"
+
+
+class KitLeftoverReq(BaseModel):
+    items: List[KitLeftoverItem] = []
+
+
+def _slugify(s: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", (s or "").lower()).strip("-")[:60] or ("kit-" + secrets.token_hex(3))
+
+
+def _select_components(kit: dict, option_ids) -> list:
+    opt = set(option_ids or [])
+    return [c for c in (kit.get("components") or []) if (not c.get("optional")) or c.get("id") in opt]
+
+
+def _kit_manifest(kit: dict, option_ids, upsell_ids) -> dict:
+    comps = _select_components(kit, option_ids)
+    ups = [u for u in (kit.get("upsells") or []) if u.get("id") in set(upsell_ids or [])]
+    items, subtotal = [], 0
+    for c in comps:
+        line = int((c.get("price_cents") or 0) * (c.get("qty") or 1))
+        subtotal += line
+        items.append({"name": c["name"], "kind": c.get("kind", "material"), "qty": c.get("qty", 1),
+                      "unit": c.get("unit", ""), "line_cents": line,
+                      "affiliate_url": c.get("affiliate_url"), "eco": c.get("eco", False)})
+    for u in ups:
+        subtotal += int(u.get("price_cents") or 0)
+        items.append({"name": u["name"], "kind": "upsell", "qty": 1, "unit": "",
+                      "line_cents": int(u.get("price_cents") or 0), "affiliate_url": u.get("affiliate_url"), "eco": False})
+    return {"items": items, "subtotal_cents": subtotal, "component_count": len(comps),
+            "est_hours": kit.get("est_hours", 4), "timeline_days": kit.get("timeline_days", 1)}
+
+
+def _kit_card(kit: dict) -> dict:
+    comps = kit.get("components") or []
+    base = sum(int((c.get("price_cents") or 0) * (c.get("qty") or 1)) for c in comps if not c.get("optional"))
+    full = sum(int((c.get("price_cents") or 0) * (c.get("qty") or 1)) for c in comps)
+    return {"slug": kit["slug"], "name": kit["name"], "category": kit.get("category"),
+            "icon": kit.get("icon"), "tagline": kit.get("tagline"), "difficulty": kit.get("difficulty"),
+            "est_hours": kit.get("est_hours"), "timeline_days": kit.get("timeline_days"),
+            "featured": kit.get("featured", False), "component_count": len(comps),
+            "step_count": len(kit.get("steps") or []), "price_from_cents": base, "price_full_cents": full}
+
+
+@api_router.get("/kits/meta")
+async def kits_meta(user: dict = Depends(get_current_user)):
+    return {"categories": KIT_CATEGORIES}
+
+
+@api_router.get("/kits")
+async def list_kits(category: Optional[str] = None, q: Optional[str] = None, user: dict = Depends(get_current_user)):
+    query = {"active": True}
+    if category and category != "All":
+        query["category"] = category
+    rows = await db.project_kits.find(query, {"_id": 0}).sort([("featured", -1), ("name", 1)]).to_list(200)
+    if q:
+        ql = q.lower()
+        rows = [k for k in rows if ql in (k.get("name", "") + k.get("tagline", "") + k.get("description", "")).lower()]
+    return {"kits": [_kit_card(k) for k in rows]}
+
+
+@api_router.get("/kits/orders/mine")
+async def my_kit_orders(user: dict = Depends(get_current_user)):
+    orders = await db.kit_orders.find({"user_id": user["id"]}, {"_id": 0}).sort("created_at", -1).to_list(100)
+    out = []
+    for o in orders:
+        proj = await db.projects.find_one({"id": o.get("project_id")}, {"steps": 1, "_id": 0})
+        steps = (proj or {}).get("steps") or []
+        done = sum(1 for s in steps if s.get("done"))
+        out.append({**o, "total_steps": len(steps), "done_steps": done,
+                    "progress": int(done / len(steps) * 100) if steps else 0})
+    return {"orders": out}
+
+
+@api_router.get("/kits/{slug}")
+async def get_kit(slug: str, user: dict = Depends(get_current_user)):
+    kit = await db.project_kits.find_one({"slug": slug}, {"_id": 0})
+    if not kit or not kit.get("active"):
+        raise HTTPException(status_code=404, detail="Kit not found")
+    return kit
+
+
+@api_router.post("/kits/{slug}/build")
+async def build_kit_manifest(slug: str, req: KitBuildReq, user: dict = Depends(get_current_user)):
+    kit = await db.project_kits.find_one({"slug": slug}, {"_id": 0})
+    if not kit:
+        raise HTTPException(status_code=404, detail="Kit not found")
+    return _kit_manifest(kit, req.option_ids, req.upsell_ids)
+
+
+@api_router.post("/kits/{slug}/start")
+async def start_kit(slug: str, req: KitBuildReq, user: dict = Depends(get_current_user)):
+    kit = await db.project_kits.find_one({"slug": slug}, {"_id": 0})
+    if not kit:
+        raise HTTPException(status_code=404, detail="Kit not found")
+    comps = _select_components(kit, req.option_ids)
+    manifest = _kit_manifest(kit, req.option_ids, req.upsell_ids)
+    tools = [c["name"] for c in comps if c.get("kind") == "tool"]
+    materials = [f"{c['name']}" + (f" ×{c.get('qty')}" if (c.get('qty') or 1) != 1 else "") for c in comps if c.get("kind") == "material"]
+    safety = [c["name"] for c in comps if c.get("kind") == "safety"]
+    steps = []
+    for i, s in enumerate(kit.get("steps") or []):
+        steps.append({"id": new_id(), "index": i + 1, "title": s.get("title", f"Step {i+1}"),
+                      "instruction": s.get("instruction", ""), "visual_description": s.get("ar_hint", ""),
+                      "image_base64": None, "done": False, "phase": s.get("phase", "install")})
+    guide = {"overview": kit.get("description", "") or kit.get("tagline", ""), "tools": tools,
+             "materials": materials, "safety_warnings": safety, "code_alert": None,
+             "common_mistakes": [], "troubleshooting": [], "inspection_checklist": [],
+             "owned_tools": user.get("tools", []) or []}
+    project = {"id": new_id(), "user_id": user["id"], "title": kit["name"],
+               "location": user.get("location", ""), "status": "active", "favorite": False,
+               "notes": "", "guide": guide, "steps": steps, "missing_supplies": materials,
+               "source": "kit", "kit_slug": slug, "kit_manifest": manifest,
+               "created_at": now_iso(), "last_viewed_at": now_iso(), "completed_at": None}
+    await db.projects.insert_one(project)
+    order = {"id": new_id(), "user_id": user["id"], "kit_slug": slug, "kit_name": kit["name"],
+             "icon": kit.get("icon"), "project_id": project["id"], "manifest": manifest,
+             "status": "ordered", "created_at": now_iso()}
+    await db.kit_orders.insert_one(order)
+    return {"project_id": project["id"], "order_id": order["id"], "manifest": manifest}
+
+
+@api_router.post("/kits/orders/{order_id}/arrived")
+async def kit_arrived(order_id: str, user: dict = Depends(get_current_user)):
+    r = await db.kit_orders.update_one({"id": order_id, "user_id": user["id"]}, {"$set": {"status": "arrived", "arrived_at": now_iso()}})
+    if not r.matched_count:
+        raise HTTPException(status_code=404, detail="Order not found")
+    return {"ok": True, "status": "arrived"}
+
+
+@api_router.post("/kits/orders/{order_id}/leftover")
+async def kit_leftover(order_id: str, req: KitLeftoverReq, user: dict = Depends(get_current_user)):
+    order = await db.kit_orders.find_one({"id": order_id, "user_id": user["id"]}, {"_id": 0})
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    created = 0
+    for it in req.items:
+        if not it.title.strip():
+            continue
+        cat = it.category if it.category in ECO_CATEGORIES else "Other"
+        doc = {"id": new_id(), "user_id": user["id"], "owner_name": user.get("name") or user["email"].split("@")[0],
+               "type": "offer", "category": cat, "title": it.title.strip()[:120],
+               "description": f"Leftover from my {order['kit_name']} kit — free to a neighbor.",
+               "condition": "new", "price_cents": 0, "fulfillment": "pickup", "image_base64": None,
+               "neighborhood_key": _neighborhood_key(user.get("location", "")),
+               "eco": _eco_for(cat), "status": "active", "claim_ids": [], "created_at": now_iso()}
+        await db.material_listings.insert_one(doc)
+        created += 1
+    await db.kit_orders.update_one({"id": order_id}, {"$set": {"leftovers_listed": True}})
+    return {"ok": True, "listed": created}
+
+
+# ---- admin kit configuration
+@api_router.get("/admin/kits")
+async def admin_list_kits(admin: dict = Depends(require_admin)):
+    rows = await db.project_kits.find({}, {"_id": 0}).sort("name", 1).to_list(500)
+    out = []
+    for k in rows:
+        orders = await db.kit_orders.count_documents({"kit_slug": k["slug"]})
+        out.append({**_kit_card(k), "active": k.get("active", True), "order_count": orders})
+    return {"kits": out, "categories": KIT_CATEGORIES}
+
+
+@api_router.get("/admin/kits/analytics")
+async def admin_kit_analytics(admin: dict = Depends(require_admin)):
+    kits = await db.project_kits.find({}, {"_id": 0}).to_list(500)
+    orders = await db.kit_orders.find({}, {"_id": 0}).to_list(2000)
+    by_kit: dict = {}
+    revenue = 0
+    for o in orders:
+        by_kit[o["kit_slug"]] = by_kit.get(o["kit_slug"], 0) + 1
+        revenue += int((o.get("manifest") or {}).get("subtotal_cents") or 0)
+    top = sorted(({"slug": s, "orders": n} for s, n in by_kit.items()), key=lambda x: -x["orders"])[:5]
+    completed = 0
+    for o in orders:
+        proj = await db.projects.find_one({"id": o.get("project_id")}, {"steps": 1, "_id": 0})
+        steps = (proj or {}).get("steps") or []
+        if steps and all(s.get("done") for s in steps):
+            completed += 1
+    return {"totals": {"kits": len(kits), "active": sum(1 for k in kits if k.get("active", True)),
+                       "orders": len(orders), "completed": completed,
+                       "completion_pct": int(completed / len(orders) * 100) if orders else 0,
+                       "gmv_cents": revenue}, "top_kits": top}
+
+
+@api_router.get("/admin/kits/{slug}")
+async def admin_get_kit(slug: str, admin: dict = Depends(require_admin)):
+    kit = await db.project_kits.find_one({"slug": slug}, {"_id": 0})
+    if not kit:
+        raise HTTPException(status_code=404, detail="Kit not found")
+    return kit
+
+
+def _prepare_kit_doc(req: KitReq) -> dict:
+    comps = []
+    for c in req.components:
+        d = c.model_dump()
+        d["id"] = d.get("id") or ("c_" + secrets.token_hex(4))
+        comps.append(d)
+    ups = []
+    for u in req.upsells:
+        d = u.model_dump()
+        d["id"] = d.get("id") or ("u_" + secrets.token_hex(4))
+        ups.append(d)
+    return {"name": req.name.strip(), "category": req.category if req.category in KIT_CATEGORIES else "General",
+            "icon": req.icon, "tagline": req.tagline, "description": req.description,
+            "property_types": req.property_types, "difficulty": req.difficulty,
+            "est_hours": req.est_hours, "timeline_days": req.timeline_days,
+            "components": comps, "upsells": ups, "steps": [s.model_dump() for s in req.steps],
+            "featured": req.featured, "active": req.active}
+
+
+@api_router.post("/admin/kits")
+async def admin_create_kit(req: KitReq, admin: dict = Depends(require_admin)):
+    if not req.name.strip():
+        raise HTTPException(status_code=400, detail="Name is required")
+    doc = _prepare_kit_doc(req)
+    doc["slug"] = req.slug or _slugify(req.name)
+    if await db.project_kits.find_one({"slug": doc["slug"]}):
+        doc["slug"] = doc["slug"] + "-" + secrets.token_hex(2)
+    doc["id"] = new_id()
+    doc["created_at"] = now_iso()
+    await db.project_kits.insert_one(dict(doc))
+    return {"ok": True, "slug": doc["slug"]}
+
+
+@api_router.put("/admin/kits/{slug}")
+async def admin_update_kit(slug: str, req: KitReq, admin: dict = Depends(require_admin)):
+    kit = await db.project_kits.find_one({"slug": slug})
+    if not kit:
+        raise HTTPException(status_code=404, detail="Kit not found")
+    doc = _prepare_kit_doc(req)
+    await db.project_kits.update_one({"slug": slug}, {"$set": doc})
+    return {"ok": True}
+
+
+@api_router.post("/admin/kits/{slug}/toggle")
+async def admin_toggle_kit(slug: str, admin: dict = Depends(require_admin)):
+    kit = await db.project_kits.find_one({"slug": slug}, {"_id": 0})
+    if not kit:
+        raise HTTPException(status_code=404, detail="Kit not found")
+    await db.project_kits.update_one({"slug": slug}, {"$set": {"active": not kit.get("active", True)}})
+    return {"ok": True, "active": not kit.get("active", True)}
+
+
+@api_router.delete("/admin/kits/{slug}")
+async def admin_delete_kit(slug: str, admin: dict = Depends(require_admin)):
+    await db.project_kits.delete_one({"slug": slug})
+    return {"ok": True}
+
+
+def _c(name, kind="material", qty=1, unit="", price=0, optional=False, default_on=True, eco=False):
+    return {"id": "c_" + secrets.token_hex(4), "name": name, "kind": kind, "qty": qty, "unit": unit,
+            "price_cents": price, "sku": None, "affiliate_url": None, "optional": optional,
+            "default_on": default_on, "eco": eco}
+
+
+def _u(name, desc, price):
+    return {"id": "u_" + secrets.token_hex(4), "name": name, "description": desc, "price_cents": price, "affiliate_url": None}
+
+
+def _s(title, instruction, ar_hint="", phase="install"):
+    return {"title": title, "instruction": instruction, "ar_hint": ar_hint, "phase": phase}
+
+
+SEED_KITS = [
+    {"slug": "kitchen-mini-makeover", "name": "Kitchen Mini-Makeover Kit", "category": "Kitchen",
+     "icon": "silverware-fork-knife", "tagline": "Fresh cabinets, hardware & backsplash in a weekend",
+     "description": "Everything to refresh a tired kitchen: cabinet paint, new hardware and a peel-and-stick backsplash — no demo required.",
+     "property_types": ["house", "condo", "rental"], "difficulty": "Beginner", "est_hours": 8, "timeline_days": 2, "featured": True,
+     "components": [_c("Cabinet enamel paint (1 gal)", "material", 1, "gal", 4200), _c("Bonding primer (1 qt)", "material", 1, "qt", 1800),
+                    _c("Foam mini-roller kit", "tool", 1, "set", 1400), _c("Brushed-nickel cabinet pulls", "material", 20, "ct", 3800),
+                    _c("Peel-and-stick backsplash tile", "material", 10, "sq ft", 4900), _c("Painter's tape + drop cloth", "material", 1, "set", 1200, eco=False),
+                    _c("Nitrile gloves + mask", "safety", 1, "set", 900), _c("Cordless drill", "tool", 1, "", 6900, optional=True, default_on=False),
+                    _c("Deglosser (eco, low-VOC)", "material", 1, "qt", 1600, optional=True, default_on=True, eco=True)],
+     "upsells": [_u("Pro color consult", "15-min video call to lock your palette", 2900),
+                 _u("Soft-close hinge upgrade (10 pk)", "Quiet, premium cabinet feel", 3400)],
+     "steps": [_s("Empty & label", "Empty cabinets and label doors/boxes so everything goes back right.", "Overlay door numbering on each cabinet face", "prep"),
+               _s("Clean & degloss", "Wipe every surface and degloss so paint bonds.", "Highlight grease-prone zones near stove", "prep"),
+               _s("Prime", "Apply one even coat of bonding primer; let dry fully.", "Show even roller coverage lines", "install"),
+               _s("Paint 2 coats", "Roll two thin enamel coats, drying between.", "Ghost the second coat direction over the door", "install"),
+               _s("Install hardware", "Drill pulls using the template; keep spacing even.", "Place pull template on drawer face in AR", "install"),
+               _s("Backsplash", "Peel and press tiles from a level bottom line up.", "Project a laser-level guide line on the wall", "install"),
+               _s("Reassemble & clean", "Rehang doors, reload, wipe down. Photograph for your log.", "", "finish")]},
+    {"slug": "universal-bathroom-refresh", "name": "Universal Bathroom Refresh Kit", "category": "Bathroom",
+     "icon": "shower", "tagline": "New vanity top, faucet, caulk & paint",
+     "description": "A code-aware bathroom refresh: swap the faucet, re-caulk wet areas, and repaint with mildew-resistant coating.",
+     "property_types": ["house", "condo", "rental"], "difficulty": "Intermediate", "est_hours": 6, "timeline_days": 1,
+     "components": [_c("Widespread bathroom faucet", "material", 1, "", 8900), _c("Mildew-resistant paint (1 gal)", "material", 1, "gal", 3800),
+                    _c("100% silicone caulk + gun", "material", 1, "set", 2200), _c("Plumber's tape + supply lines", "material", 1, "set", 1500),
+                    _c("Adjustable wrench set", "tool", 1, "set", 3200), _c("Utility knife + scraper", "tool", 1, "set", 1100),
+                    _c("Gloves + safety glasses", "safety", 1, "set", 1000), _c("Heated towel bar", "material", 1, "", 7900, optional=True, default_on=False)],
+     "upsells": [_u("Water-efficient aerator pack", "Cut water use up to 30%", 1200)],
+     "steps": [_s("Shut off water", "Close the supply valves and open the tap to drain.", "Highlight the two shutoff valves under the sink", "prep"),
+               _s("Remove old faucet", "Disconnect lines and lift out the old faucet.", "", "install"),
+               _s("Set new faucet", "Seat the faucet, hand-tighten, then wrench a quarter turn.", "Show gasket seating orientation", "install"),
+               _s("Reconnect & test", "Attach supply lines with plumber's tape; test for leaks.", "Flag connection points to check for drips", "install"),
+               _s("Re-caulk", "Cut old caulk out, lay a clean silicone bead, tool smooth.", "Trace the ideal caulk line around the basin", "finish"),
+               _s("Paint & finish", "Cut in and roll mildew-resistant paint; ventilate well.", "", "finish")]},
+    {"slug": "new-deck-build", "name": "New Deck Build Kit (10×10)", "category": "Outdoor",
+     "icon": "deck", "tagline": "Framing, boards, fasteners & layout plan",
+     "description": "A permit-aware 10×10 ground-level deck package with pressure-treated framing, composite boards and hidden fasteners.",
+     "property_types": ["house"], "difficulty": "Advanced", "est_hours": 20, "timeline_days": 3,
+     "components": [_c("Composite deck boards", "material", 30, "ea", 189000), _c("Pressure-treated 2×8 joists", "material", 12, "ea", 42000),
+                    _c("Concrete deck blocks", "material", 9, "ea", 8100), _c("Hidden fastener clips", "material", 1, "box", 5400),
+                    _c("Joist hangers + screws", "material", 1, "box", 3800), _c("Circular saw", "tool", 1, "", 9900, optional=True, default_on=False),
+                    _c("Impact driver", "tool", 1, "", 8900), _c("Work gloves + glasses", "safety", 1, "set", 1400),
+                    _c("Ground-contact sealant", "material", 1, "gal", 3600, optional=True, default_on=True, eco=False)],
+     "upsells": [_u("Permit prep pack", "Auto-filled site plan + code checklist for your county", 4900),
+                 _u("Solar post-cap lights (4 pk)", "No-wiring ambient deck lighting", 3900)],
+     "steps": [_s("Verify permit & layout", "Confirm setbacks and mark the footprint with stakes.", "Project the 10×10 footprint onto the yard", "prep"),
+               _s("Set deck blocks", "Level nine blocks in a 3×3 grid on tamped gravel.", "Show grid spacing and level bubble", "install"),
+               _s("Frame perimeter", "Build the outer box and square the diagonals.", "Overlay diagonal equal-length check", "install"),
+               _s("Hang joists", "Install joists at 16\" on-center with hangers.", "Mark 16-inch on-center joist lines", "install"),
+               _s("Lay boards", "Fasten boards with clips, keeping a consistent gap.", "Show board gap spacer placement", "install"),
+               _s("Seal & inspect", "Seal cut ends, sweep, and run the inspection checklist.", "", "finish")]},
+    {"slug": "luxury-vinyl-flooring", "name": "Luxury Vinyl Plank Floor Kit (200 sq ft)", "category": "Flooring",
+     "icon": "floor-plan", "tagline": "Click-lock LVP, underlayment & trim",
+     "description": "Waterproof click-lock luxury vinyl for 200 sq ft, with underlayment, transition strips and quarter-round.",
+     "property_types": ["house", "condo", "rental"], "difficulty": "Beginner", "est_hours": 10, "timeline_days": 2, "featured": True,
+     "components": [_c("Luxury vinyl planks", "material", 210, "sq ft", 63000), _c("Acoustic underlayment", "material", 200, "sq ft", 9000),
+                    _c("Quarter-round trim", "material", 60, "lin ft", 4200), _c("Transition strips", "material", 3, "ea", 2700),
+                    _c("Tapping block + pull bar kit", "tool", 1, "set", 2900), _c("Utility knife + spacers", "tool", 1, "set", 1300),
+                    _c("Knee pads + glasses", "safety", 1, "set", 1600), _c("Oscillating multi-tool", "tool", 1, "", 5900, optional=True, default_on=False)],
+     "upsells": [_u("Premium moisture barrier", "For below-grade or concrete subfloors", 3200)],
+     "steps": [_s("Acclimate planks", "Let planks sit in the room 48h before install.", "", "prep"),
+               _s("Prep subfloor", "Clean, level and dry the subfloor; lay underlayment.", "Highlight low spots to level", "prep"),
+               _s("Plan the layout", "Dry-lay the first row; plan cuts so edges aren't tiny.", "Overlay first-row layout with spacer gaps", "install"),
+               _s("Click first rows", "Lock planks end-to-end, staggering seams 6\"+.", "Show 6-inch seam stagger pattern", "install"),
+               _s("Fit around edges", "Scribe and cut planks at walls; keep a 3/8\" gap.", "Mark the expansion gap at the wall", "install"),
+               _s("Trim & finish", "Install transitions and quarter-round; wipe down.", "", "finish")]},
+    {"slug": "accent-wall-lighting", "name": "Accent Wall + Smart Lighting Kit", "category": "Lighting",
+     "icon": "lightbulb-on-outline", "tagline": "Feature wall, sconces & smart dimmer",
+     "description": "Create a designer feature wall with paneling, two sconces and a smart dimmer for instant mood lighting.",
+     "property_types": ["house", "condo", "rental"], "difficulty": "Intermediate", "est_hours": 5, "timeline_days": 1,
+     "components": [_c("Slat wood wall panels", "material", 6, "ea", 41000), _c("Construction adhesive", "material", 2, "ea", 1600),
+                    _c("Wall sconces (pair)", "material", 1, "pair", 8800), _c("Smart dimmer switch", "material", 1, "", 4200),
+                    _c("Stud finder + level", "tool", 1, "set", 2400), _c("Voltage tester", "safety", 1, "", 1900),
+                    _c("Nitrile gloves", "safety", 1, "set", 700), _c("Brad nailer", "tool", 1, "", 7400, optional=True, default_on=False)],
+     "upsells": [_u("Warm smart bulbs (2 pk)", "Tunable-white, app + voice control", 2600)],
+     "steps": [_s("Plan the wall", "Mark studs and dry-lay panels for even spacing.", "Overlay stud lines and panel spacing", "prep"),
+               _s("Kill power", "Switch off the breaker and confirm with a tester.", "Flag the correct breaker to switch off", "prep"),
+               _s("Mount panels", "Adhere and brad-nail panels level to the wall.", "Show level line across panel tops", "install"),
+               _s("Wire sconces", "Connect sconce leads (match colors) and secure.", "Highlight wire-nut color matching", "install"),
+               _s("Smart dimmer", "Install the dimmer, restore power, pair the app.", "", "finish"),
+               _s("Scene & enjoy", "Set a warm dimming scene and log your project.", "", "finish")]},
+]
+
+
+async def seed_kits():
+    for k in SEED_KITS:
+        if not await db.project_kits.find_one({"slug": k["slug"]}):
+            await db.project_kits.insert_one({**k, "id": new_id(), "active": True, "created_at": now_iso()})
+    logger.info("project kits seeded")
+
+
 app.include_router(api_router)
 
 # Built-in autoresponder / email engine (separate module to keep server.py lean).
@@ -7517,6 +7932,7 @@ async def _startup_seed_community():
     await seed_loyalty_campaigns()
     await seed_feature_flags()
     await seed_prompts()
+    await seed_kits()
 
 
 @app.on_event("startup")
