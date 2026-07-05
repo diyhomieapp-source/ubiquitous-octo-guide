@@ -1,0 +1,34 @@
+{
+  "summary": "Info Sheet #65 Integration App Store tested end-to-end. Backend: 16/16 pytest tests passed (browse lists 5 seeded published integrations each with installed flag + categories, detail returns capabilities/scopes/pricing+installed, install idempotent (existing:true on 2nd call), installed list reflects state, uninstall disables + subsequent uninstall of not-installed returns 404, admin list has install counts, admin analytics returns {total,published,active_installs,paid_installs,by_integration}, admin toggle flips published<->draft, non-admin -> 403 on both admin endpoints, regression: /api/education/tracks still returns 3). Frontend E2E mobile 390x844: demo_home login -> /profile -> profile-appstore row -> navigates to /appstore; header 'Integrations', help copy, 6 chips (store-cat-all + 5 categories: analytics, energy, insurance, pro, safety), 5 store-item-* cards. Tapping card opens modal showing capabilities bullets, permissions box with scopes, transparency note; store-close works; store-install taps consent alert then re-open shows store-uninstall (Disconnect & revoke access); category chip 'safety' filters catalog to 1 item. Admin: Diyhomieapp login -> /admin -> admin-nav-appstore -> AppStoreModule renders 'Integration App Store' with 4 stats (Add-ons 5, Published 5, Installs, Paid installs 0), Catalog with 5 store-admin-row entries showing category/pricing/version/installs/status, 5 store-toggle-{id} buttons; clicking a toggle flipped 'Unpublish'->'Publish' with a live re-render; 'Top installed' funnel section rendered.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/admin (mobile 390)", "issues": ["Admin nav is a horizontal-scrolling tab strip on mobile (desktop-first module); 'Integration Store' tab must be scrolled into view. Consistent with prior admin modules, not a blocker."]}
+    ],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_appstore_sheet65.py",
+    "/app/test_reports/pytest/appstore_sheet65_results.xml"
+  ],
+  "action_items": [
+    "No fixes required for Sheet #65. Feature is production-ready.",
+    "(Optional cleanup — unrelated) Expo package version warnings persist: expo 54.0.34->54.0.35, expo-font 14.0.11->14.0.12, expo-router 6.0.23->6.0.24. Consider `npx expo install --check` when convenient.",
+    "(Optional) audit_engine.log_event is fired inside install/uninstall — spec did not ask to verify the audit sink; not tested here."
+  ],
+  "critical_code_review_comments": [
+    "appstore_engine.py is well-scoped (~226 lines, single-responsibility). All Mongo reads project out `_id`. Async/await used consistently. Env-driven db & logger injected via configure().",
+    "Install/uninstall use audit_engine.log_event with medium risk_level — good for compliance/transparency messaging shown in the UI.",
+    "Admin router is guarded by Depends(require_admin) at router level (non-admin correctly gets 403).",
+    "AppStoreModule.tsx & appstore.tsx render only React Native primitives (View/Text/Pressable/Modal/ScrollView), all interactive elements carry testID, StyleSheet.create used. Good."
+  ],
+  "updated_files": ["/app/backend/tests/test_appstore_sheet65.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "seed_data_creation": "None. Backend startup seed_appstore inserts 5 add-ons if collection empty. Tests toggled insurance-sync twice (net-zero) and installed+uninstalled energy-tracker for demo_home (cleaned up post-run).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Sheet #65 App Store complete and green. Auth uses POST /api/auth/login returning {access_token,token_type,user}. Login page /auth?mode=login; submit text 'LOG IN'. Frontend uses Alert.alert for consent which does NOT surface as a browser dialog — verify success via backend logs. AppStoreModule sits in the admin desktop layout and is reached via a horizontally scrolling nav on mobile. Test file: /app/backend/tests/test_appstore_sheet65.py (16 tests).",
+  "rca_of_issue": "N/A — no issues found."
+}

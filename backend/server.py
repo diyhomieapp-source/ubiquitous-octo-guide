@@ -35,6 +35,7 @@ import certification_engine
 import education_engine
 import campaign_engine
 import export_engine
+import appstore_engine
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -8804,6 +8805,11 @@ app.include_router(export_engine.build_user_router(get_current_user))
 app.include_router(export_engine.build_public_router())
 app.include_router(export_engine.build_admin_router(require_admin))
 
+# Integration App Store (Sheet #65) — complements existing developer/partner API.
+appstore_engine.configure(db, logger)
+app.include_router(appstore_engine.build_user_router(get_current_user))
+app.include_router(appstore_engine.build_admin_router(require_admin))
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
@@ -8891,6 +8897,7 @@ async def _startup_seed_community():
     await seed_freemium()
     await education_engine.seed_education()
     await campaign_engine.seed_campaigns()
+    await appstore_engine.seed_appstore()
 
 
 @app.on_event("startup")
