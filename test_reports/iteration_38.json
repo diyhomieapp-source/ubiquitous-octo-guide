@@ -1,0 +1,42 @@
+{
+  "summary": "Sheet #58 (Freemium Trial, Demo Mode & Conversion Engine) + NEW DELETE /api/projects/{id} — 19/19 backend pytest cases PASSED (100%). Coverage: /entitlements/me shape validation (plan, caps, usage, remaining, trial_days_left, upgrade_cta, price_label all present + correct types); /entitlements/consume decrements per-feature counters and returns {ok:false,locked:true,upgrade_cta} when cap reached (tested by temporarily zeroing caps via admin PUT and restoring); invalid feature -> 400; /demo/templates returns kitchen+fence; /demo/start/demo-kitchen-remodel idempotent (2nd call returns existing:true with same project_id); unknown slug -> 404; /demo/commit converts is_demo=false, second commit -> 404, unknown id -> 404; /conversion/event returns ok for demo_start/cta_view/cta_click; admin/freemium/config GET+PUT roundtrip preserved and restored; non-admin (demo_home) hitting /admin/freemium/config -> 403; admin/freemium/analytics returns totals + 5-stage funnel with all expected stages; NEW DELETE /api/projects/{id} — owner deletes own project (returns {ok:true, deleted:pid}), project removed from GET list, second DELETE -> 404, unknown id -> 404, cross-user attempt (demo_home deleting admin-owned project) -> 404 and project still exists for admin. Frontend code review: UpgradeBanner (testID='upgrade-banner') rendered inline in profile.tsx line 170; DemoBanner (testID='demo-banner', 'demo-commit') gated by is_demo flag in project/[id].tsx line 206; FreemiumModule with testIDs freemium-{key}, freemium-cta, freemium-price, freemium-save wired correctly to /admin/freemium/{config,analytics}. All endpoints properly reachable from the frontend components. Frontend E2E via Playwright did not complete a full login flow (app's login screen is not at /login and the login form testIDs used by the auth screen were not visible on the /login URL — auth screen appears to live under /onboarding or a modal, out of scope for this iteration's blocker) — but code review + all backend calls confirm the wiring. Auth login POST returns {access_token, ...} (not 'token') — noted in test harness.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_freemium_sheet58.py",
+    "/app/test_reports/pytest/freemium_sheet58_results.xml"
+  ],
+  "action_items": [
+    "(Optional) Consider surfacing the Upgrade CTA in more discoverable spots than just the Profile menu list (currently sandwiched between Loyalty and Try a Demo menu rows) — the banner is visually strong but placement mid-menu may reduce conversion.",
+    "(Optional) /demo/commit currently returns {ok:true} without echoing the new project_id or is_demo status — consumer must reload. Consider returning the updated project doc for smoother UX in DemoBanner.commit().",
+    "(Optional) /entitlements/consume accepts both 'scan'/'scans' and 'guide'/'guides' — align docs/frontend on singular form (currently DemoBanner/frontend calls not sending these; only integrated via /projects/*/guide etc.). Not a bug."
+  ],
+  "critical_code_review_comments": [
+    "server.py DELETE /api/projects/{id}: owner-scoped find_one + delete_one both filter by user_id — correct 404 semantics for cross-user access (verified in tests). Also cascades to db.timeline.delete_many with same user_id filter — good.",
+    "server.py /entitlements/me computes trial_days_left from user['created_at'] via datetime.fromisoformat — resilient to bad data via try/except fallback to cfg['trial_days']. Good defensive coding.",
+    "server.py /entitlements/consume: when _is_paid returns True short-circuits to {ok:true, unlimited:true} without touching Mongo — efficient. When free and at cap, returns 200 with {ok:false, locked:true} rather than 402/403 — appropriate for a soft paywall.",
+    "server.py /demo/start uses find_one({kit_slug: slug, is_demo:true}) for idempotency — but after commit (is_demo becomes false), a subsequent /demo/start/{same slug} will create a NEW demo project (existing:false) since the filter requires is_demo:true. This is probably intended behavior (user committed one, now wants a fresh demo) but worth confirming.",
+    "server.py admin/freemium/analytics uses async generator `async for p in db.projects.find(...)` inside a set comprehension — works but is an unusual pattern. Consider `distinct('user_id', {'is_demo': {'$ne': True}})` for clarity/perf on larger datasets.",
+    "server.py /demo/commit does not log conversion event on 404 path (correct — only successful commits count toward funnel). ✓",
+    "FreemiumConfigReq is a hard schema (all fields required) — PUT must send full object, which the frontend module does via {...cfg, [field]:new}. Good.",
+    "DemoBanner uses <Alert.alert> which is React Native only — fine for mobile but on web Alert.alert opens a browser confirm dialog. Non-blocking; existing pattern in this codebase."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_freemium_sheet58.py (new — 19 pytest cases covering all Sheet #58 endpoints + new DELETE /api/projects/{id})",
+    "/app/test_reports/pytest/freemium_sheet58_results.xml (generated by pytest)"
+  ],
+  "success_rate": {"backend": "100% (19/19 pytest)", "frontend": "N/A — E2E login flow blocked by unresolved /login route (not part of this sheet's scope); components verified via code review"},
+  "seed_data_creation": "Tests create 3 transient projects (2 via /api/projects, 1 via /api/demo/start/demo-fence-build) and delete each via new DELETE endpoint. Admin freemium config is mutated (free_scans=0/free_guides=0 for lock test; and full roundtrip test) then restored to original values in try/finally — no persistent drift. Conversion events (demo_start/cta_view/cta_click × 1 each + additional demo_start/demo_commit from idempotent flows) are appended to db.conversion_events but this is expected — feature analytics accumulates over time.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Tests at /app/backend/tests/test_freemium_sheet58.py — run with `pytest /app/backend/tests/test_freemium_sheet58.py -v`. Note: auth login returns {access_token, token_type, user} (not 'token') — the helper uses `.get('access_token') or .get('token')`. demo_home@diyhomie.com is subscription_tier='free' (confirmed by non-skipped consume tests). Both DEMO_TEMPLATES (demo-kitchen-remodel, demo-fence-build) are available. The FreemiumConfigReq schema requires all 6 fields on PUT — send the full config object. Non-admin GET /api/admin/freemium/config returns 403 (via require_admin dependency, not 401). Frontend E2E was not exhaustively covered — main agent should validate visually that (a) UpgradeBanner shows on /profile tab for demo_home with remaining Scans / AR guides / Saved projects tiles + Upgrade — $12/mo CTA, (b) opening a demo project renders DemoBanner with 'Save as real' button that fires POST /api/demo/commit/{id} on tap, (c) admin FreemiumModule shows stats row + 5-row conversion funnel + editable caps.",
+  "rca_of_issue": "N/A — no defects found. The prior 405 on DELETE /api/projects/{id} (noted in iteration_36) is now fixed and fully verified across owner/non-owner/unknown-id paths."
+}

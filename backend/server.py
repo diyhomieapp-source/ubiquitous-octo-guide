@@ -815,6 +815,16 @@ async def patch_project(project_id: str, req: PatchProjectReq, user: dict = Depe
     return fresh
 
 
+@api_router.delete("/projects/{project_id}")
+async def delete_project(project_id: str, user: dict = Depends(get_current_user)):
+    project = await db.projects.find_one({"id": project_id, "user_id": user["id"]}, {"_id": 0, "id": 1})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    await db.projects.delete_one({"id": project_id, "user_id": user["id"]})
+    await db.timeline.delete_many({"project_id": project_id, "user_id": user["id"]})
+    return {"ok": True, "deleted": project_id}
+
+
 class GuideReq(BaseModel):
     context: Optional[dict] = None
 
