@@ -3725,6 +3725,78 @@ async def admin_data_requests(admin: dict = Depends(require_admin)):
                        "pending_deletions": await db.deletion_requests.count_documents({"status": "pending"})}}
 
 
+# ---- secure web share link + branded "Home Ownership Log" (print-to-PDF) (Sheet #49)
+class DataShareReq(BaseModel):
+    public: bool = True
+    days: int = 30
+
+
+@api_router.post("/portability/share")
+async def portability_share(req: DataShareReq, user: dict = Depends(get_current_user)):
+    if not req.public:
+        await db.users.update_one({"id": user["id"]}, {"$set": {"data_share_public": False}})
+        return {"public": False}
+    token = user.get("data_share_token") or ("log_" + secrets.token_urlsafe(10))
+    expires = (datetime.now(timezone.utc) + timedelta(days=max(1, min(365, req.days)))).isoformat()
+    await db.users.update_one({"id": user["id"]}, {"$set": {
+        "data_share_token": token, "data_share_public": True, "data_share_expires": expires}})
+    await db.data_audit.insert_one({"id": new_id(), "user_id": user["id"], "action": "share_link", "at": now_iso()})
+    return {"public": True, "token": token, "expires_at": expires}
+
+
+def _ownership_log_html(user: dict, projects: list, timeline: list, counts: dict) -> str:
+    rows = "".join(
+        f"<tr><td>{(e.get('story_title') or e.get('title') or 'Project')}</td>"
+        f"<td>{(e.get('created_at') or '')[:10]}</td>"
+        f"<td>{e.get('room') or '—'}</td>"
+        f"<td>{'$' + str(int((e.get('cost_cents') or 0)/100)) if e.get('cost_cents') else '—'}</td></tr>"
+        for e in timeline[:200]) or "<tr><td colspan='4'>No logged improvements yet.</td></tr>"
+    stat = "".join(f"<div class='stat'><b>{v}</b><span>{k}</span></div>" for k, v in counts.items())
+    return f"""<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>
+<title>Home Ownership Log — {user.get('name') or 'DIYhomie'}</title>
+<style>
+body{{font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#1c1c1e;margin:0;background:#f6f6f7}}
+.wrap{{max-width:820px;margin:0 auto;padding:32px 24px}}
+.hd{{display:flex;align-items:center;gap:12px;border-bottom:3px solid #ff6a00;padding-bottom:16px}}
+.hd h1{{margin:0;font-size:26px}} .brand{{color:#ff6a00;font-weight:800;font-size:22px}}
+.sub{{color:#6b6b70;margin:6px 0 20px}}
+.stats{{display:flex;flex-wrap:wrap;gap:12px;margin:16px 0}}
+.stat{{background:#fff;border:1px solid #e5e5ea;border-radius:12px;padding:14px 18px;min-width:120px}}
+.stat b{{display:block;font-size:24px;color:#ff6a00}} .stat span{{color:#6b6b70;font-size:12px}}
+table{{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #e5e5ea}}
+th,td{{text-align:left;padding:10px 14px;border-bottom:1px solid #f0f0f2;font-size:14px}}
+th{{background:#fafafa;color:#6b6b70;font-size:12px;text-transform:uppercase}}
+.foot{{color:#9a9aa0;font-size:12px;margin-top:24px;text-align:center}}
+@media print{{body{{background:#fff}} .noprint{{display:none}}}}
+.btn{{display:inline-block;background:#ff6a00;color:#fff;padding:10px 18px;border-radius:10px;text-decoration:none;font-weight:700;margin-top:8px}}
+</style></head><body><div class='wrap'>
+<div class='hd'><span class='brand'>DIYhomie</span><h1>Home Ownership Log</h1></div>
+<div class='sub'>{user.get('name') or 'Homeowner'} · {user.get('location') or ''} · generated {now_iso()[:10]}</div>
+<div class='stats'>{stat}</div>
+<h3>Documented improvements</h3>
+<table><thead><tr><th>Project</th><th>Date</th><th>Room</th><th>Materials</th></tr></thead><tbody>{rows}</tbody></table>
+<p class='noprint'><a class='btn' href='javascript:window.print()'>Save as PDF</a></p>
+<div class='foot'>DIYhomie protects your project history for life — never held hostage to a subscription.</div>
+</div></body></html>"""
+
+
+@api_router.get("/portability/log/{token}", response_class=HTMLResponse)
+async def portability_log(token: str):
+    u = await db.users.find_one({"data_share_token": token, "data_share_public": True}, {"_id": 0})
+    if not u:
+        return HTMLResponse("<h1>This home log is private or unavailable.</h1>", status_code=404)
+    exp = u.get("data_share_expires")
+    if exp and datetime.fromisoformat(exp) < datetime.now(timezone.utc):
+        return HTMLResponse("<h1>This share link has expired.</h1>", status_code=410)
+    uid = u["id"]
+    projects = await db.projects.find({"user_id": uid}, {"_id": 0}).sort("created_at", -1).to_list(500)
+    timeline = await db.timeline.find({"user_id": uid}, {"_id": 0}).sort("created_at", -1).to_list(500)
+    counts = {"Projects": len(projects), "Log entries": len(timeline),
+              "Community posts": await db.community.count_documents({"user_id": uid})}
+    return HTMLResponse(_ownership_log_html(u, projects, timeline, counts))
+
+
+
 
 # ---------------------------------------------------------------- community (Pro-Earn)
 class PostReq(BaseModel):
