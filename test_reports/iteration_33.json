@@ -1,0 +1,44 @@
+{
+  "summary": "Iteration #33 — Tested Info Sheet #49 (Home Ownership Log) and #51 (Admin Prompt Library). Backend: 18/18 pytest cases pass (share link + branded HTML render + 404, 6 seeded prompts, analytics, admin auth gating on non-admin/anonymous, edit->publish version bump, rollback, pause/resume, invalid status, variants CRUD, A/B toggle, publish-without-pending 400, prompt feedback, and AI regression create-project + guide generation via resolve_prompt still working). Frontend: /admin workstation admin-nav-prompts sidebar renders all 6 prompt cards (prompt-<key>). Detail sheet opens, editor/AB/history tabs, testIDs prompt-content, prompt-save, prompt-status, prompt-tab-*, prompt-close, variant-label/content/add, prompt-rollback-<v> all wired. /data page renders Branded Home Ownership Log section; data-log button opens branded HTML with 'Home Ownership Log' + 'DIYhomie'. FOUND ONE CRITICAL UI BUG: after saving a draft, the 'Approve & publish' button (testID prompt-publish) NEVER appears because GET /api/admin/prompts/{key} returns 'pending' field but NOT 'has_pending' bool, while the React component gates the button on d.has_pending. Admin can save drafts but has no way to publish them from the UI.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "PromptLibraryModule.tsx (PromptDetail)",
+        "issue": "Approve & publish button (testID 'prompt-publish') never renders after saving a draft. Root cause: GET /api/admin/prompts/{key} returns the raw prompt doc which has `pending` field but not the derived `has_pending` boolean. The component checks `d.has_pending` (line 157) which is undefined => publish button and discard button never show. Fix: either add `has_pending: bool(d.get('pending'))` in the single-prompt endpoint response (/app/backend/server.py line ~7295), or change the frontend to check `d.pending != null` (/app/frontend/src/components/admin/PromptLibraryModule.tsx line 157).",
+        "testID": "prompt-publish",
+        "priority": "HIGH"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_prompt_library_and_ownership_log.py",
+    "/app/test_reports/pytest/prompt_library_results.xml"
+  ],
+  "action_items": [
+    "Fix prompt-publish button not showing after save. Simplest fix (frontend): change PromptLibraryModule.tsx lines ~157 and ~166 from `d.has_pending` to `d.pending != null` (or better: also expose has_pending in single-prompt endpoint response for API consistency).",
+    "Optional: after publish, `has_pending` in the list endpoint stays fresh but detail sheet reload works via GET /admin/prompts/{key} so state stays consistent; still recommend adding `has_pending` to detail response for parity."
+  ],
+  "critical_code_review_comments": [
+    "server.py is very large (>7500 lines). Consider splitting AI + admin modules into separate files per code_review_guidelines (file > 700 lines).",
+    "GET /api/admin/prompts/{key} returns the raw MongoDB doc merged with meta — it lacks the derived has_pending flag that the list endpoint provides, causing UI divergence. Recommend returning a consistent shape from both endpoints."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_prompt_library_and_ownership_log.py (new)"
+  ],
+  "success_rate": {
+    "backend": "100% (18/18 pytest cases)",
+    "frontend": "~85% (list, open detail, save, AB add variant, pause/resume, rollback UI all functional; publish flow blocked by has_pending bug)"
+  },
+  "seed_data_creation": "No new persistent seed data. Test artifacts cleaned up: pending draft on quick_answer discarded, UI_TEST_variant deleted, all 6 prompts confirmed status=live, ab=False, pending=False after tests. quick_answer version is v=5 due to edit/publish/rollback cycles (content is original).",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend tests live in /app/backend/tests/test_prompt_library_and_ownership_log.py. Run: `EXPO_PUBLIC_BACKEND_URL=https://step-by-step-diy.preview.emergentagent.com pytest backend/tests/test_prompt_library_and_ownership_log.py -v`. To reach the prompt library UI: goto /auth, click auth-toggle-mode to switch to Login, fill auth-email-input + auth-password-input with admin creds (Diyhomieapp@gmail.com/diyhomie1122), submit, then goto /admin (web only, requires desktop viewport width>=760) and click admin-nav-prompts. Prompt cards have testID prompt-<key>. Sheet uses testIDs prompt-content, prompt-save, prompt-publish (currently broken), prompt-status, prompt-tab-{editor|ab|history}, prompt-close, variant-label/content/add, prompt-rollback-<version>. Auth API returns 'access_token' key (not 'token').",
+  "rca_of_issue": "BUG: 'Approve & publish' button never appears after saving a draft in the Admin Prompt Library workstation. REPRODUCE: 1) Log in as admin, go to /admin, click AI Prompt Library, open any prompt (e.g. quick_answer). 2) Edit content in prompt-content textarea (button 'Save draft' becomes enabled). 3) Click prompt-save (backend correctly stores pending; verified via curl: GET /api/admin/prompts/quick_answer returns pending=<new content>). 4) EXPECTED: 'Approve & publish' (testID prompt-publish) and 'Discard' buttons appear next to 'Save draft'. ACTUAL: neither button renders. ROOT CAUSE: The single-prompt detail endpoint `GET /api/admin/prompts/{key}` in /app/backend/server.py (line ~7295) returns the raw Mongo doc containing `pending` field, but does NOT compute or return the `has_pending` boolean. However /app/frontend/src/components/admin/PromptLibraryModule.tsx line 157 gates the publish button on `d.has_pending` (a field only present in the list endpoint's response). Since `d.has_pending` is undefined in the detail response, the publish/discard block never renders. MITIGATION: Simplest one-line frontend fix: change occurrences of `d.has_pending` to `d.pending != null` in PromptLibraryModule.tsx (line 72 for the list card DRAFT PENDING badge uses r.has_pending on Row which is correct, so leave that; lines 157 and 166 in PromptDetail need to use d.pending != null). OR: server-side fix by adding `has_pending: bool(d.get('pending'))` into the response at server.py line 7303."
+}

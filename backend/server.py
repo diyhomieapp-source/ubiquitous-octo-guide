@@ -9,6 +9,7 @@ from datetime import datetime, timezone, timedelta
 import secrets
 import hmac
 import hashlib
+import random
 from typing import List, Optional
 
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, Header
@@ -240,6 +241,76 @@ def lang_note(profile: dict) -> str:
     return ""
 
 
+# ---------------------------------------------------------------- Agentic Prompt Library (Sheet #51)
+# Every core AI behaviour resolves its system prompt through resolve_prompt() so ops can tune,
+# A/B test, pause or roll back prompts LIVE without a code deploy. If a prompt is paused or missing
+# it transparently falls back to the hard-coded default below, so the app can never break.
+PROMPT_CACHE: dict = {}
+
+
+class _SafeDict(dict):
+    def __missing__(self, key):
+        return "{" + key + "}"
+
+
+def _pick_variant(doc: dict):
+    if not doc.get("ab_enabled"):
+        return None
+    variants = [v for v in (doc.get("variants") or []) if v.get("enabled", True) and v.get("content")]
+    weights = [max(0.0, float(v.get("weight") or 0)) for v in variants]
+    total = sum(weights)
+    if not variants or total <= 0:
+        return None
+    r = random.uniform(0, total)
+    upto = 0.0
+    for v, w in zip(variants, weights):
+        upto += w
+        if r <= upto:
+            return v
+    return variants[-1]
+
+
+async def _record_prompt_usage(key: str, variant_id):
+    try:
+        inc = {"usage": 1}
+        if variant_id:
+            inc[f"variant_usage.{variant_id}"] = 1
+        await db.prompt_stats.update_one({"key": key}, {"$inc": inc, "$set": {"last_used": now_iso()}}, upsert=True)
+    except Exception:
+        pass
+
+
+async def resolve_prompt(key: str, **variables) -> str:
+    """Return the live prompt template for `key`, rendered with `variables`.
+    Falls back to the hard-coded default when paused/missing so the app never breaks."""
+    default = (PROMPT_REGISTRY.get(key) or {}).get("default", "")
+    doc = PROMPT_CACHE.get(key)
+    content = default
+    variant_id = None
+    if doc and doc.get("status") == "live":
+        content = doc.get("content") or default
+        v = _pick_variant(doc)
+        if v:
+            content = v.get("content") or content
+            variant_id = v.get("id")
+    asyncio.create_task(_record_prompt_usage(key, variant_id))
+    if not variables:
+        return content
+    try:
+        return content.format_map(_SafeDict(**variables))
+    except Exception:
+        return content
+
+
+async def refresh_prompt_cache():
+    global PROMPT_CACHE
+    try:
+        docs = await db.prompts.find({}, {"_id": 0}).to_list(1000)
+        PROMPT_CACHE = {d["key"]: d for d in docs}
+    except Exception as e:
+        logger.warning(f"prompt cache refresh failed: {e}")
+
+
 # ---------------------------------------------------------------- home memory (agentic recall)
 ROOM_KEYWORDS = {
     "bathroom": ["bathroom", "toilet", "shower", "bathtub", "tub", "vanity"],
@@ -292,12 +363,13 @@ async def push_memory(user_id: str, current: list, room: str, text: str):
 
 
 async def brain_generate(profile: dict, project_title: str, history: List[dict], user_msg: str) -> dict:
-    system = MASTER_SYSTEM.format(
+    system = (await resolve_prompt(
+        "master_step",
         experience=profile.get("experience") or "Weekend Warrior",
         budget=profile.get("budget") or "Standard",
         tools=", ".join(profile.get("tools") or []) or "None / basic hand tools",
         location=profile.get("location") or "United States",
-    ) + lang_note(profile)
+    )) + lang_note(profile)
     convo = f"Project: {project_title}\n"
     for h in history[-8:]:
         convo += f"{h['role']}: {h['content']}\n"
@@ -330,7 +402,7 @@ async def brain_generate(profile: dict, project_title: str, history: List[dict],
 async def generate_step_image(visual_description: str, project_title: str) -> Optional[str]:
     try:
         from emergentintegrations.llm.openai.image_generation import OpenAIImageGeneration
-        prompt = STYLE_ANCHOR.format(desc=visual_description, project=project_title)
+        prompt = await resolve_prompt("image_style", desc=visual_description, project=project_title)
         gen = OpenAIImageGeneration(api_key=EMERGENT_LLM_KEY)
         images = await gen.generate_images(prompt=prompt, model="gpt-image-1", number_of_images=1)
         if images:
@@ -380,12 +452,13 @@ async def _llm_json(system: str, user_text: str, max_tokens: int = 1800) -> dict
 
 
 async def brain_generate_guide(profile: dict, title: str, weather: str = "", context: dict = None) -> dict:
-    system = GUIDE_SYSTEM.format(
+    system = (await resolve_prompt(
+        "full_guide",
         experience=profile.get("experience") or "Weekend Warrior",
         budget=profile.get("budget") or "Standard",
         tools=", ".join(profile.get("tools") or []) or "None / basic hand tools",
         location=profile.get("location") or "United States",
-    ) + lang_note(profile) + memory_note(profile, title, context)
+    )) + lang_note(profile) + memory_note(profile, title, context)
     user_text = f"Create the full structured DIY guide for this project: '{title}'."
     if context:
         details = "; ".join(f"{k}: {v}" for k, v in context.items() if v)
@@ -408,14 +481,12 @@ async def brain_generate_guide(profile: dict, title: str, weather: str = "", con
 
 
 async def brain_answer(profile: dict, title: str, question: str) -> str:
-    system = (
-        "You are Homie, a friendly master contractor helping a homeowner with the project "
-        f"'{title}'. Experience: {profile.get('experience') or 'Weekend Warrior'}. "
-        f"Location: {profile.get('location') or 'United States'}. "
-        "Answer their question in a clear, encouraging, practical way. Keep it under 60 words. "
-        "If it's a setback, give the exact fix. Plain text only, no markdown."
-    )
-    system += lang_note(profile)
+    system = (await resolve_prompt(
+        "quick_answer",
+        title=title,
+        experience=profile.get("experience") or "Weekend Warrior",
+        location=profile.get("location") or "United States",
+    )) + lang_note(profile)
     if PERPLEXITY_API_KEY:
         try:
             from openai import AsyncOpenAI
@@ -434,17 +505,7 @@ async def brain_answer(profile: dict, title: str, question: str) -> str:
 
 
 async def brain_intake(profile: dict, title: str) -> dict:
-    system = (
-        "You are Homie, a master contractor talking to a homeowner who just told you the job they "
-        "want to do. Before drafting a plan, ask the 2-4 MOST useful plain-language questions that "
-        "would let you write a guide tailored to their EXACT situation instead of a generic one. "
-        "Prioritize: the specific brand + model number of the fixture/part involved (if any), the "
-        "surface/site/material conditions (e.g. floor type, indoor/outdoor, wall material), and the "
-        "single biggest unknown that changes the approach. Keep each question short and friendly, as "
-        "if standing next to them. Respond ONLY with valid JSON (no markdown) of the form: "
-        '{"questions": [{"key": "model", "question": "...", "placeholder": "...", '
-        '"examples": ["...", "..."]}]} with 2 to 4 questions.'
-    ) + lang_note(profile) + memory_note(profile, title)
+    system = (await resolve_prompt("intake_questions")) + lang_note(profile) + memory_note(profile, title)
     user_text = f"The homeowner wants to: '{title}'. Ask your clarifying questions now as JSON."
     data = await _llm_json(system, user_text, max_tokens=600)
     qs = data.get("questions") if isinstance(data, dict) else None
@@ -4184,7 +4245,7 @@ async def emergency_scenarios(user: dict = Depends(get_current_user)):
 @api_router.post("/emergency/triage")
 async def emergency_triage(req: TriageReq, user: dict = Depends(get_current_user)):
     scen = _SCEN_MAP.get(req.scenario, _SCEN_MAP["other"])
-    system = EMERGENCY_SYSTEM.format(location=user.get("location") or "United States") + lang_note(user)
+    system = (await resolve_prompt("emergency_triage", location=user.get("location") or "United States")) + lang_note(user)
     user_text = (
         f"EMERGENCY TYPE: {scen['label']}.\n"
         f"What the homeowner reports: {req.description or '(no extra detail given)'}\n"
@@ -7091,6 +7152,292 @@ async def code_check(req: CodeCheckReq, user: dict = Depends(get_current_user)):
     return result
 
 
+# ================================================================ Agentic Prompt Library — admin ops (Sheet #51)
+_INTAKE_DEFAULT = (
+    "You are Homie, a master contractor talking to a homeowner who just told you the job they "
+    "want to do. Before drafting a plan, ask the 2-4 MOST useful plain-language questions that "
+    "would let you write a guide tailored to their EXACT situation instead of a generic one. "
+    "Prioritize: the specific brand + model number of the fixture/part involved (if any), the "
+    "surface/site/material conditions (e.g. floor type, indoor/outdoor, wall material), and the "
+    "single biggest unknown that changes the approach. Keep each question short and friendly, as "
+    "if standing next to them. Respond ONLY with valid JSON (no markdown) of the form: "
+    '{"questions": [{"key": "model", "question": "...", "placeholder": "...", '
+    '"examples": ["...", "..."]}]} with 2 to 4 questions.'
+)
+_ANSWER_DEFAULT = (
+    "You are Homie, a friendly master contractor helping a homeowner with the project "
+    "'{title}'. Experience: {experience}. Location: {location}. "
+    "Answer their question in a clear, encouraging, practical way. Keep it under 60 words. "
+    "If it's a setback, give the exact fix. Plain text only, no markdown."
+)
+
+PROMPT_REGISTRY = {
+    "master_step": {"name": "Guided Step Coach", "category": "Guide", "role": "system", "risk": "high",
+                    "description": "Homie's core one-step-at-a-time contractor voice used in live project chat.",
+                    "vars": ["experience", "budget", "tools", "location"], "default": MASTER_SYSTEM},
+    "full_guide": {"name": "Full Project Guide Generator", "category": "Guide", "role": "system", "risk": "high",
+                   "description": "Produces the complete structured DIY guide (tools, materials, steps, safety).",
+                   "vars": ["experience", "budget", "tools", "location"], "default": GUIDE_SYSTEM},
+    "intake_questions": {"name": "Smart Intake Questions", "category": "Onboarding", "role": "system", "risk": "medium",
+                   "description": "Asks 2-4 clarifying questions before writing a guide.",
+                   "vars": [], "default": _INTAKE_DEFAULT},
+    "quick_answer": {"name": "In-Project Q&A", "category": "Support", "role": "system", "risk": "medium",
+                   "description": "Answers a homeowner's mid-project question or setback.",
+                   "vars": ["title", "experience", "location"], "default": _ANSWER_DEFAULT},
+    "emergency_triage": {"name": "Emergency Triage", "category": "Safety", "role": "system", "risk": "critical",
+                   "description": "Calm, safety-first hazard triage. High-risk — approve edits carefully.",
+                   "vars": ["location"], "default": EMERGENCY_SYSTEM},
+    "image_style": {"name": "Step Image Style Anchor", "category": "Visual", "role": "image", "risk": "low",
+                   "description": "Style prompt wrapping every generated step illustration.",
+                   "vars": ["desc", "project"], "default": STYLE_ANCHOR},
+}
+
+
+class PromptUpdateReq(BaseModel):
+    content: str
+    note: Optional[str] = ""
+
+
+class PromptNoteReq(BaseModel):
+    note: Optional[str] = ""
+
+
+class PromptStatusReq(BaseModel):
+    status: str  # live | paused
+
+
+class PromptVariantReq(BaseModel):
+    label: str
+    content: str
+    weight: float = 50
+
+
+class PromptVariantPatch(BaseModel):
+    enabled: Optional[bool] = None
+    weight: Optional[float] = None
+    content: Optional[str] = None
+    label: Optional[str] = None
+
+
+class PromptAbReq(BaseModel):
+    enabled: bool
+
+
+class PromptRollbackReq(BaseModel):
+    version: int
+
+
+class PromptFeedbackReq(BaseModel):
+    key: str
+    rating: str  # up | down
+
+
+async def _prompt_audit(key: str, action: str, admin: dict, note: str = ""):
+    try:
+        await db.prompt_audit.insert_one({
+            "id": new_id(), "key": key, "action": action,
+            "by": (admin or {}).get("email"), "note": note or "", "at": now_iso(),
+        })
+    except Exception:
+        pass
+
+
+async def seed_prompts():
+    for key, meta in PROMPT_REGISTRY.items():
+        exists = await db.prompts.find_one({"key": key})
+        if not exists:
+            await db.prompts.insert_one({
+                "key": key, "name": meta["name"], "description": meta["description"],
+                "category": meta["category"], "role": meta["role"], "risk": meta.get("risk", "medium"),
+                "vars": meta.get("vars", []), "content": meta["default"], "pending": None,
+                "status": "live", "version": 1, "ab_enabled": False, "variants": [],
+                "history": [], "updated_at": now_iso(), "updated_by": "system",
+            })
+    await refresh_prompt_cache()
+    logger.info("prompt library seeded")
+
+
+@api_router.get("/admin/prompts")
+async def admin_list_prompts(admin: dict = Depends(require_admin)):
+    docs = await db.prompts.find({}, {"_id": 0}).to_list(1000)
+    dmap = {d["key"]: d for d in docs}
+    stats = {s["key"]: s for s in await db.prompt_stats.find({}, {"_id": 0}).to_list(1000)}
+    out = []
+    for key, meta in PROMPT_REGISTRY.items():
+        d = dmap.get(key, {})
+        st = stats.get(key, {})
+        out.append({
+            "key": key, "name": d.get("name") or meta["name"],
+            "description": d.get("description") or meta["description"],
+            "category": meta["category"], "role": meta["role"], "risk": meta.get("risk", "medium"),
+            "vars": meta.get("vars", []), "status": d.get("status", "live"),
+            "version": d.get("version", 1), "has_pending": bool(d.get("pending")),
+            "ab_enabled": d.get("ab_enabled", False), "variant_count": len(d.get("variants") or []),
+            "usage": st.get("usage", 0), "feedback_up": st.get("feedback_up", 0),
+            "feedback_down": st.get("feedback_down", 0), "updated_at": d.get("updated_at"),
+        })
+    return {"prompts": out, "categories": sorted({m["category"] for m in PROMPT_REGISTRY.values()})}
+
+
+@api_router.get("/admin/prompts/analytics")
+async def admin_prompt_analytics(admin: dict = Depends(require_admin)):
+    stats = await db.prompt_stats.find({}, {"_id": 0}).to_list(1000)
+    audit = await db.prompt_audit.find({}, {"_id": 0}).sort("at", -1).to_list(40)
+    total_usage = sum(s.get("usage", 0) for s in stats)
+    total_up = sum(s.get("feedback_up", 0) for s in stats)
+    total_down = sum(s.get("feedback_down", 0) for s in stats)
+    return {"stats": stats, "recent_changes": audit, "totals": {
+        "usage": total_usage, "feedback_up": total_up, "feedback_down": total_down,
+        "prompts": len(PROMPT_REGISTRY), "live": await db.prompts.count_documents({"status": "live"}),
+        "paused": await db.prompts.count_documents({"status": "paused"})}}
+
+
+@api_router.get("/admin/prompts/{key}")
+async def admin_get_prompt(key: str, admin: dict = Depends(require_admin)):
+    d = await db.prompts.find_one({"key": key}, {"_id": 0})
+    if not d:
+        raise HTTPException(status_code=404, detail="Prompt not found")
+    meta = PROMPT_REGISTRY.get(key, {})
+    st = await db.prompt_stats.find_one({"key": key}, {"_id": 0}) or {}
+    audit = await db.prompt_audit.find({"key": key}, {"_id": 0}).sort("at", -1).to_list(30)
+    return {**d, "default": meta.get("default"), "vars": meta.get("vars", []), "stats": st, "audit": audit}
+
+
+@api_router.put("/admin/prompts/{key}")
+async def admin_edit_prompt(key: str, req: PromptUpdateReq, admin: dict = Depends(require_admin)):
+    d = await db.prompts.find_one({"key": key})
+    if not d:
+        raise HTTPException(status_code=404, detail="Prompt not found")
+    await db.prompts.update_one({"key": key}, {"$set": {
+        "pending": req.content, "updated_at": now_iso(), "updated_by": admin.get("email")}})
+    await _prompt_audit(key, "edited", admin, req.note)
+    return {"ok": True, "status": "pending_review"}
+
+
+@api_router.post("/admin/prompts/{key}/discard")
+async def admin_discard_prompt(key: str, admin: dict = Depends(require_admin)):
+    await db.prompts.update_one({"key": key}, {"$set": {"pending": None}})
+    await _prompt_audit(key, "discarded_draft", admin, "")
+    return {"ok": True}
+
+
+@api_router.post("/admin/prompts/{key}/publish")
+async def admin_publish_prompt(key: str, req: PromptNoteReq = PromptNoteReq(), admin: dict = Depends(require_admin)):
+    d = await db.prompts.find_one({"key": key}, {"_id": 0})
+    if not d:
+        raise HTTPException(status_code=404, detail="Prompt not found")
+    pending = d.get("pending")
+    if pending is None:
+        raise HTTPException(status_code=400, detail="Nothing pending to publish")
+    history = (d.get("history") or [])
+    history.append({"version": d.get("version", 1), "content": d.get("content"),
+                    "at": now_iso(), "by": admin.get("email")})
+    history = history[-25:]
+    new_version = d.get("version", 1) + 1
+    await db.prompts.update_one({"key": key}, {"$set": {
+        "content": pending, "pending": None, "version": new_version, "status": "live",
+        "history": history, "updated_at": now_iso(), "updated_by": admin.get("email")}})
+    await refresh_prompt_cache()
+    await _prompt_audit(key, "published", admin, req.note)
+    return {"ok": True, "version": new_version}
+
+
+@api_router.post("/admin/prompts/{key}/status")
+async def admin_prompt_status(key: str, req: PromptStatusReq, admin: dict = Depends(require_admin)):
+    if req.status not in ("live", "paused"):
+        raise HTTPException(status_code=400, detail="Invalid status")
+    r = await db.prompts.update_one({"key": key}, {"$set": {"status": req.status, "updated_at": now_iso()}})
+    if not r.matched_count:
+        raise HTTPException(status_code=404, detail="Prompt not found")
+    await refresh_prompt_cache()
+    await _prompt_audit(key, f"status:{req.status}", admin, "")
+    return {"ok": True, "status": req.status}
+
+
+@api_router.post("/admin/prompts/{key}/rollback")
+async def admin_rollback_prompt(key: str, req: PromptRollbackReq, admin: dict = Depends(require_admin)):
+    d = await db.prompts.find_one({"key": key}, {"_id": 0})
+    if not d:
+        raise HTTPException(status_code=404, detail="Prompt not found")
+    target = next((h for h in (d.get("history") or []) if h.get("version") == req.version), None)
+    if not target:
+        raise HTTPException(status_code=404, detail="Version not found in history")
+    history = (d.get("history") or [])
+    history.append({"version": d.get("version", 1), "content": d.get("content"),
+                    "at": now_iso(), "by": admin.get("email")})
+    history = history[-25:]
+    new_version = d.get("version", 1) + 1
+    await db.prompts.update_one({"key": key}, {"$set": {
+        "content": target["content"], "pending": None, "version": new_version,
+        "status": "live", "history": history, "updated_at": now_iso()}})
+    await refresh_prompt_cache()
+    await _prompt_audit(key, f"rollback:v{req.version}", admin, "")
+    return {"ok": True, "version": new_version}
+
+
+@api_router.post("/admin/prompts/{key}/variants")
+async def admin_add_variant(key: str, req: PromptVariantReq, admin: dict = Depends(require_admin)):
+    d = await db.prompts.find_one({"key": key})
+    if not d:
+        raise HTTPException(status_code=404, detail="Prompt not found")
+    variant = {"id": "v_" + secrets.token_hex(4), "label": req.label,
+               "content": req.content, "weight": req.weight, "enabled": True}
+    await db.prompts.update_one({"key": key}, {"$push": {"variants": variant}})
+    await refresh_prompt_cache()
+    await _prompt_audit(key, "variant_added", admin, req.label)
+    return {"ok": True, "variant": variant}
+
+
+@api_router.put("/admin/prompts/{key}/variants/{vid}")
+async def admin_update_variant(key: str, vid: str, req: PromptVariantPatch, admin: dict = Depends(require_admin)):
+    d = await db.prompts.find_one({"key": key}, {"_id": 0})
+    if not d:
+        raise HTTPException(status_code=404, detail="Prompt not found")
+    variants = d.get("variants") or []
+    found = False
+    for v in variants:
+        if v["id"] == vid:
+            if req.enabled is not None:
+                v["enabled"] = req.enabled
+            if req.weight is not None:
+                v["weight"] = req.weight
+            if req.content is not None:
+                v["content"] = req.content
+            if req.label is not None:
+                v["label"] = req.label
+            found = True
+    if not found:
+        raise HTTPException(status_code=404, detail="Variant not found")
+    await db.prompts.update_one({"key": key}, {"$set": {"variants": variants}})
+    await refresh_prompt_cache()
+    return {"ok": True}
+
+
+@api_router.delete("/admin/prompts/{key}/variants/{vid}")
+async def admin_delete_variant(key: str, vid: str, admin: dict = Depends(require_admin)):
+    await db.prompts.update_one({"key": key}, {"$pull": {"variants": {"id": vid}}})
+    await refresh_prompt_cache()
+    await _prompt_audit(key, "variant_removed", admin, vid)
+    return {"ok": True}
+
+
+@api_router.post("/admin/prompts/{key}/ab")
+async def admin_toggle_ab(key: str, req: PromptAbReq, admin: dict = Depends(require_admin)):
+    r = await db.prompts.update_one({"key": key}, {"$set": {"ab_enabled": req.enabled}})
+    if not r.matched_count:
+        raise HTTPException(status_code=404, detail="Prompt not found")
+    await refresh_prompt_cache()
+    await _prompt_audit(key, f"ab:{'on' if req.enabled else 'off'}", admin, "")
+    return {"ok": True, "ab_enabled": req.enabled}
+
+
+@api_router.post("/prompts/feedback")
+async def prompt_feedback(req: PromptFeedbackReq, user: dict = Depends(get_current_user)):
+    field = "feedback_up" if req.rating == "up" else "feedback_down"
+    await db.prompt_stats.update_one({"key": req.key}, {"$inc": {field: 1}}, upsert=True)
+    return {"ok": True}
+
+
 app.include_router(api_router)
 
 # Built-in autoresponder / email engine (separate module to keep server.py lean).
@@ -7168,6 +7515,7 @@ async def _startup_seed_community():
     await seed_suppliers()
     await seed_loyalty_campaigns()
     await seed_feature_flags()
+    await seed_prompts()
 
 
 @app.on_event("startup")

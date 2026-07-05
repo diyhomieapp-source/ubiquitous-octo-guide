@@ -283,3 +283,11 @@ NOTE: generation is a single backend call, so stages are time-progressed (approx
 - Frontend app/data.tsx (ownership pledge, data counts, export→clipboard JSON, transfer via Share, import code, delete request). Profile row profile-data.
 - CURL-VERIFIED E2E: export summary, transfer→import (3 projects+19 timeline merged to pat_pro_test), delete 400 on bad confirm, admin totals {exports:1,transfers:1,imports:1}. Lint clean.
 - Session modules total: 12. #46/#47/#48/#49 pending consolidated frontend E2E.
+
+## Iteration 8 — #49 Home Ownership Log (web share) + #51 Agentic Prompt Library (main agent, forked)
+- #49 completion: backend already had /api/portability/share + /api/portability/log/{token} (branded print-to-PDF HTML). Added frontend app/data.tsx "Branded Home Ownership Log" section → button testID data-log calls POST /portability/share then opens {BACKEND}/api/portability/log/{token} (web: window.open; native: Linking) + copies URL. CURL-VERIFIED share+log render.
+- #51 Agentic AI Prompt Library: resolve_prompt() now backs 6 core AI flows (master_step, full_guide, intake_questions, quick_answer, emergency_triage, image_style) — live-editable, A/B, pausable with safe hard-coded fallback. Collections: prompts, prompt_stats, prompt_audit. seed_prompts on startup.
+  - Admin endpoints (require_admin): GET /admin/prompts, GET /admin/prompts/analytics, GET/PUT /admin/prompts/{key}, POST {key}/discard|publish|status|rollback|ab, POST/PUT/DELETE {key}/variants[/{vid}]. Public: POST /prompts/feedback.
+  - Approval workflow: PUT saves `pending` (review) → publish moves pending→content, bumps version, keeps history (rollback). status=paused → resolve_prompt falls back to registry default. A/B weighted variant selection + per-variant usage stats.
+  - Frontend: src/components/admin/PromptLibraryModule.tsx (list w/ status/risk/version/usage; detail sheet Editor/A/B/History tabs; save draft→approve&publish, pause/resume, variant weights, version restore, audit log). Wired into admin/index.tsx nav admin-nav-prompts.
+  - CURL-VERIFIED E2E: list(6 seeded), analytics totals, edit→publish(v2), add variant+ab on, pause, rollback(v3), feedback up. Lint clean. Frontend E2E via testing agent PENDING.

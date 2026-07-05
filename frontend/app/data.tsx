@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, TextInput, Alert, Share } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, TextInput, Alert, Share, Platform, Linking } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -44,6 +44,22 @@ export default function DataPortability() {
       const r = await api<{ token: string; note: string }>("/portability/transfer", { method: "POST" });
       await Share.share({ message: `I'm transferring my DIYhomie home history to you. Import this code in DIYhomie → Data & Portability:\n\n${r.token}\n\n(Valid 14 days.)` });
       load();
+    } catch (e: any) { Alert.alert("Failed", e?.message || "Try again."); }
+    finally { setBusy(null); }
+  };
+
+  const shareLog = async () => {
+    setBusy("log"); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    try {
+      const r = await api<{ token: string; expires_at: string }>("/portability/share", { method: "POST", body: { public: true, days: 30 } });
+      const url = `${process.env.EXPO_PUBLIC_BACKEND_URL}/api/portability/log/${r.token}`;
+      await Clipboard.setStringAsync(url);
+      if (Platform.OS === "web") {
+        if (typeof window !== "undefined") window.open(url, "_blank");
+      } else {
+        await Linking.openURL(url);
+      }
+      Alert.alert("Home Ownership Log ready", "Your branded, printable log opened in the browser (link copied too). Tap 'Save as PDF' there to hand it to a buyer, lender or insurer.");
     } catch (e: any) { Alert.alert("Failed", e?.message || "Try again."); }
     finally { setBusy(null); }
   };
@@ -97,6 +113,12 @@ export default function DataPortability() {
           <Text style={styles.help}>Selling or handing off your home? Generate a secure code — the new owner imports your entire history. Your originals stay intact.</Text>
           <Pressable testID="data-transfer" style={styles.outlineBtn} onPress={transfer} disabled={busy === "transfer"}>
             {busy === "transfer" ? <ActivityIndicator color={colors.brandPrimary} /> : <Text style={styles.outlineText}>Generate transfer code</Text>}
+          </Pressable>
+
+          <Text style={styles.section}>Branded Home Ownership Log</Text>
+          <Text style={styles.help}>Generate a polished, printable web page of every improvement you have logged — perfect to hand a buyer, lender or insurer. Open it and choose "Save as PDF".</Text>
+          <Pressable testID="data-log" style={styles.actionBtn} onPress={shareLog} disabled={busy === "log"}>
+            {busy === "log" ? <ActivityIndicator color={colors.onBrandPrimary} /> : <><MaterialCommunityIcons name="file-document-outline" size={18} color={colors.onBrandPrimary} /><Text style={styles.actionText}>Open shareable log (PDF)</Text></>}
           </Pressable>
 
           <Text style={styles.section}>Import previous owner's history</Text>
