@@ -1,0 +1,50 @@
+{
+  "summary": "Sheet #32 Notification/Alert/Messaging Center tested. Backend 15/17 pass, 1 CRITICAL fail (admin broadcast bypasses user prefs), 1 skipped (proposal endpoint shape unknown). Frontend UI verified: bell badge (unread=3), Notifications Center renders with all filter tabs (all/projects/safety/social/news), TEST_urgent card shows red ACTION REQUIRED banner, mark-all + prefs (cog) buttons present, deletes/filters have testIDs, Community tab labeled PRO-EARN. Emergency triage correctly creates safety+urgent notification. Urgent+safety override delivers even with promo=false & dnd=true (invariant honored). Admin non-admin gets 403. Campaigns list returns read_count/read_rate correctly. CRITICAL BUG: promo broadcast is delivered to a user who set promo=false because admin_broadcast writes docs directly to db.notifications instead of using push_notification helper that enforces prefs (server.py:3134-3140).",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "POST /api/admin/notifications/broadcast",
+        "issue": "Bypasses push_notification helper and inserts docs directly, so user notification preferences (e.g. promo=false) are NOT honored for non-urgent, non-safety broadcasts. Violates stated invariant: 'PUT {promo:false} then a promo broadcast should NOT create a notification for that user.' Test test_promo_disabled_blocks_promo_broadcast FAILED. Fix: iterate users and call push_notification(...) per recipient (or filter q by prefs), preserving campaign_id in meta. Urgent+safety already always deliver so that path stays intact.",
+        "priority": "CRITICAL"
+      }
+    ],
+    "minor": [
+      {
+        "endpoint": "POST /api/jobs/{id}/proposals",
+        "issue": "test_proposal_creates_client_project_notif skipped because /api/jobs (pro list) shape/route not confirmed; project-notification wiring (push_notification at server.py:1927, 1983, 2010, 2024) not covered by automated test in this pass. Endpoint responses look correct in code review; recommend main-agent quick sanity check via curl."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_notifications_sheet32.py",
+    "/app/test_reports/pytest/notifications_sheet32.xml"
+  ],
+  "action_items": [
+    "Fix admin_broadcast (server.py ~L3121-3146) to honor per-user notif_prefs for non-urgent + non-safety messages. Suggested: loop over users and call `await push_notification(u['id'], req.title, req.body, ntype=ntype, priority=..., meta={'campaign_id': campaign_id})`; count returned non-None results as recipients. Urgent (priority=='urgent') or ntype=='safety' bypasses prefs (already handled inside push_notification).",
+    "After fix, rerun /app/backend/tests/test_notifications_sheet32.py::TestPreferenceOverride to confirm both promo-blocked AND urgent-delivered assertions pass.",
+    "Optional: add curl/pytest coverage for pro→client project notification path (proposal, invoice sent, approval, change-request) using /api/jobs list to fetch job id."
+  ],
+  "critical_code_review_comments": [
+    "server.py:3121 admin_broadcast diverges from push_notification helper — duplicate logic + missing preference gate. Consolidate to a single write path.",
+    "server.py:3049 priority whitelist ok; server.py:3044 override rule (safety OR urgent) correctly implemented in helper — reuse it in broadcast.",
+    "notifications.tsx safety switch correctly locked on (disabled) & always displays true — matches invariant."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_notifications_sheet32.py (new)"
+  ],
+  "success_rate": {
+    "backend": "88%",
+    "frontend": "100%"
+  },
+  "seed_data_creation": "Test broadcasts created TEST_r1, TEST_bcast_all, TEST_rate, TEST_pro_seg, TEST_urgent, TEST_promo_off, TEST_del notifications for demo_home@ + associated campaigns. Safe to leave; prefixed with TEST_ for later cleanup.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "After main agent patches admin_broadcast to use push_notification, rerun pytest backend/tests/test_notifications_sheet32.py. All 16 non-skipped tests should pass. Frontend already verified end-to-end via mobile viewport at /auth → /notifications; bell testID home-notifications, screen testIDs notif-filter-{all,project,safety,social,promo}, notif-prefs, notif-mark-all, notif-{id}, notif-del-{id}, pref-{project,safety,social,promo,dnd} — all present. Do not re-test #26/#28/#30.",
+  "rca_of_issue": "Root cause: admin_broadcast() at /app/backend/server.py:3121-3146 was implemented as a fast-path bulk insert using db.notifications.insert_many(docs) instead of delegating each recipient to push_notification() which enforces `if not override and not prefs.get(ntype, True): return None`. Because the override rule is only evaluated inside the helper, direct insert_many writes ignore users' notif_prefs. Reproduction: 1) PUT /api/notifications/preferences {promo:false} as demo_home; 2) POST /api/admin/notifications/broadcast {segment:all, ntype:promo, priority:normal}; 3) GET /api/notifications?filter=promo — the new promo notification IS present (should be absent). Urgent path is unaffected because urgent broadcasts already deliver unconditionally, matching the invariant. Mitigation: replace the bulk-insert branch in admin_broadcast with a per-user loop calling push_notification and count the non-None returns as `recipients` (campaign_id preserved in meta)."
+}

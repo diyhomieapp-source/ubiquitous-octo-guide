@@ -1924,6 +1924,9 @@ async def set_proposal(job_id: str, req: ProposalReq, prof: dict = Depends(get_p
     await db.pro_jobs.update_one({"id": job_id}, {"$set": {"proposal": proposal, "status": "proposal_sent", "updated_at": now_iso()}})
     if j.get("client_user_id"):
         await emit_event("pro_proposal_sent", j["client_user_id"], {"job": j["title"], "total_cents": total})
+        await push_notification(j["client_user_id"], title="New proposal from your pro",
+                                body=f"{prof.get('name','Your pro')} sent a proposal for “{j['title']}”.",
+                                ntype="project", meta={"job_id": job_id})
     return {"ok": True}
 
 
@@ -1977,6 +1980,9 @@ async def send_invoice(invoice_id: str, prof: dict = Depends(get_pro_profile)):
     await db.pro_invoices.update_one({"id": invoice_id}, {"$set": {"status": "sent"}})
     if inv.get("client_user_id"):
         await emit_event("pro_invoice_sent", inv["client_user_id"], {"amount_cents": inv["amount_cents"]})
+        await push_notification(inv["client_user_id"], title="New invoice from your pro",
+                                body=f"Invoice “{inv.get('label','Invoice')}” is ready to pay.",
+                                ntype="project", meta={"job_id": inv.get("job_id")})
     return {"ok": True}
 
 
@@ -2001,6 +2007,9 @@ async def client_approve(job_id: str, user: dict = Depends(get_current_user)):
     await db.pro_jobs.update_one({"id": job_id}, {"$set": {"status": "approved", "updated_at": now_iso(),
                                                             "proposal.approved_at": now_iso()}})
     await emit_event("pro_proposal_approved", j["pro_user_id"], {"job": j["title"]})
+    await push_notification(j["pro_user_id"], title="Proposal approved 🎉",
+                            body=f"Your client approved “{j['title']}”. Time to get to work!",
+                            ntype="project", meta={"job_id": job_id})
     return {"ok": True}
 
 
@@ -2012,6 +2021,8 @@ async def client_change_request(job_id: str, req: MessageReq, user: dict = Depen
     cr = {"id": new_id(), "body": req.body.strip()[:1000], "at": now_iso(), "status": "open"}
     await db.pro_jobs.update_one({"id": job_id}, {"$push": {"change_requests": cr}, "$set": {"updated_at": now_iso()}})
     await emit_event("pro_change_request", j["pro_user_id"], {"job": j["title"]})
+    await push_notification(j["pro_user_id"], title="Client requested a change",
+                            body=f"New change request on “{j['title']}”.", ntype="project", meta={"job_id": job_id})
     return cr
 
 
@@ -2127,6 +2138,7 @@ AUTOMATION_ACTIONS = [
     {"key": "award_credits", "label": "Award credits", "param": "amount", "param_type": "number"},
     {"key": "add_tag", "label": "Tag the user", "param": "tag", "param_type": "text"},
     {"key": "send_email", "label": "Send email (template)", "param": "template", "param_type": "text"},
+    {"key": "notify", "label": "Send in-app notification", "param": "message", "param_type": "text"},
     {"key": "webhook", "label": "Call a webhook", "param": "url", "param_type": "text"},
     {"key": "log", "label": "Log event only", "param": None, "param_type": None},
 ]
@@ -2165,6 +2177,10 @@ def _cond_ok(conditions: list, data: dict) -> bool:
 async def _run_action(action: dict, user: dict, data: dict) -> dict:
     t = action.get("type")
     try:
+        if t == "notify":
+            msg = str(action.get("message") or "You have an update from DIYhomie.").strip()
+            await push_notification(user["id"], title="DIYhomie", body=msg, ntype="system", priority="normal")
+            return {"type": t, "ok": True, "detail": "notification sent"}
         if t == "award_credits":
             amt = int(action.get("amount") or 0)
             await db.users.update_one({"id": user["id"]}, {"$inc": {"credits": amt}})
@@ -2838,6 +2854,9 @@ async def neighborhood_offer(post_id: str, req: NeighborOfferReq, user: dict = D
     offer = {"id": new_id(), "user_id": user["id"], "author": _first_name(user),
              "body": req.body.strip()[:1000], "contact_shared": False, "created_at": now_iso()}
     await db.neighborhood_posts.update_one({"id": post_id}, {"$push": {"offers": offer}})
+    await push_notification(post["user_id"], title="A neighbor offered to help 🤝",
+                            body=f"{_first_name(user)} responded to “{post['title']}”.",
+                            ntype="social", meta={"post_id": post_id})
     return {"ok": True}
 
 
@@ -2992,6 +3011,9 @@ async def emergency_triage(req: TriageReq, user: dict = Depends(get_current_user
     except Exception as e:
         logger.warning(f"emergency timeline log failed: {e}")
     await emit_event("emergency_reported", user["id"], {"scenario": scen["key"]})
+    await push_notification(user["id"], title=f"Emergency logged: {scen['label']}",
+                            body="Your triage steps are saved to your home records for insurance.",
+                            ntype="safety", priority="urgent", meta={"event_id": event["id"]})
     return {
         "id": event["id"], "scenario": scen["key"], "scenario_label": scen["label"],
         "guide": guide, "suggested_trade": scen["trade"],
@@ -3001,6 +3023,137 @@ async def emergency_triage(req: TriageReq, user: dict = Depends(get_current_user
 @api_router.get("/emergency/events")
 async def emergency_events(user: dict = Depends(get_current_user)):
     rows = await db.emergency_events.find({"user_id": user["id"]}, {"_id": 0, "photo_base64": 0}).sort("created_at", -1).to_list(100)
+    return rows
+
+
+# ================================================================ Notification, Alert & Messaging Center (Sheet #32)
+NOTIF_TYPES = {"project", "safety", "social", "promo", "system"}
+NOTIF_DEFAULT_PREFS = {"project": True, "safety": True, "social": True, "promo": True, "system": True, "dnd": False}
+
+
+async def push_notification(user_id: str, title: str, body: str, ntype: str = "system",
+                            priority: str = "normal", meta: dict = None) -> Optional[dict]:
+    """Create an in-app notification, honoring the user's type preferences.
+    Safety + urgent messages always deliver (override toggles/DND)."""
+    if ntype not in NOTIF_TYPES:
+        ntype = "system"
+    user = await db.users.find_one({"id": user_id}, {"_id": 0, "notif_prefs": 1})
+    if user is None:
+        return None
+    prefs = {**NOTIF_DEFAULT_PREFS, **((user or {}).get("notif_prefs") or {})}
+    override = priority == "urgent" or ntype == "safety"
+    if not override and not prefs.get(ntype, True):
+        return None  # user opted out of this category
+    doc = {
+        "id": new_id(), "user_id": user_id, "type": ntype, "title": title[:140],
+        "body": body[:500], "priority": priority if priority in ("urgent", "normal", "low") else "normal",
+        "meta": meta or {}, "read": False, "created_at": now_iso(),
+    }
+    await db.notifications.insert_one(dict(doc))
+    return doc
+
+
+class NotifPrefsReq(BaseModel):
+    project: bool = True
+    safety: bool = True
+    social: bool = True
+    promo: bool = True
+    system: bool = True
+    dnd: bool = False
+
+
+@api_router.get("/notifications")
+async def list_notifications(filter: Optional[str] = None, user: dict = Depends(get_current_user)):
+    q: dict = {"user_id": user["id"]}
+    if filter and filter in NOTIF_TYPES:
+        q["type"] = filter
+    items = await db.notifications.find(q, {"_id": 0}).sort("created_at", -1).to_list(200)
+    # urgent first, then newest
+    items.sort(key=lambda n: (0 if n.get("priority") == "urgent" and not n.get("read") else 1, ))
+    unread = await db.notifications.count_documents({"user_id": user["id"], "read": False})
+    return {"items": items, "unread_count": unread}
+
+
+@api_router.get("/notifications/unread-count")
+async def notif_unread_count(user: dict = Depends(get_current_user)):
+    return {"unread_count": await db.notifications.count_documents({"user_id": user["id"], "read": False})}
+
+
+@api_router.post("/notifications/{notif_id}/read")
+async def notif_mark_read(notif_id: str, user: dict = Depends(get_current_user)):
+    await db.notifications.update_one({"id": notif_id, "user_id": user["id"]}, {"$set": {"read": True, "read_at": now_iso()}})
+    return {"ok": True}
+
+
+@api_router.post("/notifications/read-all")
+async def notif_read_all(user: dict = Depends(get_current_user)):
+    await db.notifications.update_many({"user_id": user["id"], "read": False}, {"$set": {"read": True, "read_at": now_iso()}})
+    return {"ok": True}
+
+
+@api_router.delete("/notifications/{notif_id}")
+async def notif_delete(notif_id: str, user: dict = Depends(get_current_user)):
+    await db.notifications.delete_one({"id": notif_id, "user_id": user["id"]})
+    return {"ok": True}
+
+
+@api_router.get("/notifications/preferences")
+async def notif_get_prefs(user: dict = Depends(get_current_user)):
+    return {**NOTIF_DEFAULT_PREFS, **(user.get("notif_prefs") or {})}
+
+
+@api_router.put("/notifications/preferences")
+async def notif_set_prefs(req: NotifPrefsReq, user: dict = Depends(get_current_user)):
+    prefs = req.model_dump()
+    await db.users.update_one({"id": user["id"]}, {"$set": {"notif_prefs": prefs}})
+    return prefs
+
+
+# ---- admin broadcast
+class BroadcastReq(BaseModel):
+    title: str
+    body: str
+    priority: str = "normal"
+    ntype: str = "system"
+    segment: str = "all"  # all | pro | paying | tag:<tag>
+
+
+@api_router.post("/admin/notifications/broadcast")
+async def admin_broadcast(req: BroadcastReq, admin: dict = Depends(require_admin)):
+    q: dict = {}
+    seg = req.segment or "all"
+    if seg == "pro":
+        q = {"is_pro": True}
+    elif seg == "paying":
+        q = {"subscription_tier": {"$in": ["pro", "master"]}}
+    elif seg.startswith("tag:"):
+        q = {"tags": seg.split(":", 1)[1]}
+    users = await db.users.find(q, {"_id": 0, "id": 1}).to_list(50000)
+    ntype = req.ntype if req.ntype in NOTIF_TYPES else "system"
+    campaign_id = new_id()
+    docs = [{
+        "id": new_id(), "user_id": u["id"], "type": ntype, "title": req.title[:140], "body": req.body[:500],
+        "priority": req.priority if req.priority in ("urgent", "normal", "low") else "normal",
+        "meta": {"campaign_id": campaign_id}, "read": False, "created_at": now_iso(),
+    } for u in users]
+    if docs:
+        await db.notifications.insert_many(docs)
+    await db.notif_campaigns.insert_one({
+        "id": campaign_id, "title": req.title[:140], "body": req.body[:500], "priority": req.priority,
+        "ntype": ntype, "segment": seg, "recipients": len(docs), "created_at": now_iso(),
+        "created_by": admin.get("email"),
+    })
+    return {"ok": True, "recipients": len(docs), "campaign_id": campaign_id}
+
+
+@api_router.get("/admin/notifications/campaigns")
+async def admin_campaigns(admin: dict = Depends(require_admin)):
+    rows = await db.notif_campaigns.find({}, {"_id": 0}).sort("created_at", -1).to_list(200)
+    for r in rows:
+        total = r.get("recipients", 0)
+        read = await db.notifications.count_documents({"meta.campaign_id": r["id"], "read": True})
+        r["read_count"] = read
+        r["read_rate"] = round((read / total) * 100, 1) if total else 0.0
     return rows
 
 
@@ -3245,6 +3398,9 @@ async def stripe_webhook(request: Request):
                 await db.pro_profiles.update_one({"user_id": inv["pro_user_id"]}, {"$inc": {"payout_cents": inv["amount_cents"] - fee}})
                 if inv.get("pro_user_id"):
                     await emit_event("pro_invoice_paid", inv["pro_user_id"], {"amount_cents": inv["amount_cents"]})
+                    await push_notification(inv["pro_user_id"], title="You got paid 💸",
+                                            body=f"An invoice was paid. Funds are on the way to your account.",
+                                            ntype="project", priority="normal", meta={"invoice_id": inv.get("id")})
         elif uid and tier:
             await _activate_subscription(uid, tier, obj.get("subscription"))
     elif etype == "invoice.paid":
@@ -5003,6 +5159,8 @@ async def _ensure_indexes():
         await db.pro_invoices.create_index("job_id")
         await db.pro_invoices.create_index("id")
         await db.emergency_events.create_index([("user_id", 1), ("created_at", -1)])
+        await db.notifications.create_index([("user_id", 1), ("read", 1), ("created_at", -1)])
+        await db.notifications.create_index("meta.campaign_id")
         logger.info("indexes ensured")
     except Exception as e:
         logger.warning(f"index ensure: {e}")

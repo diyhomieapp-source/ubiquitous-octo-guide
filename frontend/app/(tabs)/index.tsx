@@ -31,6 +31,7 @@ export default function Home() {
   const [creating, setCreating] = useState(false);
   const [active, setActive] = useState<ProjectSummary | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [unread, setUnread] = useState(0);
 
   const suggestions = SUGGESTION_KEYS.map((k) => t(`suggestions.${k}`));
 
@@ -51,6 +52,10 @@ export default function Home() {
     try {
       const res = await api<ProjectSummary[]>("/projects");
       setActive(res.find((p) => p.status === "active") || null);
+    } catch {}
+    try {
+      const u = await api<{ unread_count: number }>("/notifications/unread-count");
+      setUnread(u.unread_count);
     } catch {}
   }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
@@ -104,6 +109,9 @@ export default function Home() {
           </View>
           <Pressable testID="home-notifications" style={styles.iconBtn} onPress={() => router.push("/notifications")} hitSlop={8}>
             <MaterialCommunityIcons name="bell-outline" size={22} color="#fff" />
+            {unread > 0 && (
+              <View style={styles.badge}><Text style={styles.badgeText}>{unread > 9 ? "9+" : unread}</Text></View>
+            )}
           </Pressable>
         </View>
       </View>
@@ -191,6 +199,8 @@ const styles = StyleSheet.create({
   creditPill: { flexDirection: "row", alignItems: "center", gap: spacing.xs, backgroundColor: "rgba(255,255,255,0.06)", borderColor: "rgba(255,255,255,0.12)", borderWidth: 1, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.pill },
   creditText: { color: "#fff", fontFamily: font.bold, fontSize: type.sm },
   iconBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: radius.pill, backgroundColor: "rgba(255,255,255,0.06)", borderColor: "rgba(255,255,255,0.12)", borderWidth: 1 },
+  badge: { position: "absolute", top: 2, right: 2, minWidth: 16, height: 16, paddingHorizontal: 3, borderRadius: 8, backgroundColor: "#E5484D", alignItems: "center", justifyContent: "center", borderWidth: 1.5, borderColor: "#000" },
+  badgeText: { color: "#fff", fontFamily: font.bold, fontSize: 9 },
 
   stage: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: spacing.xl },
   avatarGlow: { position: "absolute", width: 300, height: 300, borderRadius: 150, backgroundColor: "rgba(255,106,0,0.14)", shadowColor: "#FF6A00", shadowOpacity: 0.6, shadowRadius: 80, shadowOffset: { width: 0, height: 0 } },
