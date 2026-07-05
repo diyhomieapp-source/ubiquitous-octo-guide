@@ -33,6 +33,7 @@ import affiliate_engine
 import audit_engine
 import certification_engine
 import education_engine
+import campaign_engine
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -8791,6 +8792,11 @@ education_engine.configure(db, logger)
 app.include_router(education_engine.build_user_router(get_current_user))
 app.include_router(education_engine.build_admin_router(require_admin))
 
+# Sponsored Learning, Campaigns & Brand Collaboration suite (Sheet #63).
+campaign_engine.configure(db, logger)
+app.include_router(campaign_engine.build_user_router(get_current_user))
+app.include_router(campaign_engine.build_admin_router(require_admin))
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
@@ -8856,6 +8862,8 @@ async def _ensure_indexes():
         await db.certificates.create_index("status")
         await db.edu_lessons.create_index([("track_slug", 1), ("order", 1)])
         await db.edu_progress.create_index([("user_id", 1), ("lesson_id", 1)])
+        await db.campaign_participation.create_index([("campaign_id", 1), ("user_id", 1)])
+        await db.campaign_participation.create_index("user_id")
         logger.info("indexes ensured")
     except Exception as e:
         logger.warning(f"index ensure: {e}")
@@ -8874,6 +8882,7 @@ async def _startup_seed_community():
     await seed_quizzes()
     await seed_freemium()
     await education_engine.seed_education()
+    await campaign_engine.seed_campaigns()
 
 
 @app.on_event("startup")

@@ -1,0 +1,32 @@
+{
+  "summary": "Info Sheet #63 (Sponsored Learning, Campaigns & Brand Collaboration Suite) fully verified end-to-end. Backend pytest 12/12 passed against public URL: list campaigns with progress {joined,status,pct}; idempotent join (existing:true); detail returns milestones with completed flags and auto_ready=true for lesson-type m1 tied to paint-basics (completed by demo_home); task-type m2 completes immediately; lesson-type m1 accepted once track is completed; reaching all milestones flips status→completed, returns reward {badge:'Smart Lighting Pro', discount_code:'LUMA15'} and reward_claimed=true; story opt-in true records story then opt-in false clears it; /campaigns/me returns participations + earned badges; admin routes 403 for demo_home. Admin GET /admin/campaigns exposes participants/completions; /admin/campaigns/{id}/toggle flips active↔ended (both directions tested and restored); /admin/campaigns/{id}/analytics returns joined/completed/completion_rate/story_optins/milestone_funnel/stories (only consented). Frontend E2E on 390x844: Profile → 'Sponsored Challenges' (profile-campaigns) opens /campaigns; reward badges 'Winter-Ready Homeowner' and 'Smart Lighting Pro' visible; both campaign cards (camp-smart-lighting-month, camp-prep-for-winter) shown with sponsor + progress + reward meta; tapping opens detail modal with sponsor line, reward box, milestones list, story-optin switch (camp-story-optin) and shows 'Completed ✓ Reward unlocked' pill for completed campaigns; camp-close dismisses modal. Admin /admin → admin-nav-campaigns opens CampaignsModule with 2 camp-admin-row entries, Analytics buttons render inline analytics box with 4 stats (Joined/Completed/Completion/Story opt-ins), milestone funnel counts, and consented stories section; End/Activate toggle button reflects current state.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": [
+      {"component": "expo/expo-font/expo-router", "issue": "Package version drift vs installed expo (expo@54.0.34 vs ~54.0.35, expo-font@14.0.11 vs ~14.0.12, expo-router@6.0.23 vs ~6.0.24). Non-blocking; flagged by Expo start log."},
+      {"component": "MaterialCommunityIcons", "issue": "Console warning: 'home-heart-outline' is not a valid icon name for family 'material-community'. Not blocking any campaign flow but appears on Profile screen. Reference: /app/frontend/app/(tabs)/profile.tsx"}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_campaigns_sheet63.py",
+    "/app/test_reports/pytest/campaigns_sheet63_results.xml"
+  ],
+  "action_items": [
+    "(Optional) Align Expo package versions per start warning (expo, expo-font, expo-router).",
+    "(Optional) Replace invalid MaterialCommunityIcons name 'home-heart-outline' on Profile screen to silence the icon warning."
+  ],
+  "critical_code_review_comments": [
+    "campaign_engine.py (~282 lines) is well-scoped: excludes MongoDB _id in all reads, uses async I/O, guards admin router via require_admin (verified 403), audits join/complete/story consent through audit_engine, and computes _progress consistently for list/detail/me. Lesson-type gating via edu_progress is correct — attempts before completion return 400.",
+    "seed_campaigns is idempotent (count-based guard) and safe on restart; slug uniqueness enforced on create.",
+    "Analytics stories list only includes participants with story_opt_in AND non-empty story — consent-gated as spec requires."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (12/12)", "frontend": "100% (all critical flows verified)"},
+  "seed_data_creation": "No new campaigns created. demo_home now has completed both seeded campaigns (prep-for-winter from prior + smart-lighting-month from this run) and earned both badges (Winter-Ready Homeowner + Smart Lighting Pro). Story opt-in on smart-lighting-month toggled true then false at end of test — final state opt_out.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Both seeded campaigns ('prep-for-winter' and 'smart-lighting-month') are now COMPLETED by demo_home. If future testing needs a fresh join/complete E2E for #63, main agent should either seed a 3rd campaign or add an admin endpoint / test hook to reset a participation. Admin toggle was flipped and restored back to original 'active' state during the test — safe. Consented story from prior run on prep-for-winter ('Sealed all my windows in a weekend!') is still present in analytics (expected)."
+}

@@ -214,6 +214,8 @@ export default function Profile() {
             testID="profile-certifications" onPress={() => router.push("/certifications")} />
           <MenuRow icon="school-outline" label="Learn to DIY" sub="Curriculum tracks, lessons & skill badges"
             testID="profile-education" onPress={() => router.push("/education")} />
+          <MenuRow icon="bullhorn-outline" label="Sponsored Challenges" sub="Brand campaigns, rewards & badges"
+            testID="profile-campaigns" onPress={() => router.push("/campaigns")} />
           <MenuRow icon="flask-outline" label="Beta Features" sub="Try experiments early & shape what ships"
             testID="profile-beta" onPress={() => router.push("/beta")} last />
         </View>
