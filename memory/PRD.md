@@ -216,3 +216,27 @@ Goal: solve the real pain points of existing DIY platforms with solutions people
 - #11 Homeowner Achievement & Progression: DONE (timeline, savings, hours, badges, skills, shareable journey).
 - Backlog (queued, not built): #5 referral gear-popup, #6 Gantt dependency scheduler, #9 visual automation rules + AI inbox, #12 Knowledge Search + Pro-Referral hand-off (needs vector/RAG), #13 Automation & Workflow Builder (visual rules engine). #1/#4 remain native-build-blocked.
 
+
+---
+## Session update (fork) — Sheets #58, #59, #60 shipped + DELETE fix
+
+### Completed & TESTED this session
+- **#58 Freemium/Demo/Upgrade Engine** — verified (iteration 38/39). Entitlements, demo sandbox, upgrade banners, admin FreemiumModule.
+- **#59 Activity Audit Logging & Transparency** — NEW module `/app/backend/audit_engine.py` (HTTP middleware auto-logs mutations/logins, consent registry, risk alerts). User `/privacy` screen + admin `AuditModule`. Verified (iteration 39).
+- **#60 DIYhomie Verified Certification** — NEW module `/app/backend/certification_engine.py` (auto-issue on project completion, verified tiers, branded PDF/HTML cert + public verify, revoke/reinstate/validate). User `/certifications` screen + admin `CertificationsModule`. Verified (iteration 40).
+- **BUG FIX**: `DELETE /api/projects/{id}` added (was 405) — owner delete + timeline cascade, 404 for non-owner.
+
+### Architecture note
+New features are now built as SEPARATE engine modules (audit_engine, certification_engine) included into server.py to avoid growing the ~8.9k-line monolith. Continue this pattern.
+
+### PENDING QUEUE (user pasted, NOT yet built) — build in order, each its own module + testing_agent:
+- **#61** Beta Feature Launch, Guided Onboarding & First-Touch Support Engine (persona onboarding walkthroughs, contextual help, first-impression/NPS capture, adoption analytics, admin no-code walkthrough/FAQ control).
+- **#62 (A)** Dynamic Pro Pricing Calculator & AI Quote Engine (DIY vs pro cost ranges, region/scope modeling, "Get Bids" pro handoff, quote history + feedback). NOTE: user later re-labeled #62 as (B) below — clarify which they want first.
+- **#62 (B)** Homeowner/Builder Education Center & Learn-to-DIY Content Hub (modular curriculum tracks, AR/avatar lessons, learning dashboard, mentor-contributed lessons, versioned content). (User sent both under "#62" — ASK which.)
+- **#63** Global Skills Index & Community Impact Leaderboard (skills matrix, impact dashboard, mentor/pro QA pages, opt-in seasonal/regional leaderboards). Builds on #54 skills + #57 experts + #60 certs.
+- **#64** Community Events, Group Projects & Local Campaign Engine (event/campaign creation + RSVP, group Smart Table logistics, impact tracking, sponsor hooks, viral invite flow).
+
+### Still-open items from earlier
+- server.py monolith refactor (P0, deferred — mitigated by new-module pattern).
+- Deferred #59 sub-item: lifecycle auto-prune/anonymize compliance automation.
+- Broken pending user keys: Perplexity (Code Check), AWS SES (Email Engine).
