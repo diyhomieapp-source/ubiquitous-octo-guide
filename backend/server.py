@@ -115,6 +115,8 @@ def public_user(u: dict) -> dict:
         "share_public": u.get("share_public", False),
         "neighborhood_optin": u.get("neighborhood_optin", False),
         "neighborhood_tag": _neighborhood_tag(u.get("location", "")),
+        "is_pro": u.get("is_pro", False),
+        "pro_id": u.get("pro_id"),
     }
 
 
@@ -1673,6 +1675,447 @@ async def admin_delete_pro(pro_id: str, admin: dict = Depends(require_admin)):
     return {"ok": True}
 
 
+# ================================================================ B2B / Contractor & Professional Services Suite (Sheet #28)
+PRO_JOB_STATUSES = ["draft", "proposal_sent", "approved", "in_progress", "completed", "cancelled"]
+INVOICE_KINDS = {"deposit", "progress", "final"}
+PLATFORM_FEE_PCT = 0.08  # DIYhomie platform fee on pro invoices
+
+
+class ProApplyAccountReq(BaseModel):
+    name: str
+    trades: List[str] = []
+    specialties: List[str] = []
+    location: str = ""
+    bio: str = ""
+    phone: str = ""
+    website: str = ""
+    license_number: str = ""
+    insurance: str = ""
+    portfolio: List[str] = []  # base64 images
+
+
+class LineItem(BaseModel):
+    label: str
+    amount_cents: int = 0
+
+
+class ProposalReq(BaseModel):
+    line_items: List[LineItem] = []
+    note: str = ""
+
+
+class JobReq(BaseModel):
+    client_email: str
+    title: str
+    description: str = ""
+
+
+class MessageReq(BaseModel):
+    body: str
+
+
+class InvoiceReq(BaseModel):
+    label: str
+    amount_cents: int
+    kind: str = "progress"
+
+
+class ReviewReq(BaseModel):
+    rating: int = 5
+    text: str = ""
+
+
+class OriginReq(BaseModel):
+    origin_url: str = ""
+
+
+async def get_pro_profile(user: dict = Depends(get_current_user)) -> dict:
+    prof = await db.pro_profiles.find_one({"user_id": user["id"]}, {"_id": 0})
+    if not prof or prof.get("status") != "verified":
+        raise HTTPException(status_code=403, detail="Verified pro account required.")
+    prof["_user"] = user
+    return prof
+
+
+def _pro_profile_public(p: dict) -> dict:
+    return {
+        "id": p["id"], "name": p.get("name"), "trades": p.get("trades", []),
+        "specialties": p.get("specialties", []), "location": p.get("location", ""),
+        "bio": p.get("bio", ""), "status": p.get("status"),
+        "license_number": p.get("license_number", ""), "insurance": p.get("insurance", ""),
+        "phone": p.get("phone", ""), "website": p.get("website", ""),
+        "portfolio": p.get("portfolio", []),
+        "rating": round(p.get("rating", 0), 1), "reviews_count": p.get("reviews_count", 0),
+        "jobs_completed": p.get("jobs_completed", 0),
+        "trusted": bool(p.get("jobs_completed", 0) >= 3 and p.get("rating", 0) >= 4.5),
+        "stripe_account_id": p.get("stripe_account_id"),
+        "charges_enabled": bool(p.get("charges_enabled")),
+        "payouts_enabled": bool(p.get("payouts_enabled")),
+    }
+
+
+def _job_public(j: dict, viewer_id: str) -> dict:
+    return {
+        "id": j["id"], "title": j["title"], "description": j.get("description", ""),
+        "status": j["status"], "pro_name": j.get("pro_name"), "client_email": j.get("client_email"),
+        "is_pro_side": j["pro_user_id"] == viewer_id,
+        "proposal": j.get("proposal"),
+        "messages": j.get("messages", []),
+        "change_requests": j.get("change_requests", []),
+        "review": j.get("review"),
+        "created_at": j["created_at"], "updated_at": j.get("updated_at", j["created_at"]),
+    }
+
+
+# ---- pro account lifecycle
+@api_router.post("/pro/apply")
+async def pro_apply(req: ProApplyAccountReq, user: dict = Depends(get_current_user)):
+    existing = await db.pro_profiles.find_one({"user_id": user["id"]}, {"_id": 0})
+    doc = {
+        "user_id": user["id"], "name": req.name[:100] or user.get("name", ""),
+        "trades": req.trades[:8], "specialties": req.specialties[:12],
+        "location": req.location[:80] or user.get("location", ""), "bio": req.bio[:600],
+        "phone": req.phone[:40], "website": req.website[:200],
+        "license_number": req.license_number[:60], "insurance": req.insurance[:120],
+        "portfolio": (req.portfolio or [])[:8], "email": user.get("email", ""),
+        "status": "pending", "updated_at": now_iso(),
+    }
+    if existing:
+        if existing.get("status") == "banned":
+            raise HTTPException(status_code=403, detail="This account cannot re-apply. Contact support.")
+        await db.pro_profiles.update_one({"user_id": user["id"]}, {"$set": doc})
+        prof = await db.pro_profiles.find_one({"user_id": user["id"]}, {"_id": 0})
+    else:
+        doc.update({"id": new_id(), "stripe_account_id": None, "charges_enabled": False,
+                    "payouts_enabled": False, "rating": 0.0, "reviews_count": 0,
+                    "jobs_completed": 0, "created_at": now_iso()})
+        await db.pro_profiles.insert_one(dict(doc))
+        prof = doc
+    await emit_event("pro_applied", user["id"], {"trades": req.trades})
+    return {"ok": True, "status": prof["status"], "message": "Application received — our team will verify your credentials shortly."}
+
+
+@api_router.get("/pro/me")
+async def pro_me(user: dict = Depends(get_current_user)):
+    prof = await db.pro_profiles.find_one({"user_id": user["id"]}, {"_id": 0})
+    if not prof:
+        return {"has_account": False}
+    jobs = await db.pro_jobs.find({"pro_user_id": user["id"]}, {"_id": 0}).to_list(500)
+    active = [j for j in jobs if j["status"] in ("approved", "in_progress", "proposal_sent")]
+    completed = [j for j in jobs if j["status"] == "completed"]
+    paid_cur = db.pro_invoices.aggregate([
+        {"$match": {"pro_user_id": user["id"], "status": "paid"}},
+        {"$group": {"_id": None, "total": {"$sum": "$amount_cents"}}},
+    ])
+    paid_row = await paid_cur.to_list(1)
+    revenue = int(paid_row[0]["total"]) if paid_row else 0
+    outstanding_cur = db.pro_invoices.aggregate([
+        {"$match": {"pro_user_id": user["id"], "status": "sent"}},
+        {"$group": {"_id": None, "total": {"$sum": "$amount_cents"}}},
+    ])
+    out_row = await outstanding_cur.to_list(1)
+    outstanding = int(out_row[0]["total"]) if out_row else 0
+    return {
+        "has_account": True,
+        "profile": _pro_profile_public(prof),
+        "stats": {
+            "active_jobs": len(active), "completed_jobs": len(completed),
+            "revenue_cents": revenue, "outstanding_cents": outstanding,
+            "rating": round(prof.get("rating", 0), 1), "reviews_count": prof.get("reviews_count", 0),
+        },
+    }
+
+
+# ---- Stripe Connect (Express) onboarding for pros
+@api_router.post("/pro/connect/onboard")
+async def pro_connect_onboard(req: OriginReq, prof: dict = Depends(get_pro_profile)):
+    if not STRIPE_SECRET_KEY or "sk_test_emergent" in STRIPE_SECRET_KEY:
+        raise HTTPException(status_code=503, detail="Payments not configured on this environment.")
+    acct_id = prof.get("stripe_account_id")
+    try:
+        if not acct_id:
+            account = await asyncio.to_thread(lambda: stripe.Account.create(
+                type="express",
+                email=prof.get("email"),
+                capabilities={"card_payments": {"requested": True}, "transfers": {"requested": True}},
+                business_type="individual",
+                metadata={"pro_user_id": prof["user_id"], "pro_id": prof["id"]},
+            ))
+            acct_id = account.id
+            await db.pro_profiles.update_one({"user_id": prof["user_id"]}, {"$set": {"stripe_account_id": acct_id}})
+        host = (req.origin_url or "").rstrip("/") or "https://diyhomie.app"
+        link = await asyncio.to_thread(lambda: stripe.AccountLink.create(
+            account=acct_id,
+            refresh_url=f"{host}/pro/payouts?refresh=1",
+            return_url=f"{host}/pro/payouts?done=1",
+            type="account_onboarding",
+        ))
+        return {"url": link.url}
+    except Exception as e:
+        logger.error(f"connect onboard error: {e}")
+        raise HTTPException(status_code=502, detail="Could not start payout setup. Try again.")
+
+
+@api_router.get("/pro/connect/status")
+async def pro_connect_status(prof: dict = Depends(get_pro_profile)):
+    acct_id = prof.get("stripe_account_id")
+    if not acct_id or not STRIPE_SECRET_KEY or "sk_test_emergent" in STRIPE_SECRET_KEY:
+        return {"onboarded": False, "charges_enabled": False, "payouts_enabled": False}
+    try:
+        account = await asyncio.to_thread(lambda: stripe.Account.retrieve(acct_id))
+        ce, pe = bool(account.charges_enabled), bool(account.payouts_enabled)
+        await db.pro_profiles.update_one({"user_id": prof["user_id"]}, {"$set": {"charges_enabled": ce, "payouts_enabled": pe}})
+        return {"onboarded": ce and pe, "charges_enabled": ce, "payouts_enabled": pe}
+    except Exception as e:
+        logger.error(f"connect status error: {e}")
+        return {"onboarded": False, "charges_enabled": False, "payouts_enabled": False}
+
+
+# ---- pro jobs
+@api_router.post("/pro/jobs")
+async def create_job(req: JobReq, prof: dict = Depends(get_pro_profile)):
+    client = await db.users.find_one({"email": req.client_email.lower().strip()}, {"_id": 0, "id": 1})
+    job = {
+        "id": new_id(), "pro_user_id": prof["user_id"], "pro_id": prof["id"], "pro_name": prof.get("name"),
+        "client_email": req.client_email.lower().strip()[:120], "client_user_id": (client or {}).get("id"),
+        "title": req.title.strip()[:140], "description": req.description.strip()[:2000],
+        "status": "draft", "proposal": None, "messages": [], "change_requests": [], "review": None,
+        "created_at": now_iso(), "updated_at": now_iso(),
+    }
+    await db.pro_jobs.insert_one(dict(job))
+    return _job_public(job, prof["user_id"])
+
+
+@api_router.get("/pro/jobs")
+async def list_pro_jobs(prof: dict = Depends(get_pro_profile)):
+    jobs = await db.pro_jobs.find({"pro_user_id": prof["user_id"]}, {"_id": 0}).sort("updated_at", -1).to_list(500)
+    return [_job_public(j, prof["user_id"]) for j in jobs]
+
+
+async def _load_job_for_user(job_id: str, user: dict) -> dict:
+    j = await db.pro_jobs.find_one({"id": job_id}, {"_id": 0})
+    if not j:
+        raise HTTPException(status_code=404, detail="Job not found.")
+    is_pro = j["pro_user_id"] == user["id"]
+    is_client = j.get("client_user_id") == user["id"] or j.get("client_email") == user.get("email", "").lower()
+    if not (is_pro or is_client):
+        raise HTTPException(status_code=403, detail="Not your job.")
+    return j
+
+
+@api_router.get("/pro/jobs/{job_id}")
+async def get_job(job_id: str, user: dict = Depends(get_current_user)):
+    j = await _load_job_for_user(job_id, user)
+    invoices = await db.pro_invoices.find({"job_id": job_id}, {"_id": 0}).sort("created_at", 1).to_list(100)
+    inv_out = [{k: v for k, v in i.items()} for i in invoices]
+    data = _job_public(j, user["id"])
+    data["invoices"] = inv_out
+    return data
+
+
+@api_router.post("/pro/jobs/{job_id}/proposal")
+async def set_proposal(job_id: str, req: ProposalReq, prof: dict = Depends(get_pro_profile)):
+    j = await db.pro_jobs.find_one({"id": job_id, "pro_user_id": prof["user_id"]}, {"_id": 0})
+    if not j:
+        raise HTTPException(status_code=404, detail="Job not found.")
+    items = [{"label": li.label[:120], "amount_cents": max(0, int(li.amount_cents))} for li in req.line_items]
+    total = sum(i["amount_cents"] for i in items)
+    proposal = {"line_items": items, "total_cents": total, "note": req.note[:1000], "sent_at": now_iso()}
+    await db.pro_jobs.update_one({"id": job_id}, {"$set": {"proposal": proposal, "status": "proposal_sent", "updated_at": now_iso()}})
+    if j.get("client_user_id"):
+        await emit_event("pro_proposal_sent", j["client_user_id"], {"job": j["title"], "total_cents": total})
+    return {"ok": True}
+
+
+@api_router.patch("/pro/jobs/{job_id}/status")
+async def update_job_status(job_id: str, status: str, prof: dict = Depends(get_pro_profile)):
+    if status not in PRO_JOB_STATUSES:
+        raise HTTPException(status_code=400, detail="Invalid status.")
+    j = await db.pro_jobs.find_one({"id": job_id, "pro_user_id": prof["user_id"]}, {"_id": 0})
+    if not j:
+        raise HTTPException(status_code=404, detail="Job not found.")
+    await db.pro_jobs.update_one({"id": job_id}, {"$set": {"status": status, "updated_at": now_iso()}})
+    if status == "completed":
+        await db.pro_profiles.update_one({"user_id": prof["user_id"]}, {"$inc": {"jobs_completed": 1}})
+    return {"ok": True}
+
+
+@api_router.post("/pro/jobs/{job_id}/message")
+async def job_message(job_id: str, req: MessageReq, user: dict = Depends(get_current_user)):
+    j = await _load_job_for_user(job_id, user)
+    role = "pro" if j["pro_user_id"] == user["id"] else "client"
+    msg = {"id": new_id(), "from_role": role, "from_name": (user.get("name") or "").split(" ")[0] or role,
+           "body": req.body.strip()[:1500], "at": now_iso()}
+    await db.pro_jobs.update_one({"id": job_id}, {"$push": {"messages": msg}, "$set": {"updated_at": now_iso()}})
+    return msg
+
+
+# ---- invoices
+@api_router.post("/pro/jobs/{job_id}/invoices")
+async def create_invoice(job_id: str, req: InvoiceReq, prof: dict = Depends(get_pro_profile)):
+    j = await db.pro_jobs.find_one({"id": job_id, "pro_user_id": prof["user_id"]}, {"_id": 0})
+    if not j:
+        raise HTTPException(status_code=404, detail="Job not found.")
+    if req.amount_cents <= 0:
+        raise HTTPException(status_code=400, detail="Amount must be greater than zero.")
+    inv = {
+        "id": new_id(), "job_id": job_id, "pro_user_id": prof["user_id"],
+        "client_email": j.get("client_email"), "client_user_id": j.get("client_user_id"),
+        "label": req.label.strip()[:120] or "Invoice",
+        "amount_cents": int(req.amount_cents), "kind": req.kind if req.kind in INVOICE_KINDS else "progress",
+        "status": "draft", "stripe_session_id": None, "paid_at": None, "created_at": now_iso(),
+    }
+    await db.pro_invoices.insert_one(dict(inv))
+    return {k: v for k, v in inv.items()}
+
+
+@api_router.post("/pro/invoices/{invoice_id}/send")
+async def send_invoice(invoice_id: str, prof: dict = Depends(get_pro_profile)):
+    inv = await db.pro_invoices.find_one({"id": invoice_id, "pro_user_id": prof["user_id"]}, {"_id": 0})
+    if not inv:
+        raise HTTPException(status_code=404, detail="Invoice not found.")
+    await db.pro_invoices.update_one({"id": invoice_id}, {"$set": {"status": "sent"}})
+    if inv.get("client_user_id"):
+        await emit_event("pro_invoice_sent", inv["client_user_id"], {"amount_cents": inv["amount_cents"]})
+    return {"ok": True}
+
+
+# ---- client portal
+@api_router.get("/client/jobs")
+async def client_jobs(user: dict = Depends(get_current_user)):
+    email = user.get("email", "").lower()
+    jobs = await db.pro_jobs.find(
+        {"$or": [{"client_user_id": user["id"]}, {"client_email": email}], "status": {"$ne": "draft"}},
+        {"_id": 0},
+    ).sort("updated_at", -1).to_list(500)
+    return [_job_public(j, user["id"]) for j in jobs]
+
+
+@api_router.post("/client/jobs/{job_id}/approve")
+async def client_approve(job_id: str, user: dict = Depends(get_current_user)):
+    j = await _load_job_for_user(job_id, user)
+    if j["pro_user_id"] == user["id"]:
+        raise HTTPException(status_code=403, detail="Only the client can approve.")
+    if not j.get("proposal"):
+        raise HTTPException(status_code=400, detail="No proposal to approve yet.")
+    await db.pro_jobs.update_one({"id": job_id}, {"$set": {"status": "approved", "updated_at": now_iso(),
+                                                            "proposal.approved_at": now_iso()}})
+    await emit_event("pro_proposal_approved", j["pro_user_id"], {"job": j["title"]})
+    return {"ok": True}
+
+
+@api_router.post("/client/jobs/{job_id}/change-request")
+async def client_change_request(job_id: str, req: MessageReq, user: dict = Depends(get_current_user)):
+    j = await _load_job_for_user(job_id, user)
+    if j["pro_user_id"] == user["id"]:
+        raise HTTPException(status_code=403, detail="Only the client can request changes.")
+    cr = {"id": new_id(), "body": req.body.strip()[:1000], "at": now_iso(), "status": "open"}
+    await db.pro_jobs.update_one({"id": job_id}, {"$push": {"change_requests": cr}, "$set": {"updated_at": now_iso()}})
+    await emit_event("pro_change_request", j["pro_user_id"], {"job": j["title"]})
+    return cr
+
+
+@api_router.post("/client/jobs/{job_id}/review")
+async def client_review(job_id: str, req: ReviewReq, user: dict = Depends(get_current_user)):
+    j = await _load_job_for_user(job_id, user)
+    if j["pro_user_id"] == user["id"]:
+        raise HTTPException(status_code=403, detail="Only the client can leave a review.")
+    if j["status"] != "completed":
+        raise HTTPException(status_code=400, detail="You can review after the job is completed.")
+    rating = max(1, min(5, int(req.rating)))
+    review = {"rating": rating, "text": req.text.strip()[:600], "at": now_iso()}
+    await db.pro_jobs.update_one({"id": job_id}, {"$set": {"review": review, "updated_at": now_iso()}})
+    # recompute pro rating
+    prof = await db.pro_profiles.find_one({"user_id": j["pro_user_id"]}, {"_id": 0})
+    if prof:
+        cur = prof.get("reviews_count", 0)
+        avg = prof.get("rating", 0.0)
+        new_count = cur + 1
+        new_avg = (avg * cur + rating) / new_count
+        await db.pro_profiles.update_one({"user_id": j["pro_user_id"]}, {"$set": {"rating": new_avg, "reviews_count": new_count}})
+    return {"ok": True}
+
+
+@api_router.post("/client/invoices/{invoice_id}/pay")
+async def pay_invoice(invoice_id: str, req: OriginReq, user: dict = Depends(get_current_user)):
+    inv = await db.pro_invoices.find_one({"id": invoice_id}, {"_id": 0})
+    if not inv:
+        raise HTTPException(status_code=404, detail="Invoice not found.")
+    if inv.get("client_user_id") not in (user["id"], None) and inv.get("client_email") != user.get("email", "").lower():
+        raise HTTPException(status_code=403, detail="Not your invoice.")
+    if inv["status"] == "paid":
+        raise HTTPException(status_code=400, detail="Already paid.")
+    prof = await db.pro_profiles.find_one({"user_id": inv["pro_user_id"]}, {"_id": 0})
+    acct_id = (prof or {}).get("stripe_account_id")
+    if not STRIPE_SECRET_KEY or "sk_test_emergent" in STRIPE_SECRET_KEY:
+        raise HTTPException(status_code=503, detail="Payments not configured on this environment.")
+    if not acct_id or not prof.get("charges_enabled"):
+        raise HTTPException(status_code=400, detail="This pro hasn't finished setting up payouts yet.")
+    host = (req.origin_url or "").rstrip("/") or "https://diyhomie.app"
+    fee = int(inv["amount_cents"] * PLATFORM_FEE_PCT)
+    try:
+        session = await asyncio.to_thread(lambda: stripe.checkout.Session.create(
+            mode="payment",
+            payment_method_types=["card"],
+            line_items=[{
+                "price_data": {"currency": "usd", "unit_amount": inv["amount_cents"],
+                               "product_data": {"name": f"{inv.get('label','Invoice')} — {prof.get('name','Pro')}"}},
+                "quantity": 1,
+            }],
+            payment_intent_data={"application_fee_amount": fee, "transfer_data": {"destination": acct_id}},
+            customer_email=user.get("email"),
+            metadata={"pro_invoice_id": inv["id"], "pro_user_id": inv["pro_user_id"]},
+            success_url=f"{host}/jobs/{inv['job_id']}?paid=1",
+            cancel_url=f"{host}/jobs/{inv['job_id']}",
+        ))
+    except Exception as e:
+        logger.error(f"pro invoice checkout error: {e}")
+        raise HTTPException(status_code=502, detail="Could not start payment. Try again.")
+    await db.pro_invoices.update_one({"id": inv["id"]}, {"$set": {"stripe_session_id": session.id}})
+    return {"checkout_url": session.url}
+
+
+# ---- admin pro-account vetting
+@api_router.get("/admin/pro-accounts")
+async def admin_pro_accounts(admin: dict = Depends(require_admin)):
+    rows = await db.pro_profiles.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
+    return [_pro_profile_public(r) | {"user_id": r["user_id"], "email": r.get("email"), "created_at": r.get("created_at")} for r in rows]
+
+
+@api_router.post("/admin/pro-accounts/{pro_user_id}/verify")
+async def admin_verify_pro(pro_user_id: str, admin: dict = Depends(require_admin)):
+    prof = await db.pro_profiles.find_one({"user_id": pro_user_id}, {"_id": 0})
+    if not prof:
+        raise HTTPException(status_code=404, detail="Pro account not found.")
+    await db.pro_profiles.update_one({"user_id": pro_user_id}, {"$set": {"status": "verified", "updated_at": now_iso()}})
+    await db.users.update_one({"id": pro_user_id}, {"$set": {"is_pro": True, "pro_id": prof["id"]}})
+    # publish/refresh a marketplace directory listing
+    await db.pro_partners.update_one(
+        {"linked_pro_id": prof["id"]},
+        {"$set": {"id": prof.get("directory_id") or new_id(), "linked_pro_id": prof["id"],
+                  "name": prof.get("name"), "trades": prof.get("trades", []), "specialties": prof.get("specialties", []),
+                  "location": prof.get("location", ""), "bio": prof.get("bio", ""), "phone": prof.get("phone", ""),
+                  "email": prof.get("email", ""), "website": prof.get("website", ""), "logo": None,
+                  "rating": prof.get("rating", 0), "reviews_count": prof.get("reviews_count", 0),
+                  "verified": True, "active": True, "payout_cents": 0, "leads_count": 0}},
+        upsert=True,
+    )
+    await emit_event("pro_verified", pro_user_id, {})
+    return {"ok": True}
+
+
+@api_router.post("/admin/pro-accounts/{pro_user_id}/ban")
+async def admin_ban_pro(pro_user_id: str, admin: dict = Depends(require_admin)):
+    prof = await db.pro_profiles.find_one({"user_id": pro_user_id}, {"_id": 0})
+    if not prof:
+        raise HTTPException(status_code=404, detail="Pro account not found.")
+    await db.pro_profiles.update_one({"user_id": pro_user_id}, {"$set": {"status": "banned", "updated_at": now_iso()}})
+    await db.users.update_one({"id": pro_user_id}, {"$set": {"is_pro": False}})
+    await db.pro_partners.update_one({"linked_pro_id": prof["id"]}, {"$set": {"active": False, "verified": False}})
+    return {"ok": True}
+
+
+
 # ---------------------------------------------------------------- Automation & Workflow Engine (Sheet #9/#13)
 AUTOMATION_TRIGGERS = [
     {"key": "signup", "label": "New user signs up", "fields": []},
@@ -2697,7 +3140,19 @@ async def stripe_webhook(request: Request):
     if etype == "checkout.session.completed":
         meta = obj.get("metadata") or {}
         uid, tier = meta.get("user_id"), meta.get("tier")
-        if uid and tier:
+        pro_invoice_id = meta.get("pro_invoice_id")
+        if pro_invoice_id:
+            inv = await db.pro_invoices.find_one({"id": pro_invoice_id})
+            if inv and inv.get("status") != "paid":
+                await db.pro_invoices.update_one(
+                    {"id": pro_invoice_id},
+                    {"$set": {"status": "paid", "paid_at": now_iso(), "stripe_session_id": obj.get("id")}},
+                )
+                fee = int(inv["amount_cents"] * PLATFORM_FEE_PCT)
+                await db.pro_profiles.update_one({"user_id": inv["pro_user_id"]}, {"$inc": {"payout_cents": inv["amount_cents"] - fee}})
+                if inv.get("pro_user_id"):
+                    await emit_event("pro_invoice_paid", inv["pro_user_id"], {"amount_cents": inv["amount_cents"]})
+        elif uid and tier:
             await _activate_subscription(uid, tier, obj.get("subscription"))
     elif etype == "invoice.paid":
         sub_id = obj.get("subscription")
@@ -4447,6 +4902,13 @@ async def _ensure_indexes():
         await db.neighborhood_posts.create_index([("neighborhood_key", 1), ("created_at", -1)])
         await db.neighborhood_posts.create_index("id")
         await db.users.create_index("neighborhood_optin")
+        await db.pro_profiles.create_index("user_id")
+        await db.pro_profiles.create_index("status")
+        await db.pro_jobs.create_index([("pro_user_id", 1), ("updated_at", -1)])
+        await db.pro_jobs.create_index("client_email")
+        await db.pro_jobs.create_index("id")
+        await db.pro_invoices.create_index("job_id")
+        await db.pro_invoices.create_index("id")
         logger.info("indexes ensured")
     except Exception as e:
         logger.warning(f"index ensure: {e}")

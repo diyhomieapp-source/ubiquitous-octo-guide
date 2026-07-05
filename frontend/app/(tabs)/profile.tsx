@@ -160,6 +160,10 @@ export default function Profile() {
             testID="profile-pros" onPress={() => router.push("/pros")} />
           <MenuRow icon="map-marker-radius" label="My Neighborhood" sub="Nearby projects, borrow tools & ask locals"
             testID="profile-neighborhood" onPress={() => router.push("/neighborhood")} />
+          <MenuRow icon={user?.is_pro ? "briefcase-check-outline" : "hammer-wrench"} label={user?.is_pro ? "Pro Dashboard" : "Become a Pro"} sub={user?.is_pro ? "Manage client jobs, proposals & invoices" : "Run your contracting business on DIYhomie"}
+            testID="profile-pro" onPress={() => router.push("/pro")} />
+          <MenuRow icon="handshake-outline" label="My Pro Jobs" sub="Proposals & jobs from contractors"
+            testID="profile-client-jobs" onPress={() => router.push("/jobs")} />
           <MenuRow icon="credit-card-outline" label="Billing & Plan" sub="Card, invoices, subscription"
             testID="profile-billing" onPress={() => router.push("/settings/billing")} />
           <MenuRow icon="folder-multiple-outline" label="My Projects" sub={`${stats.active} active · ${stats.completed} done`}

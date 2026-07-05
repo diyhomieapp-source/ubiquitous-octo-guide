@@ -1,0 +1,35 @@
+{
+  "summary": "Sheet #28 (B2B/Contractor & Pro Services) end-to-end verified. Backend: 27/27 pytest cases pass covering pro apply→pending→verify→ban lifecycle, 403 gate on pro-only endpoints, admin-only vetting endpoints, full job lifecycle (draft → proposal_sent → approved → in_progress → completed with jobs_completed increment), client permissions (unrelated user 403, pro cannot approve, cannot review before completed), messaging both roles, invoice create/send updating outstanding stats, payment guard returns 400 with 'payouts' message when pro has no Stripe Connect account, and Weather API returning current + advisories with the new WEATHER_API_KEY (Austin — Sunny 93.9°F w/ hot-weather advisory). Frontend (Expo web preview, 390x844): PRO login → /pro dashboard shows Pat Builder stats ($1,500 outstanding, 1 active, 5.0 rating), payout setup banner, and 5 client jobs including 'Deck build · $4,000 · Approved'. Job detail page: message send OK, invoice create + send OK (TEST_Final $500 → Sent). Client (demo_home) login → /jobs shows 3 pro jobs; opening a job shows messages panel with pro + client bubbles and proposal totals. Admin login → /admin → 'Pro Accounts' module (admin-nav-proaccounts) lists 3 pros with Verify/Ban actions rendered correctly.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": [
+      {"component": "auth.tsx / global", "issue": "Console warnings across app: '\"shadow*\" style props are deprecated. Use \"boxShadow\".' and 'Image: style.resizeMode is deprecated. Please use props.resizeMode.' — cosmetic React Native Web deprecation warnings; not blocking, but worth cleaning up."},
+      {"component": "expo core", "issue": "Expo doctor: expo@54.0.34 (expected ~54.0.35), expo-font@14.0.11 (expected ~14.0.12), expo-router@6.0.23 (expected ~6.0.24) — recommend `npx expo install --check` to align."}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_pro_suite_sheet28.py",
+    "/app/test_reports/pytest/pro_suite_sheet28_results.xml"
+  ],
+  "action_items": [
+    "None blocking. Optional: run `npx expo install --check` to bump expo/expo-font/expo-router to expected patch versions.",
+    "Optional: replace deprecated `shadow*` style props with `boxShadow` and image `style.resizeMode` with `props.resizeMode` to silence RN Web warnings."
+  ],
+  "critical_code_review_comments": [
+    "server.py is very large (~4960 lines). Sheet #28 block (~1678–2115) is well organized but the overall file should be split into modules per sheet — not new to this iteration.",
+    "Pro apply reuses `email` from the auth user (good); invoice/pay endpoint properly gates on `charges_enabled` before Stripe call — no PII leaks observed.",
+    "Passlib+bcrypt log warning ('module bcrypt has no attribute __about__') is benign but noisy in backend logs; safe to pin passlib>=1.7.5 or downgrade bcrypt<4."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_pro_suite_sheet28.py (new pytest suite; 27 tests)"
+  ],
+  "success_rate": {"backend": "100% (27/27)", "frontend": "100% of core flows exercised (pro dashboard, job detail w/ msg+invoice, client jobs, admin pro-accounts module)"},
+  "seed_data_creation": "Registered 1 disposable pro user per test run (TEST_pro_<uuid>@diyhomie.com) which is then verified→banned via admin API. Also creates TEST_Bathroom_Refresh + TEST_InvoiceJob under Pat's account and invoices prefixed TEST_. These persist in Mongo but are name-prefixed for easy cleanup.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Backend base URL from EXPO_PUBLIC_BACKEND_URL. Auth login returns `access_token` (not `token`). Login for the frontend web preview must navigate to `/auth?mode=login` (default mode is register). Pro dashboard = /pro; client jobs = /jobs; admin = /admin (module id `proaccounts`). Seeded fixtures: Pat Builder (pat_pro_test) is verified pro with 'Deck build' $4,000 approved job for demo_home; that pro has NO Stripe Connect account so /client/invoices/{id}/pay returns 400 'payouts not set up' — this is the expected payment-guard behavior.",
+  "rca_of_issue": "N/A — no bugs found."
+}
