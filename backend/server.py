@@ -8013,6 +8013,305 @@ async def admin_roi_analytics(admin: dict = Depends(require_admin)):
             "top_share_drivers": sorted(rooms, key=lambda x: -x["shares"])[:5]}
 
 
+# ================================================================ Smart Training, Quiz & Skill Builder (Sheet #54)
+QUIZ_TOPICS = ["Tile & Grout", "Electrical", "Plumbing", "Painting", "Decking & Outdoor", "Flooring", "Safety Basics"]
+
+
+class QuizQuestion(BaseModel):
+    q: str
+    options: List[str]
+    answer: int  # index of correct option
+    explanation: str = ""
+
+
+class QuizReq(BaseModel):
+    topic: str
+    title: str
+    level: str = "Beginner"
+    triggers: List[str] = []
+    questions: List[QuizQuestion]
+    pass_pct: int = 70
+    learn_url: Optional[str] = None
+    active: bool = True
+
+
+class QuizSubmitReq(BaseModel):
+    answers: List[int]
+
+
+class MentorOptinReq(BaseModel):
+    enabled: bool
+
+
+def _quiz_public(q: dict, include_answers: bool = False) -> dict:
+    qs = []
+    for i, item in enumerate(q.get("questions") or []):
+        d = {"idx": i, "q": item["q"], "options": item["options"]}
+        if include_answers:
+            d["answer"] = item["answer"]
+            d["explanation"] = item.get("explanation", "")
+        qs.append(d)
+    return {"id": q["id"], "topic": q["topic"], "title": q["title"], "level": q.get("level", "Beginner"),
+            "pass_pct": q.get("pass_pct", 70), "learn_url": q.get("learn_url"),
+            "question_count": len(qs), "questions": qs}
+
+
+async def _passed_topics(user_id: str) -> dict:
+    """Return {topic: {best_score, passed, attempts, badge}} for a user."""
+    attempts = await db.quiz_attempts.find({"user_id": user_id}, {"_id": 0}).to_list(1000)
+    prof: dict = {}
+    for a in attempts:
+        t = a["topic"]
+        p = prof.setdefault(t, {"topic": t, "best_score": 0, "passed": False, "attempts": 0})
+        p["attempts"] += 1
+        p["best_score"] = max(p["best_score"], a.get("score_pct", 0))
+        if a.get("passed"):
+            p["passed"] = True
+    for t, p in prof.items():
+        p["badge"] = f"{t} Pro" if p["passed"] else None
+    return prof
+
+
+@api_router.get("/quizzes/meta")
+async def quizzes_meta(user: dict = Depends(get_current_user)):
+    return {"topics": QUIZ_TOPICS}
+
+
+@api_router.get("/quizzes")
+async def list_quizzes(user: dict = Depends(get_current_user)):
+    rows = await db.quizzes.find({"active": True}, {"_id": 0}).sort("topic", 1).to_list(200)
+    prof = await _passed_topics(user["id"])
+    out = []
+    for q in rows:
+        pub = _quiz_public(q)
+        st = prof.get(q["topic"], {})
+        out.append({**{k: pub[k] for k in ("id", "topic", "title", "level", "question_count", "pass_pct", "learn_url")},
+                    "passed": st.get("passed", False), "best_score": st.get("best_score", 0)})
+    return {"quizzes": out}
+
+
+@api_router.get("/quizzes/for-project/{project_id}")
+async def quiz_for_project(project_id: str, user: dict = Depends(get_current_user)):
+    project = await db.projects.find_one({"id": project_id, "user_id": user["id"]}, {"_id": 0})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    blob = (project.get("title") or "") + " " + " ".join(str(v) for v in (project.get("context") or {}).values())
+    blob = blob.lower()
+    rows = await db.quizzes.find({"active": True}, {"_id": 0}).to_list(200)
+    match = None
+    for q in rows:
+        if any(kw.lower() in blob for kw in (q.get("triggers") or [])):
+            match = q
+            break
+    if not match:
+        return {"quiz": None}
+    prof = await _passed_topics(user["id"])
+    passed = prof.get(match["topic"], {}).get("passed", False)
+    return {"quiz": _quiz_public(match), "passed": passed}
+
+
+@api_router.get("/quizzes/{quiz_id}")
+async def get_quiz(quiz_id: str, user: dict = Depends(get_current_user)):
+    q = await db.quizzes.find_one({"id": quiz_id, "active": True}, {"_id": 0})
+    if not q:
+        raise HTTPException(status_code=404, detail="Quiz not found")
+    return _quiz_public(q)
+
+
+@api_router.post("/quizzes/{quiz_id}/submit")
+async def submit_quiz(quiz_id: str, req: QuizSubmitReq, user: dict = Depends(get_current_user)):
+    q = await db.quizzes.find_one({"id": quiz_id}, {"_id": 0})
+    if not q:
+        raise HTTPException(status_code=404, detail="Quiz not found")
+    questions = q.get("questions") or []
+    results, correct = [], 0
+    for i, item in enumerate(questions):
+        given = req.answers[i] if i < len(req.answers) else -1
+        ok = given == item["answer"]
+        if ok:
+            correct += 1
+        results.append({"idx": i, "correct": ok, "your_answer": given, "answer": item["answer"], "explanation": item.get("explanation", "")})
+    total = len(questions) or 1
+    score_pct = int(round(correct / total * 100))
+    passed = score_pct >= q.get("pass_pct", 70)
+    await db.quiz_attempts.insert_one({"id": new_id(), "user_id": user["id"], "quiz_id": quiz_id,
+        "topic": q["topic"], "score_pct": score_pct, "correct": correct, "total": total,
+        "passed": passed, "created_at": now_iso()})
+    if passed:
+        rec = {"type": "advance", "message": f"Nailed it — you earned the {q['topic']} Pro badge! 🎉",
+               "mentor_invite": score_pct == 100}
+    else:
+        rec = {"type": "remedial", "message": "Close! Review the explanations, then retake when ready.",
+               "learn_url": q.get("learn_url"), "mentor_invite": False}
+    return {"score_pct": score_pct, "correct": correct, "total": total, "passed": passed,
+            "results": results, "recommendation": rec}
+
+
+@api_router.get("/skills/me")
+async def my_skills(user: dict = Depends(get_current_user)):
+    prof = await _passed_topics(user["id"])
+    topics = list(prof.values())
+    passed_count = sum(1 for p in topics if p["passed"])
+    fresh = await db.users.find_one({"id": user["id"]}, {"_id": 0, "mentor_optin": 1, "leaderboard_optin": 1})
+    return {"topics": sorted(topics, key=lambda x: -x["best_score"]),
+            "badges": [p["badge"] for p in topics if p["badge"]],
+            "passed_count": passed_count, "total_topics": len(QUIZ_TOPICS),
+            "mentor_optin": (fresh or {}).get("mentor_optin", False),
+            "leaderboard_optin": (fresh or {}).get("leaderboard_optin", False),
+            "mentor_eligible": any(p["best_score"] >= 100 for p in topics)}
+
+
+@api_router.post("/skills/mentor-optin")
+async def mentor_optin(req: MentorOptinReq, user: dict = Depends(get_current_user)):
+    await db.users.update_one({"id": user["id"]}, {"$set": {"mentor_optin": req.enabled, "leaderboard_optin": req.enabled}})
+    return {"ok": True, "enabled": req.enabled}
+
+
+@api_router.get("/skills/leaderboard")
+async def skills_leaderboard(user: dict = Depends(get_current_user)):
+    attempts = await db.quiz_attempts.find({"passed": True}, {"_id": 0}).to_list(5000)
+    by_user: dict = {}
+    for a in attempts:
+        by_user.setdefault(a["user_id"], set()).add(a["topic"])
+    rows = []
+    for uid, topics in by_user.items():
+        u = await db.users.find_one({"id": uid}, {"_id": 0, "name": 1, "email": 1, "leaderboard_optin": 1})
+        named = (u and u.get("leaderboard_optin")) or uid == user["id"]
+        name = (u.get("name") or u.get("email", "").split("@")[0]) if named else "Anonymous DIYer"
+        rows.append({"name": name, "badges": len(topics), "is_me": uid == user["id"]})
+    rows.sort(key=lambda x: -x["badges"])
+    return {"leaderboard": rows[:15]}
+
+
+# ---- admin quiz management
+@api_router.get("/admin/quizzes")
+async def admin_list_quizzes(admin: dict = Depends(require_admin)):
+    rows = await db.quizzes.find({}, {"_id": 0}).sort("topic", 1).to_list(500)
+    out = []
+    for q in rows:
+        attempts = await db.quiz_attempts.count_documents({"quiz_id": q["id"]})
+        passed = await db.quiz_attempts.count_documents({"quiz_id": q["id"], "passed": True})
+        out.append({"id": q["id"], "topic": q["topic"], "title": q["title"], "level": q.get("level"),
+                    "question_count": len(q.get("questions") or []), "pass_pct": q.get("pass_pct", 70),
+                    "active": q.get("active", True), "attempts": attempts,
+                    "pass_rate": int(round(passed / attempts * 100)) if attempts else 0})
+    return {"quizzes": out, "topics": QUIZ_TOPICS}
+
+
+@api_router.get("/admin/quizzes/analytics")
+async def admin_quiz_analytics(admin: dict = Depends(require_admin)):
+    attempts = await db.quiz_attempts.find({}, {"_id": 0}).to_list(10000)
+    by_topic: dict = {}
+    for a in attempts:
+        b = by_topic.setdefault(a["topic"], {"topic": a["topic"], "attempts": 0, "passed": 0, "avg_score": 0})
+        b["attempts"] += 1
+        b["passed"] += 1 if a.get("passed") else 0
+        b["avg_score"] += a.get("score_pct", 0)
+    topics = []
+    for b in by_topic.values():
+        b["avg_score"] = int(round(b["avg_score"] / b["attempts"])) if b["attempts"] else 0
+        b["pass_rate"] = int(round(b["passed"] / b["attempts"] * 100)) if b["attempts"] else 0
+        topics.append(b)
+    topics.sort(key=lambda x: -x["attempts"])
+    learners = len({a["user_id"] for a in attempts})
+    return {"totals": {"attempts": len(attempts), "learners": learners,
+                       "quizzes": await db.quizzes.count_documents({}),
+                       "pass_rate": int(round(sum(1 for a in attempts if a.get("passed")) / len(attempts) * 100)) if attempts else 0},
+            "by_topic": topics}
+
+
+@api_router.get("/admin/quizzes/{quiz_id}")
+async def admin_get_quiz(quiz_id: str, admin: dict = Depends(require_admin)):
+    q = await db.quizzes.find_one({"id": quiz_id}, {"_id": 0})
+    if not q:
+        raise HTTPException(status_code=404, detail="Quiz not found")
+    return q
+
+
+@api_router.post("/admin/quizzes")
+async def admin_create_quiz(req: QuizReq, admin: dict = Depends(require_admin)):
+    doc = req.model_dump()
+    doc["questions"] = [qq for qq in doc["questions"]]
+    doc["id"] = new_id()
+    doc["created_at"] = now_iso()
+    await db.quizzes.insert_one(dict(doc))
+    return {"ok": True, "id": doc["id"]}
+
+
+@api_router.put("/admin/quizzes/{quiz_id}")
+async def admin_update_quiz(quiz_id: str, req: QuizReq, admin: dict = Depends(require_admin)):
+    r = await db.quizzes.update_one({"id": quiz_id}, {"$set": req.model_dump()})
+    if not r.matched_count:
+        raise HTTPException(status_code=404, detail="Quiz not found")
+    return {"ok": True}
+
+
+@api_router.post("/admin/quizzes/{quiz_id}/toggle")
+async def admin_toggle_quiz(quiz_id: str, admin: dict = Depends(require_admin)):
+    q = await db.quizzes.find_one({"id": quiz_id}, {"_id": 0})
+    if not q:
+        raise HTTPException(status_code=404, detail="Quiz not found")
+    await db.quizzes.update_one({"id": quiz_id}, {"$set": {"active": not q.get("active", True)}})
+    return {"ok": True, "active": not q.get("active", True)}
+
+
+@api_router.delete("/admin/quizzes/{quiz_id}")
+async def admin_delete_quiz(quiz_id: str, admin: dict = Depends(require_admin)):
+    await db.quizzes.delete_one({"id": quiz_id})
+    return {"ok": True}
+
+
+def _qq(q, options, answer, explanation):
+    return {"q": q, "options": options, "answer": answer, "explanation": explanation}
+
+
+SEED_QUIZZES = [
+    {"topic": "Tile & Grout", "title": "Tile & Grout Basics", "level": "Beginner", "pass_pct": 70,
+     "triggers": ["tile", "backsplash", "grout", "mosaic"], "learn_url": None,
+     "questions": [
+        _qq("How long should grout typically cure before walking on the floor?", ["1 hour", "24 hours", "10 minutes", "1 week"], 1, "Most grouts need ~24 hours to cure before foot traffic; check the bag for specifics."),
+        _qq("What tool spreads thin-set mortar evenly?", ["Paint roller", "Notched trowel", "Putty knife", "Sponge"], 1, "A notched trowel creates ridges that set tile at a consistent depth."),
+        _qq("What keeps tile spacing consistent?", ["Tile spacers", "Duct tape", "Your eye", "Grout"], 0, "Tile spacers guarantee even, professional-looking grout lines.")]},
+    {"topic": "Electrical", "title": "Home Electrical Safety", "level": "Intermediate", "pass_pct": 80,
+     "triggers": ["outlet", "switch", "wiring", "electrical", "light fixture", "breaker", "dimmer"], "learn_url": None,
+     "questions": [
+        _qq("Before working on a circuit you should always…", ["Wear gloves only", "Turn off the breaker AND test with a voltage tester", "Work fast", "Call a friend"], 1, "Kill the breaker and confirm it's dead with a tester — never trust the switch alone."),
+        _qq("In US wiring, which color is typically the hot wire?", ["White", "Green", "Black", "Bare copper"], 2, "Black (or red) is hot, white is neutral, green/bare is ground."),
+        _qq("A GFCI outlet is required…", ["Only in garages", "Near water — kitchens, baths, outdoors", "Nowhere", "Only for lamps"], 1, "GFCIs protect against shock in wet areas and are code-required there.")]},
+    {"topic": "Plumbing", "title": "Plumbing Fundamentals", "level": "Beginner", "pass_pct": 70,
+     "triggers": ["faucet", "pipe", "leak", "toilet", "sink", "drain", "plumbing", "valve"], "learn_url": None,
+     "questions": [
+        _qq("What should you do first before removing a faucet?", ["Cut the pipe", "Shut off the supply valves", "Turn on hot water", "Remove the sink"], 1, "Close the shutoff valves and open the tap to relieve pressure."),
+        _qq("What creates a watertight seal on threaded connections?", ["Super glue", "Plumber's (PTFE) tape", "Duct tape", "Nothing"], 1, "Wrap PTFE tape clockwise around male threads for a leak-free seal."),
+        _qq("A slow drain is often fixed first by…", ["Replacing the pipe", "Clearing the P-trap / using a snake", "Adding more water", "Ignoring it"], 1, "Clearing the P-trap or snaking the line resolves most slow drains.")]},
+    {"topic": "Painting", "title": "Painting Like a Pro", "level": "Beginner", "pass_pct": 70,
+     "triggers": ["paint", "primer", "wall color", "repaint", "cabinet paint"], "learn_url": None,
+     "questions": [
+        _qq("Why apply primer first?", ["It's optional filler", "Seals the surface and helps paint adhere evenly", "Makes it shiny", "Speeds drying only"], 1, "Primer blocks stains, seals porous surfaces and improves adhesion & coverage."),
+        _qq("Best practice for a smooth finish?", ["One thick coat", "Two thin coats with drying time between", "Skip drying", "Paint over dust"], 1, "Thin coats dry evenly and avoid drips and roller marks."),
+        _qq("What gives crisp edges along trim?", ["Freehand", "Painter's tape", "A wide brush only", "Newspaper"], 1, "Painter's tape masks trim for clean, sharp lines.")]},
+    {"topic": "Decking & Outdoor", "title": "Deck Building Know-How", "level": "Advanced", "pass_pct": 80,
+     "triggers": ["deck", "fence", "pergola", "patio", "landscap", "outdoor"], "learn_url": None,
+     "questions": [
+        _qq("Standard joist spacing for most decks is…", ["48\" on center", "16\" on center", "4\" on center", "Random"], 1, "16\" on-center is the common standard; composite may require 12\"."),
+        _qq("Why leave a gap between deck boards?", ["Looks nice", "Drainage and wood expansion", "Save material", "No reason"], 1, "Gaps let water drain and allow boards to expand without buckling."),
+        _qq("Before digging deck footings you should…", ["Just dig", "Call 811 to locate utilities & check permits", "Dig at night", "Skip it"], 1, "Always locate underground utilities (811) and confirm permit/setbacks.")]},
+    {"topic": "Safety Basics", "title": "DIY Safety Essentials", "level": "Beginner", "pass_pct": 80,
+     "triggers": ["demo", "cut", "saw", "sand", "grind", "ladder"], "learn_url": None,
+     "questions": [
+        _qq("The right PPE for cutting/sanding is…", ["Sunglasses", "Safety glasses + dust mask", "None", "Gloves only"], 1, "Protect eyes and lungs — safety glasses and a rated dust mask."),
+        _qq("Safe ladder angle (4-to-1 rule) means…", ["Straight up", "1 ft out for every 4 ft of height", "45° always", "Lean it far back"], 1, "Base out 1 foot for every 4 feet of ladder height for stability."),
+        _qq("What should you do with a frayed power-tool cord?", ["Tape it", "Take the tool out of service / replace cord", "Use anyway", "Wet it"], 1, "A damaged cord is a shock/fire hazard — don't use until repaired.")]},
+]
+
+
+async def seed_quizzes():
+    for q in SEED_QUIZZES:
+        if not await db.quizzes.find_one({"title": q["title"]}):
+            await db.quizzes.insert_one({**q, "id": new_id(), "active": True, "created_at": now_iso()})
+    logger.info("skill quizzes seeded")
+
+
 app.include_router(api_router)
 
 # Built-in autoresponder / email engine (separate module to keep server.py lean).
@@ -8092,6 +8391,7 @@ async def _startup_seed_community():
     await seed_feature_flags()
     await seed_prompts()
     await seed_kits()
+    await seed_quizzes()
 
 
 @app.on_event("startup")

@@ -6,6 +6,7 @@ import {
 import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { SkillCheckBanner } from "@/src/components/SkillCheckBanner";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 
@@ -200,6 +201,7 @@ export default function Workspace() {
         </Pressable>
       </View>
       <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${progress}%` }]} /></View>
+      {project?.id && g ? <SkillCheckBanner projectId={project.id} /> : null}
 
       {generating ? (
         <View style={styles.center}>
