@@ -3614,6 +3614,117 @@ async def project_reflect(project_id: str, user: dict = Depends(get_current_user
     return card
 
 
+# ================================================================ Lifelong Project Portability & Data Export (Sheet #49)
+async def _build_export(user: dict) -> dict:
+    uid = user["id"]
+    async def dump(coll, q=None):
+        return await db[coll].find(q or {"user_id": uid}, {"_id": 0}).to_list(2000)
+    bundle = {
+        "meta": {"exported_at": now_iso(), "owner_id": uid, "owner_name": user.get("name"),
+                 "owner_email": user.get("email"), "format": "diyhomie.v1",
+                 "ownership_notice": "You own this data for life. DIYhomie never holds your project history hostage."},
+        "profile": {k: user.get(k) for k in ("name", "email", "location", "experience", "created_at", "preferences")},
+        "projects": await dump("projects"),
+        "timeline": await dump("timeline"),
+        "community_posts": await dump("community"),
+        "material_listings": await dump("material_listings"),
+        "material_orders": await dump("material_orders"),
+        "pro_credentials": await dump("pro_credentials", {"pro_user_id": uid}),
+        "credit_ledger": await dump("credit_ledger"),
+        "notifications": await dump("notifications"),
+    }
+    bundle["summary"] = {k: len(v) for k, v in bundle.items() if isinstance(v, list)}
+    return bundle
+
+
+@api_router.get("/portability/export")
+async def portability_export(user: dict = Depends(get_current_user)):
+    bundle = await _build_export(user)
+    await db.data_audit.insert_one({"id": new_id(), "user_id": user["id"], "action": "export",
+                                    "at": now_iso(), "counts": bundle.get("summary")})
+    return bundle
+
+
+@api_router.get("/portability/summary")
+async def portability_summary(user: dict = Depends(get_current_user)):
+    uid = user["id"]
+    counts = {
+        "projects": await db.projects.count_documents({"user_id": uid}),
+        "timeline": await db.timeline.count_documents({"user_id": uid}),
+        "community_posts": await db.community.count_documents({"user_id": uid}),
+        "material_listings": await db.material_listings.count_documents({"user_id": uid}),
+        "credentials": await db.pro_credentials.count_documents({"pro_user_id": uid}),
+    }
+    last = await db.data_audit.find({"user_id": uid}, {"_id": 0}).sort("at", -1).to_list(10)
+    return {"counts": counts, "recent_audit": last,
+            "ownership_notice": "DIYhomie protects your project history for life — never held hostage to a subscription."}
+
+
+@api_router.post("/portability/transfer")
+async def portability_transfer(user: dict = Depends(get_current_user)):
+    token = "xfer_" + secrets.token_urlsafe(12)
+    expires = (datetime.now(timezone.utc) + timedelta(days=14)).isoformat()
+    await db.transfers.insert_one({"id": new_id(), "token": token, "from_user_id": user["id"],
+                                   "from_name": user.get("name"), "status": "open", "expires_at": expires,
+                                   "created_at": now_iso()})
+    await db.data_audit.insert_one({"id": new_id(), "user_id": user["id"], "action": "transfer_created", "at": now_iso()})
+    return {"token": token, "expires_at": expires,
+            "note": "Share this code with the new owner. They import it in DIYhomie → Data & Portability. Valid 14 days."}
+
+
+class ImportReq(BaseModel):
+    token: str
+
+
+@api_router.post("/portability/import")
+async def portability_import(req: ImportReq, user: dict = Depends(get_current_user)):
+    t = await db.transfers.find_one({"token": req.token.strip(), "status": "open"}, {"_id": 0})
+    if not t:
+        raise HTTPException(status_code=404, detail="Invalid or already-used transfer code.")
+    if t["from_user_id"] == user["id"]:
+        raise HTTPException(status_code=400, detail="You can't import your own transfer.")
+    src = t["from_user_id"]
+    # merge (annotate, never overwrite): copy timeline + projects with imported flag
+    imported = {"projects": 0, "timeline": 0}
+    for p in await db.projects.find({"user_id": src}, {"_id": 0}).to_list(1000):
+        p2 = {**p, "id": new_id(), "user_id": user["id"], "imported_from": t.get("from_name") or src,
+              "imported_at": now_iso(), "original_id": p["id"]}
+        await db.projects.insert_one(p2); imported["projects"] += 1
+    for e in await db.timeline.find({"user_id": src}, {"_id": 0}).to_list(2000):
+        e2 = {**e, "id": new_id(), "user_id": user["id"], "imported_from": t.get("from_name") or src,
+              "imported_at": now_iso(), "original_id": e["id"]}
+        await db.timeline.insert_one(e2); imported["timeline"] += 1
+    await db.transfers.update_one({"token": req.token}, {"$set": {"status": "claimed", "to_user_id": user["id"], "claimed_at": now_iso()}})
+    await db.data_audit.insert_one({"id": new_id(), "user_id": user["id"], "action": "import", "at": now_iso(), "counts": imported})
+    return {"ok": True, "imported": imported, "note": f"Imported {imported['projects']} projects & {imported['timeline']} log entries from {t.get('from_name') or 'previous owner'}. Originals preserved & annotated."}
+
+
+class DeleteReq(BaseModel):
+    confirm: str = ""
+
+
+@api_router.post("/portability/delete-request")
+async def portability_delete_request(req: DeleteReq, user: dict = Depends(get_current_user)):
+    if req.confirm.strip().upper() != "DELETE":
+        raise HTTPException(status_code=400, detail="Type DELETE to confirm your data-deletion request.")
+    await db.data_audit.insert_one({"id": new_id(), "user_id": user["id"], "action": "delete_requested",
+                                    "at": now_iso(), "email": user.get("email")})
+    await db.deletion_requests.update_one({"user_id": user["id"]},
+        {"$set": {"user_id": user["id"], "email": user.get("email"), "status": "pending", "requested_at": now_iso()}}, upsert=True)
+    return {"ok": True, "note": "Your deletion request is logged (GDPR/CCPA). We'll export a final copy and remove your data within 30 days. You can cancel anytime by contacting support@diyhomie.com."}
+
+
+@api_router.get("/admin/data-requests")
+async def admin_data_requests(admin: dict = Depends(require_admin)):
+    dels = await db.deletion_requests.find({}, {"_id": 0}).sort("requested_at", -1).to_list(200)
+    audit = await db.data_audit.find({}, {"_id": 0}).sort("at", -1).to_list(100)
+    return {"deletion_requests": dels, "recent_audit": audit,
+            "totals": {"exports": await db.data_audit.count_documents({"action": "export"}),
+                       "transfers": await db.data_audit.count_documents({"action": "transfer_created"}),
+                       "imports": await db.data_audit.count_documents({"action": "import"}),
+                       "pending_deletions": await db.deletion_requests.count_documents({"status": "pending"})}}
+
+
 
 # ---------------------------------------------------------------- community (Pro-Earn)
 class PostReq(BaseModel):

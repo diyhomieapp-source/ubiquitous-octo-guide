@@ -277,3 +277,9 @@ NOTE: generation is a single backend call, so stages are time-progressed (approx
 - Frontend: developer.tsx new "Usage" tab (est bill, 14-day trend bars, per-key quota bar + plan selector). Admin PartnersModule shows Base MRR + Billable revenue cards.
 - CURL-VERIFIED: plans list, plan change→starter, usage $29 base, admin MRR $29. Lint clean. Frontend E2E via agent PENDING for #46/#47/#48 (all backend-verified + pattern-consistent).
 - STILL QUEUED: #41 Tool Rental & Peer Lending, #42 Resell/Donation Marketplace (fold into #35), #43 AR Instruction Builder, #44 Order/Supply-Chain Tracking, #45 Skill Exchange Marketplace.
+
+## Iteration 7 — Lifelong Portability & Data Export #49 (main agent, forked)
+- Backend: /api/portability/{summary,export,transfer,import,delete-request}, /api/admin/data-requests. Export = full JSON bundle (profile/projects/timeline/community/listings/orders/credentials/ledger/notifications). Transfer token (14d) → import merges into new owner (annotated imported_from, originals preserved). delete-request requires confirm="DELETE" (GDPR audit-logged, non-destructive/queued). data_audit + deletion_requests collections.
+- Frontend app/data.tsx (ownership pledge, data counts, export→clipboard JSON, transfer via Share, import code, delete request). Profile row profile-data.
+- CURL-VERIFIED E2E: export summary, transfer→import (3 projects+19 timeline merged to pat_pro_test), delete 400 on bad confirm, admin totals {exports:1,transfers:1,imports:1}. Lint clean.
+- Session modules total: 12. #46/#47/#48/#49 pending consolidated frontend E2E.

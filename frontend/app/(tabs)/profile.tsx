@@ -192,6 +192,8 @@ export default function Profile() {
             testID="profile-personalize" onPress={() => router.push("/personalize")} />
           <MenuRow icon="api" label="Developer & API" sub="API keys, webhooks & platform integrations"
             testID="profile-developer" onPress={() => router.push("/developer")} />
+          <MenuRow icon="database-export-outline" label="Data & Portability" sub="Export, transfer or delete your home history"
+            testID="profile-data" onPress={() => router.push("/data")} />
           <MenuRow icon="flask-outline" label="Beta Features" sub="Try experiments early & shape what ships"
             testID="profile-beta" onPress={() => router.push("/beta")} last />
         </View>
