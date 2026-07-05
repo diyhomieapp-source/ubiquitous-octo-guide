@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Modal, Switch, Alert } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Modal, Switch, Alert, Linking, Platform } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -11,7 +11,7 @@ import { api } from "@/src/api";
 type Progress = { total: number; completed: number; pct: number; joined: boolean; status: string; reward_claimed: boolean; story_opt_in: boolean };
 type Milestone = { id: string; title: string; type: string; points: number; completed?: boolean; auto_ready?: boolean };
 type Reward = { badge: string; discount_code: string; credit: number };
-type Campaign = { slug: string; title: string; sponsor_name: string; theme: string; description: string; product_tag: string; featured_pro: string; reward: Reward; milestones: Milestone[]; progress: Progress };
+type Campaign = { slug: string; title: string; sponsor_name: string; theme: string; description: string; product_tag: string; featured_pro: string; reward: Reward; cta?: { label: string; url: string; type: string }; milestones: Milestone[]; progress: Progress };
 
 export default function Campaigns() {
   const router = useRouter();
@@ -53,6 +53,14 @@ export default function Campaigns() {
   const toggleStory = async (v: boolean) => {
     if (!open) return;
     try { await api(`/campaigns/${open.slug}/story-optin`, { method: "POST", body: { opt_in: v } }); await refreshOpen(); } catch {}
+  };
+  const openCTA = async () => {
+    if (!open?.cta?.url) return;
+    try {
+      await api(`/campaigns/${open.slug}/cta-click`, { method: "POST" });
+      if (Platform.OS === "web") { if (typeof window !== "undefined") window.open(open.cta.url, "_blank"); }
+      else { await Linking.openURL(open.cta.url); }
+    } catch {}
   };
 
   return (
@@ -112,6 +120,14 @@ export default function Campaigns() {
                 <MaterialCommunityIcons name="gift-outline" size={18} color={colors.brandPrimary} />
                 <Text style={styles.rewardText}>Reward: {open?.reward?.badge}{open?.reward?.discount_code ? ` · code ${open.reward.discount_code}` : ""}</Text>
               </View>
+
+              {!!open?.cta?.url && (
+                <Pressable testID="camp-cta" style={styles.ctaBtn} onPress={openCTA}>
+                  <MaterialCommunityIcons name="open-in-new" size={16} color={colors.onBrandPrimary} />
+                  <Text style={styles.ctaText}>{open.cta.label}</Text>
+                </Pressable>
+              )}
+              <Text style={styles.transparency}>Sponsored content · You&apos;re never charged to participate. Offers are optional and you can ignore them anytime.</Text>
 
               <Text style={styles.blockLabel}>Milestones</Text>
               {open?.milestones.map((m) => (
@@ -182,6 +198,9 @@ const styles = StyleSheet.create({
   sheetTitle: { flex: 1, color: colors.onSurface, fontFamily: font.display, fontSize: 20 },
   rewardBox: { flexDirection: "row", alignItems: "center", gap: spacing.sm, backgroundColor: colors.brandPrimary + "12", borderRadius: radius.sm, padding: spacing.md, marginTop: spacing.md },
   rewardText: { flex: 1, color: colors.onSurface, fontFamily: font.medium, fontSize: type.sm },
+  ctaBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.xs, backgroundColor: colors.brandPrimary, borderRadius: radius.sm, paddingVertical: spacing.sm, marginTop: spacing.sm },
+  ctaText: { color: colors.onBrandPrimary, fontFamily: font.bold, fontSize: type.sm },
+  transparency: { color: colors.onSurfaceTertiary, fontFamily: font.regular, fontSize: type.xs, marginTop: spacing.sm, lineHeight: 16 },
   blockLabel: { color: colors.onSurface, fontFamily: font.bold, fontSize: type.sm, marginTop: spacing.lg, marginBottom: spacing.sm, textTransform: "uppercase", letterSpacing: 0.5 },
   mRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingVertical: spacing.sm, borderBottomColor: colors.border, borderBottomWidth: 1 },
   mTitle: { color: colors.onSurface, fontFamily: font.medium, fontSize: type.sm },

@@ -264,3 +264,9 @@ New features are now built as SEPARATE engine modules (audit_engine, certificati
 - Deferred: server.py refactor; #59 lifecycle auto-prune/anonymize.
 
 ### Engine module pattern (established this session): audit_engine, certification_engine, education_engine, campaign_engine — all separate files included into server.py. Continue for new features.
+
+---
+## Session update (fork) cont. — #63 (v2) Brand-Product extension
+- User pasted a SECOND "#63" (Sponsored Brand Partnership & Product Campaign) — same domain as campaign_engine. EXTENDED it (DRY, no dup module): product-offer CTA {label,url,type} with attribution (POST /campaigns/{slug}/cta-click), user feedback/sentiment (POST /campaigns/{slug}/feedback), and partner-dashboard analytics now include cta_clicks/avg_rating/learned_pct/comments. Frontend: CTA button + "Sponsored/never charged" transparency in campaign modal; admin analytics show CTA/rating/learned. Curl-verified + screenshot confirmed. (Not separately run through testing_agent — self-verified.)
+
+### PENDING QUEUE (unchanged): #61 Beta Launch/Onboarding; #62(A) Pro Pricing/Quote Engine; Global Skills Index & Community Impact Leaderboard; #64 Community Events. Deferred: server.py refactor, #59 lifecycle auto-prune.

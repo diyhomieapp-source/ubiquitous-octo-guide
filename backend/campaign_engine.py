@@ -39,6 +39,7 @@ SEED = [
      "featured_pro": "Casey R. (Electrician)",
      "description": "Level up your home lighting — learn, install & save energy with LumaBright.",
      "reward": {"badge": "Smart Lighting Pro", "discount_code": "LUMA15", "credit": 0},
+     "cta": {"label": "Shop LumaBright smart switches", "url": "https://example.com/lumabright", "type": "buy"},
      "milestones": [
          {"id": "m1", "title": "Finish 'Cut-in & roll like a pro'", "type": "lesson", "ref_slug": "paint-basics", "points": 20},
          {"id": "m2", "title": "Log a lighting upgrade project", "type": "task", "ref_slug": "", "points": 30},
@@ -49,6 +50,7 @@ SEED = [
      "featured_pro": "Dana P. (GC)",
      "description": "Winterize your home in a weekend with guided ThermaGuard challenges.",
      "reward": {"badge": "Winter-Ready Homeowner", "discount_code": "WARM20", "credit": 0},
+     "cta": {"label": "Get a ThermaGuard sample kit", "url": "https://example.com/thermaguard", "type": "sample"},
      "milestones": [
          {"id": "m1", "title": "Complete 'Shut off water safely'", "type": "lesson", "ref_slug": "plumbing-101", "points": 25},
          {"id": "m2", "title": "Seal one drafty window/door", "type": "task", "ref_slug": "", "points": 25},
@@ -63,6 +65,10 @@ async def seed_campaigns():
                                             "starts_at": _now(), "ends_at": None})
         if _logger:
             _logger.info("campaigns seeded")
+    # backfill product CTA on existing seeded campaigns (Sheet #63 product-offer)
+    for c in SEED:
+        await _db.campaigns.update_one({"slug": c["slug"], "cta": {"$exists": False}},
+                                       {"$set": {"cta": c["cta"]}})
 
 
 # ----------------------------------------------------------- helpers
@@ -92,6 +98,12 @@ def _progress(campaign: dict, part: Optional[dict]) -> dict:
 class StoryOptIn(BaseModel):
     opt_in: bool
     story: Optional[str] = None
+
+
+class FeedbackReq(BaseModel):
+    rating: int = 5
+    learned_something: bool = True
+    comment: Optional[str] = None
 
 
 def build_user_router(get_current_user: Callable) -> APIRouter:
@@ -197,6 +209,30 @@ def build_user_router(get_current_user: Callable) -> APIRouter:
                                      new_value="opt_in" if req.opt_in else "opt_out")
         return {"ok": True, "story_opt_in": req.opt_in}
 
+    @r.post("/campaigns/{slug}/cta-click")
+    async def cta_click(slug: str, user: dict = Depends(get_current_user)):
+        c = await _db.campaigns.find_one({"slug": slug}, {"_id": 0})
+        if not c:
+            raise HTTPException(status_code=404, detail="Campaign not found")
+        await _db.campaign_events.insert_one({"id": _new_id(), "campaign_id": c["id"], "user_id": user["id"],
+                                              "kind": "cta_click", "at": _now()})
+        await audit_engine.log_event("user", user["id"], "campaign_cta_click", "campaign",
+                                     actor_email=user.get("email"), target_type="campaign", target_id=c["id"],
+                                     meta={"slug": slug, "sponsor": c["sponsor_name"], "cta": c.get("cta", {}).get("type")})
+        return {"ok": True, "url": c.get("cta", {}).get("url")}
+
+    @r.post("/campaigns/{slug}/feedback")
+    async def feedback(slug: str, req: FeedbackReq, user: dict = Depends(get_current_user)):
+        c = await _db.campaigns.find_one({"slug": slug}, {"_id": 0})
+        if not c:
+            raise HTTPException(status_code=404, detail="Campaign not found")
+        await _db.campaign_events.update_one(
+            {"campaign_id": c["id"], "user_id": user["id"], "kind": "feedback"},
+            {"$set": {"id": _new_id(), "campaign_id": c["id"], "user_id": user["id"], "kind": "feedback",
+                      "rating": max(1, min(5, req.rating)), "learned_something": req.learned_something,
+                      "comment": req.comment, "at": _now()}}, upsert=True)
+        return {"ok": True}
+
     return r
 
 
@@ -211,6 +247,7 @@ class CampaignReq(BaseModel):
     featured_pro: str = ""
     status: str = "draft"
     reward: dict = {}
+    cta: dict = {}
     milestones: List[dict] = []
 
 
@@ -273,9 +310,19 @@ def build_admin_router(require_admin: Callable) -> APIRouter:
             cnt = len([p for p in parts if m["id"] in p.get("completed_milestones", [])])
             funnel.append({"id": m["id"], "title": m["title"], "completed": cnt})
         stories = [{"story": p.get("story"), "user_id": p["user_id"]} for p in parts if p.get("story_opt_in") and p.get("story")]
-        return {"campaign": {"title": c["title"], "sponsor_name": c["sponsor_name"], "status": c["status"]},
+        # product-offer engagement + sentiment (Sheet #63)
+        cta_clicks = await _db.campaign_events.count_documents({"campaign_id": campaign_id, "kind": "cta_click"})
+        fb = await _db.campaign_events.find({"campaign_id": campaign_id, "kind": "feedback"}, {"_id": 0}).to_list(20000)
+        ratings = [f["rating"] for f in fb if f.get("rating")]
+        avg_rating = round(sum(ratings) / len(ratings), 2) if ratings else None
+        learned_pct = int(round(len([f for f in fb if f.get("learned_something")]) / len(fb) * 100)) if fb else 0
+        comments = [{"comment": f.get("comment"), "rating": f.get("rating")} for f in fb if f.get("comment")]
+        return {"campaign": {"title": c["title"], "sponsor_name": c["sponsor_name"], "status": c["status"],
+                             "cta": c.get("cta", {})},
                 "joined": joined, "completed": completed,
                 "completion_rate": int(round(completed / joined * 100)) if joined else 0,
-                "story_optins": story_optins, "milestone_funnel": funnel, "stories": stories}
+                "story_optins": story_optins, "milestone_funnel": funnel, "stories": stories,
+                "cta_clicks": cta_clicks, "feedback_count": len(fb), "avg_rating": avg_rating,
+                "learned_pct": learned_pct, "comments": comments}
 
     return r

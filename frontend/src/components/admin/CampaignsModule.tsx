@@ -7,7 +7,7 @@ import { api } from "@/src/api";
 
 type Campaign = { id: string; slug: string; title: string; sponsor_name: string; status: string; participants: number; completions: number; reward: { badge: string } };
 type Funnel = { id: string; title: string; completed: number };
-type Analytics = { campaign: { title: string; sponsor_name: string; status: string }; joined: number; completed: number; completion_rate: number; story_optins: number; milestone_funnel: Funnel[]; stories: { story: string }[] };
+type Analytics = { campaign: { title: string; sponsor_name: string; status: string }; joined: number; completed: number; completion_rate: number; story_optins: number; milestone_funnel: Funnel[]; stories: { story: string }[]; cta_clicks: number; feedback_count: number; avg_rating: number | null; learned_pct: number; comments: { comment: string; rating: number }[] };
 
 export function CampaignsModule() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
@@ -56,6 +56,9 @@ export function CampaignsModule() {
             <Stat label="Completed" value={String(sel.completed)} />
             <Stat label="Completion" value={`${sel.completion_rate}%`} />
             <Stat label="Story opt-ins" value={String(sel.story_optins)} />
+            <Stat label="CTA clicks" value={String(sel.cta_clicks)} />
+            <Stat label="Avg rating" value={sel.avg_rating != null ? `${sel.avg_rating}★` : "—"} />
+            <Stat label="Learned" value={`${sel.learned_pct}%`} />
           </View>
           <Text style={styles.block}>Milestone funnel</Text>
           {sel.milestone_funnel.map((m) => (
