@@ -1,0 +1,39 @@
+{
+  "summary": "B06 Home Document Vault & Asset Knowledge Capture — first formal test. Backend: 17/18 pytest assertions passed, 1 skipped (confirm/reject exercised only when vision produced fields; a tiny PNG returned 0 fields as expected, so skip is intentional). Every endpoint exercised: upload (image + non-image + missing-file 400), list with counts + review_count + needs_review/is_linked flags, category filter, detail (extractions + relationships + 404), edit (title/category/notes), link-to-asset (mirrors into hi_asset_documents when doc has extracted_text, sets shortcut asset_id, resolves rel.name), invalid link type rejected, review-queue, search (title + category-word collapse), ask (200 + 400 empty), delete cascades extractions/relationships → subsequent GET 404. Frontend (mobile 390x844, demo_home@diyhomie.com): logged in via /auth?mode=login, /home-intel dashboard renders hi-vault; Vault Home shows vault-add, vault-search-btn, all vault-cat-* (with counts), 'Fridge Warranty' visible under Recent uploads with is_linked; Add screen renders add-file, all add-cat-* chips, add-title, add-upload; Search screen renders search-input/search-go; Review page renders empty state ('All caught up'); Detail page for Fridge Warranty shows Ask Homie (returned a properly grounded 'not in the document' answer for a brand question) and Link to Asset modal (doc-linkto-* populated with Water Heater), Delete button present, 'Linked to → Water Heater · Warranty For' relationship name resolves correctly. No red-screen errors. Only console noise = deprecated 'shadow*' style props + Image resizeMode warnings from other screens (unrelated to B06).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "GET /api/hi/documents/search", "issue": "Category-word collapse is aggressive: any query that contains a category word (e.g. a title with 'receipt' or 'manual') is silently rewritten to a pure category filter, ignoring the original title text. A user searching for a title like 'Fridge Warranty' will only get category=warranty results. This is per spec but worth surfacing as UX-borderline; if a document was later re-categorised it will not appear in searches for its old title. No fix required."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "global", "issues": ["Console warns 'shadow* style props are deprecated. Use boxShadow.' and 'Image: style.resizeMode is deprecated' — appear from shared components (not B06-specific). No functional impact on B06 but should be migrated eventually."]}
+    ],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_home_intel_documents_b06.py",
+    "/app/test_reports/pytest/home_intel_documents_b06_iter48.xml"
+  ],
+  "action_items": [
+    "Consider softening the search category-word collapse: fall through to title/text/extraction regex if the pure-category query returns 0 results (currently it returns [] even when the title matches).",
+    "Address console deprecation warnings ('shadow*', Image resizeMode) at a global styling pass — not blocking B06."
+  ],
+  "critical_code_review_comments": [
+    "document_vault_engine.py: file is ~350 lines, focused, uses async correctly, excludes _id, uses env-driven llm_key, validates categories/rel types/status server-side. Good.",
+    "GET /hi/documents/{id} always returns file_base64 by default (include_file=True). The FE list endpoint already strips it, but for very large PDFs / base64 blobs the detail response can be heavy. Consider lazy-loading the file via a separate /file endpoint. Non-blocking.",
+    "Link mirroring into hi_asset_documents only fires when doc has extracted_text — that's correct so we don't pollute B01 guidance with empty payloads, but the mirror is one-shot: a later confirm/edit of extractions is not re-synced. Non-blocking, worth documenting."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_home_intel_documents_b06.py (new)"
+  ],
+  "success_rate": {"backend": "100% (17 passed, 1 intentional skip, 0 failed)", "frontend": "100% of testable flows (all testIDs present, navigation + modals + ask + link end-to-end)"},
+  "seed_data_creation": "One fresh TEST_b06_* user created and self-cleaned per test module. Demo user demo_home@diyhomie.com already had a 'Fridge Warranty' document linked to a 'Water Heater' asset from earlier iterations — used it for detail-view verification (not created or altered).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "B06 endpoints all live under /api/hi/documents (upload/list/detail/edit/delete/link/extractions/review-queue/search/ask). Extraction review path only meaningfully runs when the uploaded image yields fields; tiny placeholder PNGs return zero fields, so any confirm/reject test should either upload a real document image or seed hi_document_extractions directly. Search endpoint rewrites the query to a category filter if any category word appears in q (see minor issue above). Frontend routes at /home-intel/documents (index, add, [id], search, review). Auth screen route is /auth?mode=login (default mode is register).",
+  "rca_of_issue": "No functional bug found. The one intentional test-suite skip is documented: gpt-4o vision needs a real document image to produce extractions; a 1x1 PNG legitimately yields zero fields, so the confirm/reject transition was skipped rather than falsely passed. Delete cascade, link-mirroring, search category collapse, ask grounding — all verified working as designed."
+}

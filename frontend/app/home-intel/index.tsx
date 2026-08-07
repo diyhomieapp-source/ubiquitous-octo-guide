@@ -51,6 +51,10 @@ export default function HomeIntelDashboard() {
           <MaterialCommunityIcons name="hammer-wrench" size={20} color={colors.brandPrimary} />
           <Text style={styles.secondaryText}>Plan a Project</Text>
         </Pressable>
+        <Pressable testID="hi-vault" style={styles.secondary} onPress={() => router.push("/home-intel/documents")}>
+          <MaterialCommunityIcons name="folder-lock-outline" size={20} color={colors.brandPrimary} />
+          <Text style={styles.secondaryText}>Document Vault</Text>
+        </Pressable>
 
         {loading ? <ActivityIndicator color={colors.brandPrimary} style={{ marginTop: spacing.xl }} /> : (
           <>
