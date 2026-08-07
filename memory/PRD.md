@@ -300,3 +300,28 @@ New features are now built as SEPARATE engine modules (audit_engine, certificati
 - **#67 DevOps Monitoring & Reliability** — NEW `monitoring_engine.py` + middleware: live health (DB ping/latency/uptime), auto error capture (error_events), live metrics (req/err rate/latency p95/by-status), top failing endpoints, incident tracker. Admin MonitoringModule (nav admin-nav-monitoring). Curl-verified (admin-only). Auto-scaling/rollback = advisory only (no infra control here).
 ### Engine modules: audit, certification, education, campaign, export, appstore, monitoring.
 ### PENDING QUEUE: #61 Beta Launch/Onboarding; #62(A)/PriceOps AI Pro Pricing (awaiting user confirm); Global Skills Index & Community Impact Leaderboard; #64-alt Community Events; MVP Launch/QA checklist. Deferred: server.py refactor; #59 lifecycle auto-prune.
+
+---
+## Home Intelligence Suite (Build Blueprints 01–03) — NEW standalone section (route base /home-intel)
+
+**Blueprint 01 — Home Intelligence MVP (DONE, tested iter45/46):**
+- Backend `home_intelligence_engine.py` (routers /api/hi/*): assets CRUD, document upload w/ gpt-4o vision OCR, issue intake + safety triage (emergency detection), safety-first AI guidance card (clarification, confidence, source evidence), outcomes (completed/unresolved/escalated), shareable job summary, dashboard, Whisper /transcribe (voice = stub in UI).
+- Frontend: app/home-intel/{index,assets,asset-add,asset/[id],help,guidance}.tsx; util src/utils/pickImage.ts.
+- Entry: Profile → "Home Intelligence".
+
+**Blueprint 02 — Room Intelligence (DONE, tested iter47; fixed route-collision bug):**
+- Backend `room_intelligence_engine.py` (/api/hi/rooms/*): floors (auto Main Floor), classify (AI room-type suggestion, never auto-Confirmed), rich rooms (persistent_room_id, room_type, dimensions, capture_type/measurement_source for future AR), connections (bidirectional map), room profile, room map, update-preserving-history, archive. Analytics → hi_analytics.
+- FIX: removed legacy GET/POST /api/hi/rooms in home_intelligence_engine (was shadowing B02 rich create); _resolve_room now creates rich rooms; DB migration backfilled old rooms.
+- Frontend: app/home-intel/rooms/{index,walkthrough,capture,connect,[id],map,update}.tsx.
+- Assets & issues carry room_id.
+
+**Blueprint 03 — AI Project Planner (DONE, tested iter47):**
+- Backend `project_planner_engine.py` (/api/hi/projects/*): start (goal→title/category or clarify), discovery, plan (safety review + phased plan Plan/Prepare/Purchase/Complete Work/Inspect/Clean Up/Maintain + steps + grouped materials + cost ranges), workspace step status, pause/resume, materials CRUD + user_status, notes/media, Ask Homie, outcome. Emergency goals → 409 + escalated. Analytics events.
+- Frontend: app/home-intel/projects/{index,start,[id],materials,complete}.tsx.
+- Entry: dashboard "Plan a Project"; room profile "Start Project".
+
+**QUEUED (not yet built):**
+- Blueprint 04 — Maintenance Intelligence & Home Care Scheduler (tasks, recurrence/occurrences, AI suggestions, calendar, seasonal guide, reminders). Data: hi_maintenance_*.
+- Blueprint 05 — Homie AI Assistant & Conversation Hub (central chat front-door, context selector, photo ID, conversation→approved records, history). Data: hi_conversation_*.
+
+Test credentials: demo_home@diyhomie.com / Test1234 ; admin Diyhomieapp@gmail.com / diyhomie1122.
