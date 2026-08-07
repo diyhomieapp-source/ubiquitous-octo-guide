@@ -14,11 +14,12 @@ const CATEGORIES = ["Appliance", "HVAC", "Plumbing", "Electrical", "Water Heater
 export default function AssetAddScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id?: string }>();
+  const { roomId, roomName } = useLocalSearchParams<{ roomId?: string; roomName?: string }>();
   const editing = !!id;
 
   const [name, setName] = useState("");
   const [category, setCategory] = useState("Appliance");
-  const [room, setRoom] = useState("");
+  const [room, setRoom] = useState(roomName ? decodeURIComponent(roomName) : "");
   const [brand, setBrand] = useState("");
   const [model, setModel] = useState("");
   const [installDate, setInstallDate] = useState("");
@@ -49,7 +50,7 @@ export default function AssetAddScreen() {
   const save = async () => {
     if (!name.trim()) { Alert.alert("Name required", "Give this asset a name."); return; }
     setSaving(true);
-    const body: any = { name: name.trim(), category, room_name: room.trim() || undefined, brand: brand.trim() || undefined, model_number: model.trim() || undefined, installation_date: installDate.trim() || undefined };
+    const body: any = { name: name.trim(), category, room_id: (!editing && roomId) ? roomId : undefined, room_name: room.trim() || undefined, brand: brand.trim() || undefined, model_number: model.trim() || undefined, installation_date: installDate.trim() || undefined };
     if (photo) body.photo_base64 = photo;
     try {
       if (editing) {

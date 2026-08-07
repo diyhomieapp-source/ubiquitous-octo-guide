@@ -39,6 +39,7 @@ import appstore_engine
 import monitoring_engine
 import investor_engine
 import home_intelligence_engine
+import room_intelligence_engine
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -8826,6 +8827,10 @@ app.include_router(investor_engine.build_admin_router(require_admin))
 home_intelligence_engine.configure(db, logger, _llm_json, EMERGENT_LLM_KEY)
 app.include_router(home_intelligence_engine.build_user_router(get_current_user))
 app.include_router(home_intelligence_engine.build_public_router())
+
+# Room Intelligence & Guided Home Capture (Build Blueprint 02).
+room_intelligence_engine.configure(db, logger, _llm_json, EMERGENT_LLM_KEY)
+app.include_router(room_intelligence_engine.build_rooms_router(get_current_user))
 
 app.add_middleware(
     CORSMiddleware,

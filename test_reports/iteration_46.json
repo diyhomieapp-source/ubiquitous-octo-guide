@@ -1,0 +1,61 @@
+{
+  "summary": "Tested B01 (Home Intelligence) + B02 (Room Intelligence) end-to-end. 21 pytest cases run: 15 passed, 6 failed. All failures share ONE root cause: the FastAPI POST /api/hi/rooms route is registered in BOTH engines and the older B01 router (included first in server.py) shadows B02's rich room-create route. Rooms saved via the frontend Map-a-Room flow silently lose room_type, persistent_room_id, floor_id, classification_confidence, cover_photo, status and updated_at fields. B01 flows (dashboard, asset CRUD, document OCR, emergency detection, guidance card, outcome, job-summary) all work. B02 floors, classify (never Confirmed), map, profile links, rename PUT, connections and archive all work — only the initial rich POST is broken. Frontend testIDs all present. Emergency Safety Alert screen renders correctly. Voice input stub not flagged (per note).",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "POST /api/hi/rooms",
+        "issue": "Route collision: home_intelligence_engine.build_user_router registers POST /api/hi/rooms (RoomReq={name, floor}) and is included BEFORE room_intelligence_engine.build_rooms_router which also declares POST /api/hi/rooms with the rich RoomReq. FastAPI matches the first registration, so the B02 rich-room create is unreachable. Response is missing room_type, persistent_room_id, floor_id, classification_confidence, cover_photo_base64, status, updated_at, measurement_source, capture record and analytics tracking. Confirmed via API debug: POST returns only {id, property_id, name, floor:null, created_at}. Verified via UI: capture flow saves 'TEST_UI_Kitchen' and GET /rooms/{id}/profile shows no room_type. Reference: backend/server.py:8827-8833; backend/home_intelligence_engine.py:194-206; backend/room_intelligence_engine.py:203-246.",
+        "priority": "CRITICAL"
+      }
+    ],
+    "minor": [
+      {
+        "endpoint": "backend/home_intelligence_engine.py:500",
+        "issue": "record_outcome uses expression `(req.notes or None)[:1000] if req.notes else None` — works but redundant/confusing. Safe to simplify to `req.notes[:1000] if req.notes else None`."
+      },
+      {
+        "endpoint": "backend/room_intelligence_engine.py:293",
+        "issue": "room_profile calls `_db.list_collection_names()` per-request only to decide whether to query hi_projects; this fires an admin metadata roundtrip on every profile view. Replace with a try/except or cache the collection list."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Map a Room (rooms/capture.tsx -> POST /hi/rooms)",
+        "issue": "Because of the backend route collision above, submitting the capture form persists ONLY name and floor. The follow-up Connect Rooms screen loads (roomId returned), but room_type, classification confirmation, dimensions, cover photo and floor are lost. On rooms/index.tsx the demo user's 'Basement' and 'Living Room' are rendered generically as 'Room' while 'Chef Kitchen' (created before the collision) still shows 'Kitchen' — visual evidence of the regression.",
+        "affected_testIDs": ["cap-name", "cap-type-Kitchen", "cap-save", "room-card-*"]
+      }
+    ],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_home_intel_blueprints.py",
+    "/app/test_reports/pytest/home_intel_blueprints_iter46.xml"
+  ],
+  "action_items": [
+    "Resolve POST /api/hi/rooms collision. Recommended fix: delete the legacy B01 endpoints @r.get('/rooms'), @r.post('/rooms') and the RoomReq helper in home_intelligence_engine.py (lines ~129-206) — B02 fully supersedes them (frontend already reads /hi/rooms/map instead of /hi/rooms). Alternative: register room_intelligence_engine router BEFORE home_intelligence_engine so the rich B02 route wins. After the fix, POST /api/hi/rooms must return persistent_room_id, room_type, floor_id, classification_confidence, status='active'.",
+    "Backfill / migrate existing hi_rooms documents that were created via the legacy route so they include room_type ('Other' if unknown), persistent_room_id (=id) and status='active'; otherwise pre-existing users (like demo_home) will keep seeing 'Room' with no type on the property map.",
+    "Re-run backend suite: python -m pytest backend/tests/test_home_intel_blueprints.py -v — expect all 21 tests to pass after the fix (no test changes needed).",
+    "Minor: simplify notes slicing in record_outcome; avoid list_collection_names() call inside room_profile."
+  ],
+  "critical_code_review_comments": [
+    "server.py wires both engines without namespacing the shared prefix; whenever two routers share a prefix, verify no path conflicts before including — especially when the second router augments the first.",
+    "home_intelligence_engine.py:194 create_room silently returns an existing room by name (no room_type match) which will happily accept the collision payload and return a stale record — the coincidental de-dup makes the bug harder to spot.",
+    "room_intelligence_engine.py:229 defaults classification_confidence to 'Confirmed' when the caller supplies any value — the doc says 'never Confirmed from AI'; the constraint is enforced only in _classify_room and by user input, which is fine but should be spelled out in a comment."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_home_intel_blueprints.py (new)"
+  ],
+  "success_rate": {
+    "backend": "71%",
+    "frontend": "83%"
+  },
+  "seed_data_creation": "Created transient TEST_ users via /api/auth/register during pytest run; each user is a fresh property so no shared-state pollution. On the demo_home account the UI test added one room 'TEST_UI_Kitchen' (broken, missing type) — main agent may want to delete it after the fix ships or let the migration clean it up.",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Test file /app/backend/tests/test_home_intel_blueprints.py already covers all critical B01+B02 behaviours (emergency, guidance 409, room map, bidirectional connection, rename history, type-change -> changed_use, archive). After main agent fixes the POST /api/hi/rooms collision, simply re-run: python -m pytest backend/tests/test_home_intel_blueprints.py -v --tb=short. All 21 tests should pass. For the frontend, log in as demo_home@diyhomie.com / Test1234, go to /home-intel/rooms, click rooms-map-a-room, fill cap-name + cap-type-Kitchen, click cap-save, then verify GET /api/hi/rooms/{returnedId}/profile returns room_type=Kitchen and status=active.",
+  "rca_of_issue": "Root cause: two FastAPI routers register the same path POST /api/hi/rooms. server.py includes home_intelligence_engine.build_user_router (line 8828) then room_intelligence_engine.build_rooms_router (line 8833). FastAPI resolves routes by first match — so B01's legacy simple create wins for every POST /api/hi/rooms. Consequence: RoomReq's rich fields (room_type, floor_id, cover_photo_base64, classification_confidence, dimensions, capture_type, description) are silently dropped by B01's smaller RoomReq(name, floor) model, no capture record is written, no analytics event is emitted, and persistent_room_id/status default-fields never get set. Reproduction: POST /api/hi/rooms with body {name:'X', room_type:'Kitchen', floor_name:'Main Floor', classification_confidence:'Confirmed'} — response omits room_type entirely. Mitigation: remove the legacy B01 rooms endpoints (nothing else consumes them; the frontend already uses B02 exclusively for listing/mapping) OR register B02 router before B01. Then migrate any existing docs missing room_type/status/persistent_room_id."
+}

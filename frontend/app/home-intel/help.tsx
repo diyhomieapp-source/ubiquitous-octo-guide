@@ -14,6 +14,7 @@ type Asset = { id: string; name: string; category: string };
 export default function HelpScreen() {
   const router = useRouter();
   const { assetId } = useLocalSearchParams<{ assetId?: string }>();
+  const { roomId } = useLocalSearchParams<{ roomId?: string }>();
   const [assets, setAssets] = useState<Asset[]>([]);
   const [selected, setSelected] = useState<string | null>(assetId || null);
   const [desc, setDesc] = useState("");
@@ -43,7 +44,7 @@ export default function HelpScreen() {
     setSubmitting(true);
     try {
       const r = await api<{ id: string; is_emergency: boolean; danger_type?: string | null }>("/hi/issues", {
-        method: "POST", body: { asset_id: selected || undefined, user_description: desc.trim(), image_base64: photo || undefined },
+        method: "POST", body: { asset_id: selected || undefined, room_id: roomId || undefined, user_description: desc.trim(), image_base64: photo || undefined },
       });
       if (r.is_emergency) { setEmergency({ danger_type: r.danger_type }); }
       else { router.replace(`/home-intel/guidance?issueId=${r.id}`); }
