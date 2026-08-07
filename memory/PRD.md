@@ -325,3 +325,15 @@ New features are now built as SEPARATE engine modules (audit_engine, certificati
 - Blueprint 05 — Homie AI Assistant & Conversation Hub (central chat front-door, context selector, photo ID, conversation→approved records, history). Data: hi_conversation_*.
 
 Test credentials: demo_home@diyhomie.com / Test1234 ; admin Diyhomieapp@gmail.com / diyhomie1122.
+
+**Blueprint 06 — Home Document Vault (DONE, tested iter48):**
+- Backend `document_vault_engine.py` (/api/hi/documents/*): upload (image→gpt-4o vision field extraction w/ user review; non-image→ready), list w/ category counts + review_count + needs_review/is_linked flags, detail (+extractions+relationships w/ resolved names), edit, delete (cascades ext/rels, preserves linked entities), link to property/room/asset/project/task (asset link mirrors into hi_asset_documents for guidance grounding), extraction review (confirm/reject/edit → 'Confirmed by User'), review-queue, plain-language + category search, Ask Homie (grounded, non-hallucinating). Access logs (hi_document_access) + analytics.
+- Frontend: app/home-intel/documents/{index,add,[id],search,review}.tsx. Entry: dashboard "Document Vault".
+- Collections: hi_documents, hi_document_extractions, hi_document_relationships, hi_document_access.
+- Minor UX note (future): search collapses to category filter when a category word appears in the query — consider a fallback.
+
+**QUEUED (not yet built), in blueprint order:**
+- Blueprint 04 — Maintenance Intelligence & Home Care Scheduler (hi_maintenance_tasks/checklist/occurrences/suggestions/reminders; recurrence creates separate occurrences; AI suggestions from assets/manuals/projects/season; calendar; seasonal guide; Home Care Score).
+- Blueprint 05 — Homie AI Assistant & Conversation Hub (central chat front-door using room/asset/project/doc context; context selector; photo ID; conversation→approved records with user approval; history; hi_conversation_*).
+- Blueprint 07 — Tool/Material/Supply Inventory (hi_inventory_*; add/identify(photo)/edit/archive; storage locations; project shopping-list matching 'Already Have/Need to Buy/Need Verification'; usage/leftovers). Integrates with B03 project materials.
+- Blueprint 08 — Account, Property Onboarding & Preferences (UserProfile prefs: guidance_detail_level/preferred_interaction/diy_experience; goals; multi-property + UserPropertyAccess; property switcher across all /home-intel screens; notification/privacy prefs; guest sessions). NOTE: app already has JWT auth/register — B08 should extend, not duplicate.
