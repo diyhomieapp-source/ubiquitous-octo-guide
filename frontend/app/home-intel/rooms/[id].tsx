@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator } from "react-native";
 import { Image } from "expo-image";
 import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -40,7 +40,7 @@ export default function RoomProfile() {
           <ActionBtn testID="room-report-issue" icon="alert-outline" label="Report Issue" onPress={() => router.push(`/home-intel/help?roomId=${id}`)} />
         </View>
         <View style={styles.btnRow}>
-          <ActionBtn testID="room-start-project" icon="hammer-wrench" label="Start Project" onPress={() => Alert.alert("Projects", "The Project Planner is coming in the next update.")} />
+          <ActionBtn testID="room-start-project" icon="hammer-wrench" label="Start Project" onPress={() => router.push(`/home-intel/projects/start?roomId=${id}`)} />
           <ActionBtn testID="room-update-2" icon="pencil-outline" label="Update Room" onPress={() => router.push(`/home-intel/rooms/update?id=${id}`)} />
         </View>
 

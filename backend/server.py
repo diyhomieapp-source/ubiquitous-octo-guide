@@ -40,6 +40,7 @@ import monitoring_engine
 import investor_engine
 import home_intelligence_engine
 import room_intelligence_engine
+import project_planner_engine
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -8831,6 +8832,10 @@ app.include_router(home_intelligence_engine.build_public_router())
 # Room Intelligence & Guided Home Capture (Build Blueprint 02).
 room_intelligence_engine.configure(db, logger, _llm_json, EMERGENT_LLM_KEY)
 app.include_router(room_intelligence_engine.build_rooms_router(get_current_user))
+
+# AI Project Planner & Guided Project Workspace (Build Blueprint 03).
+project_planner_engine.configure(db, logger, _llm_json)
+app.include_router(project_planner_engine.build_router(get_current_user))
 
 app.add_middleware(
     CORSMiddleware,

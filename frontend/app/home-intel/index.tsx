@@ -47,6 +47,10 @@ export default function HomeIntelDashboard() {
           <MaterialCommunityIcons name="floor-plan" size={20} color={colors.brandPrimary} />
           <Text style={styles.secondaryText}>Map my home</Text>
         </Pressable>
+        <Pressable testID="hi-projects" style={styles.secondary} onPress={() => router.push("/home-intel/projects")}>
+          <MaterialCommunityIcons name="hammer-wrench" size={20} color={colors.brandPrimary} />
+          <Text style={styles.secondaryText}>Plan a Project</Text>
+        </Pressable>
 
         {loading ? <ActivityIndicator color={colors.brandPrimary} style={{ marginTop: spacing.xl }} /> : (
           <>

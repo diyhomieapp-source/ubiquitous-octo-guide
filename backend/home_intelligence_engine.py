@@ -126,11 +126,6 @@ class PropertyReq(BaseModel):
     home_type: Optional[str] = None
 
 
-class RoomReq(BaseModel):
-    name: str
-    floor: Optional[str] = None
-
-
 class AssetReq(BaseModel):
     name: str
     category: str
@@ -185,25 +180,10 @@ def build_user_router(get_current_user: Callable) -> APIRouter:
             {"id": prop["id"]}, {"$set": {"address": req.address, "home_type": req.home_type}})
         return await _db.hi_properties.find_one({"id": prop["id"]}, {"_id": 0})
 
-    @r.get("/rooms")
-    async def list_rooms(user: dict = Depends(get_current_user)):
-        prop = await _get_or_create_property(user["id"])
-        rooms = await _db.hi_rooms.find({"property_id": prop["id"]}, {"_id": 0}).sort("name", 1).to_list(200)
-        return {"rooms": rooms}
-
-    @r.post("/rooms")
-    async def create_room(req: RoomReq, user: dict = Depends(get_current_user)):
-        name = (req.name or "").strip()
-        if not name:
-            raise HTTPException(status_code=400, detail="Room name is required.")
-        prop = await _get_or_create_property(user["id"])
-        existing = await _db.hi_rooms.find_one({"property_id": prop["id"], "name": name}, {"_id": 0})
-        if existing:
-            return existing
-        doc = {"id": _new_id(), "property_id": prop["id"], "name": name[:60],
-               "floor": (req.floor or None), "created_at": _now()}
-        await _db.hi_rooms.insert_one(dict(doc))
-        return doc
+    # NOTE: Room CRUD is fully owned by room_intelligence_engine (Blueprint 02).
+    # The legacy GET/POST /rooms here were removed to avoid a route collision that
+    # shadowed B02's rich room-create. Asset room assignment below creates
+    # B02-compatible room docs via _resolve_room.
 
     async def _resolve_room(prop_id: str, room_id: Optional[str], room_name: Optional[str]) -> Optional[str]:
         if room_id:
@@ -213,9 +193,18 @@ def build_user_router(get_current_user: Callable) -> APIRouter:
             existing = await _db.hi_rooms.find_one({"property_id": prop_id, "name": nm})
             if existing:
                 return existing["id"]
-            doc = {"id": _new_id(), "property_id": prop_id, "name": nm, "floor": None, "created_at": _now()}
+            floor = await _db.hi_floors.find_one({"property_id": prop_id}, sort=[("sequence_number", 1)])
+            if not floor:
+                floor = {"id": _new_id(), "property_id": prop_id, "name": "Main Floor",
+                         "sequence_number": 1, "created_at": _now()}
+                await _db.hi_floors.insert_one(dict(floor))
+            rid = _new_id()
+            doc = {"id": rid, "property_id": prop_id, "floor_id": floor["id"], "persistent_room_id": rid,
+                   "name": nm, "room_type": "Other", "classification_confidence": "Needs Confirmation",
+                   "cover_photo_base64": None, "notes": None, "status": "active",
+                   "created_at": _now(), "updated_at": _now()}
             await _db.hi_rooms.insert_one(doc)
-            return doc["id"]
+            return rid
         return None
 
     # ---------------------------------------------------------------- assets
