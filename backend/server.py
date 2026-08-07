@@ -38,6 +38,7 @@ import export_engine
 import appstore_engine
 import monitoring_engine
 import investor_engine
+import home_intelligence_engine
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -8820,6 +8821,11 @@ app.middleware("http")(monitoring_engine.monitoring_middleware)
 # Investor / Stakeholder Reporting Suite (Sheet #68) — admin/founder.
 investor_engine.configure(db, logger, _llm_json, PLAN_TIERS)
 app.include_router(investor_engine.build_admin_router(require_admin))
+
+# Home Intelligence MVP (Build Blueprint 01) — standalone assistant module.
+home_intelligence_engine.configure(db, logger, _llm_json, EMERGENT_LLM_KEY)
+app.include_router(home_intelligence_engine.build_user_router(get_current_user))
+app.include_router(home_intelligence_engine.build_public_router())
 
 app.add_middleware(
     CORSMiddleware,

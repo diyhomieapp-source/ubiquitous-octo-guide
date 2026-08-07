@@ -151,6 +151,8 @@ export default function Profile() {
         {/* manage account menu */}
         <Text style={styles.sectionLabel}>MANAGE ACCOUNT</Text>
         <View style={styles.menuCard}>
+          <MenuRow icon="robot-love-outline" label="Home Intelligence" sub="Diagnose & safely fix appliances — grounded in your manuals"
+            testID="profile-home-intel" onPress={() => router.push("/home-intel")} />
           <MenuRow icon="trophy-outline" label="My Journey" sub={`${stats.completed} completed · achievements & savings`}
             testID="profile-journey" onPress={() => router.push("/journey")} />
           <MenuRow icon="home-heart" label="My Home" sub="Rooms, systems & lifetime home record"

@@ -31,16 +31,17 @@ export function InvestorModule() {
   const [question, setQuestion] = useState("");
   const [asking, setAsking] = useState(false);
   const [answer, setAnswer] = useState<AskResp | null>(null);
+  const [error, setError] = useState(false);
 
   const load = useCallback(async () => {
-    setLoading(true);
+    setError(false);
     try {
       const [k, r] = await Promise.all([
         api<Kpis>("/admin/investor/kpis"),
         api<{ reports: ReportRow[] }>("/admin/investor/reports"),
       ]);
       setKpis(k); setReports(r.reports);
-    } catch {} finally { setLoading(false); }
+    } catch { setError(true); } finally { setLoading(false); }
   }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
@@ -54,10 +55,12 @@ export function InvestorModule() {
   };
 
   const openReport = async (id: string) => {
-    try { setOpen(await api<FullReport>(`/admin/investor/reports/${id}`)); } catch {}
+    try { setOpen(await api<FullReport>(`/admin/investor/reports/${id}`)); }
+    catch (e: any) { Alert.alert("Couldn't open report", e?.message || "Try again."); }
   };
   const del = async (id: string) => {
-    try { await api(`/admin/investor/reports/${id}`, { method: "DELETE" }); if (open?.id === id) setOpen(null); load(); } catch {}
+    try { await api(`/admin/investor/reports/${id}`, { method: "DELETE" }); if (open?.id === id) setOpen(null); load(); }
+    catch (e: any) { Alert.alert("Couldn't delete", e?.message || "Try again."); }
   };
   const ask = async () => {
     const q = question.trim(); if (!q) return;
@@ -67,7 +70,18 @@ export function InvestorModule() {
     finally { setAsking(false); }
   };
 
-  if (loading || !kpis) return <View style={styles.center}><ActivityIndicator color={colors.brandPrimary} /></View>;
+  if (loading) return <View style={styles.center}><ActivityIndicator color={colors.brandPrimary} /></View>;
+  if (error || !kpis) return (
+    <View style={styles.center}>
+      <MaterialCommunityIcons name="cloud-alert" size={40} color={colors.onSurfaceTertiary} />
+      <Text style={styles.errorTitle}>Couldn&apos;t load investor data</Text>
+      <Text style={styles.errorSub}>Check your connection and try again.</Text>
+      <Pressable testID="inv-retry" style={styles.retryBtn} onPress={() => { setLoading(true); load(); }}>
+        <MaterialCommunityIcons name="refresh" size={16} color={colors.onBrandPrimary} />
+        <Text style={styles.retryText}>Retry</Text>
+      </Pressable>
+    </View>
+  );
 
   if (open) {
     return (
@@ -226,6 +240,10 @@ function Stat({ label, value, accent }: { label: string; value: string; accent?:
 
 const styles = StyleSheet.create({
   center: { paddingTop: spacing["3xl"], alignItems: "center" },
+  errorTitle: { color: colors.onSurface, fontFamily: font.bold, fontSize: type.md, marginTop: spacing.md },
+  errorSub: { color: colors.onSurfaceTertiary, fontFamily: font.regular, fontSize: type.sm, marginTop: 4 },
+  retryBtn: { flexDirection: "row", alignItems: "center", gap: spacing.xs, backgroundColor: colors.brandPrimary, borderRadius: radius.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, marginTop: spacing.lg },
+  retryText: { color: colors.onBrandPrimary, fontFamily: font.bold, fontSize: type.sm },
   titleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   h1: { color: colors.onSurface, fontFamily: font.display, fontSize: 24 },
   subtitle: { color: colors.onSurfaceTertiary, fontFamily: font.medium, fontSize: type.xs, marginTop: 2 },
