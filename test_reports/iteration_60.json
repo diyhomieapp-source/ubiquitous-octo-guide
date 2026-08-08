@@ -1,0 +1,32 @@
+{
+  "summary": "Full E2E frontend validation of B11 Product Analytics + Privacy Opt-out, B12 Professional Escalation + Shareable Job Summary + Public Shared View + Revoke, and B13 Community Points & Rewards on Expo web. ALL PASS. B11: analytics-opt-out Switch toggles ON/OFF and persists across reload (PUT /api/hi/analytics/opt-out). Admin /admin → Product Analytics module renders PostHog + Sentry 'not connected' pills, 8 stat cards (Daily active users, New accounts, Onboarding, Projects started/completed, Maintenance, Document uploads, Paid subscribers), 8 feature flags with flag-toggle-<key> that flip color on tap and persist server-side, Releases (release-version + release-create tags a version and it appears in the list), Top errors section present, incident logger works (inc-area + sev-critical/high/medium/low + inc-create logs a new incident that then appears in the list). B12: dashboard hi-jobs → /home-intel/jobs → job-new → /home-intel/jobs/recommended shows red-outlined emergency notice + 'Why we suggest a pro' + 'What to avoid' + title/description form; rec-title 'TEST_ Leaking water heater' + rec-create posts /api/hi/jobs and navigates to /home-intel/jobs/<id>. Detail screen has all 7 status-* chips, 'What will be shared' items + include Switches, add-note + add-note-btn creates a user_note item, Preview renders title/area/disclaimer, Copy/Download/Share buttons wired. job-share opens share form with share-include_photos/documents/address/allow_download Switches + share-days + share-create → POST /api/hi/jobs/<id>/share returns 200 with share_token; an active share-<id> row appears with copy + revoke. PUBLIC /shared/<token> loads WITHOUT auth in fresh browser context: shows 'Shared by a DIYhomie user', expiry date, report title, area/status, issue description, attempted actions, and the homeowner disclaimer. After clicking share-revoke-<id>, reloading the public URL shows 'This link has been revoked by the owner.' and the report title is no longer rendered. B13: hi-rewards → /home-intel/rewards renders AVAILABLE POINTS balance card + progress bar + 'Ways to earn' rows + recent activity. earn-feedback → feedback screen fb-type-bug_report + fb-title + fb-desc + fb-submit posts a bug report; activity page then shows the new entry with 'pending' status (NOT auto-approved). earn-referral → /home-intel/rewards/referral, ref-create generates a referral code that renders in the YOUR CODE card with ref-copy button. rewards-terms opens the Rewards terms page which explicitly says 'Not cash — DIYhomie Points ... are not cash, a bank balance, or a guaranteed monetary value, and cannot be exchanged for money.'",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": [
+      {"component": "shared/[token].tsx", "issue": "Uses `useState(() => { load(); return 0; })` as a one-shot side-effect hook instead of `useEffect(() => { load(); }, [token])`. It happens to work because setState is called from an async chain after the initializer returns, but calling side-effects from a useState initializer violates React's rules and can double-fire under React 18 StrictMode. Reference: /app/frontend/app/shared/[token].tsx:20"},
+      {"component": "jobs/recommended.tsx", "issue": "Same pattern: `useState(() => { track(...); return 0; })` used to fire an analytics event once. Should be a `useEffect(() => { track(...); }, [])`. Reference: /app/frontend/app/home-intel/jobs/recommended.tsx:19"}
+    ]
+  },
+  "test_report_links": ["/app/test_reports/iteration_60.json"],
+  "action_items": [
+    "Cosmetic-only: refactor the two `useState(() => { sideEffect(); return 0; })` patterns in shared/[token].tsx and jobs/recommended.tsx into `useEffect` calls to conform to React's rules-of-hooks. Not blocking — flows currently work in both React 18 dev and prod.",
+    "Nothing else required for B11/B12/B13 — all three blueprints pass end-to-end on Expo web."
+  ],
+  "critical_code_review_comments": [
+    "Public /shared/[token] route correctly calls api(...,{auth:false}) so it does NOT attach the bearer token, and the backend correctly returns full public payload without auth — confirmed via fresh browser context.",
+    "Revoke path returns a 410-like response and the frontend renders 'This link has been revoked by the owner.' cleanly (no red screen, no crash).",
+    "AnalyticsModule renders integration pills with a clear 'not connected' state; nothing tries to auto-init PostHog/Sentry without keys — good.",
+    "Rewards feedback submission enters PENDING and never gets auto-approved by the client, matching the fraud-safe design.",
+    "Rewards terms screen carries explicit 'not cash / not a monetary value / cannot be exchanged for money' copy — good compliance posture."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "not tested (frontend-only scope)", "frontend": "100%"},
+  "seed_data_creation": "Created 1 test job for demo_home@diyhomie.com titled 'TEST_ Leaking water heater' (id f0ffa3af-b6ae-4ca3-b6ea-1f8e3fb5048b) with 1 user_note item; created 2 share links (both now revoked); submitted 1 bug_report feedback (TEST_ Bug in projects screen — pending); created a referral link. Also created 1 admin release (e.g. version 1.9.599) and 1 admin incident (area 'TEST_incident_area', severity critical). Prefixed with TEST_ where practical.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Login path: /auth?mode=login (default is register). Public /shared/<token> route works without auth, tested in isolated browser context (no localStorage). To capture a share_token programmatically, hook page.on('response', ...) and read the JSON from POST /api/hi/jobs/{id}/share. React Native Switch on web does NOT expose aria-checked reliably, so verify toggle state by re-fetching from the API or by comparing getComputedStyle backgroundColor of the flag-toggle-* Pressable (empty vs green #27AE60).",
+  "rca_of_issue": "No functional bugs. Only observation: two files (shared/[token].tsx line 20, jobs/recommended.tsx line 19) misuse useState as a one-shot effect. This is a code smell but does not break behaviour in current tests."
+}

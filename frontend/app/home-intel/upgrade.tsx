@@ -38,6 +38,7 @@ export default function Upgrade() {
         api<Me>("/hi/subscription/me"),
       ]);
       setPlans(p.plans); setMe(m);
+      track("pricing_page_viewed", { source: "app", current_tier: m.tier });
     } catch {} finally { setLoading(false); }
   }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
@@ -46,6 +47,7 @@ export default function Upgrade() {
 
   const subscribe = async (tier: string) => {
     setBusy(tier);
+    track("checkout_started", { tier });
     try {
       const res = await api<{ url: string }>("/billing/checkout", { method: "POST", body: { tier, origin_url: origin() } });
       if (Platform.OS === "web") window.location.href = res.url;

@@ -5,6 +5,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 import { colors, spacing, radius, font, type } from "@/src/theme";
 import { api } from "@/src/api";
+import { track } from "@/src/utils/analytics";
 
 const LABELS: Record<string, string> = {
   home: "homes", project: "saved projects", chat: "today's Homie chats",
@@ -37,6 +38,7 @@ export function UpgradeNudge({ feature }: { feature?: FeatureKey }) {
         if (ratio >= 0.8 && (!best || ratio > best.ratio)) best = { ratio, used: u.used, limit: u.limit, label: LABELS[k] };
       }
       setNudge(best);
+      if (best) track("upgrade_prompt_shown", { feature: feature || best.label, current_tier: s.tier });
     } catch {}
   }, [feature]);
   useFocusEffect(useCallback(() => { load(); }, [load]));

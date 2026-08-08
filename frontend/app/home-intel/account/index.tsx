@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, ActivityIndicator, Alert } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, ActivityIndicator, Alert, Switch } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
@@ -26,6 +26,11 @@ export default function Account() {
   const router = useRouter();
   const [ov, setOv] = useState<Overview | null>(null);
   const [tier, setTier] = useState<string>("free");
+  const [optOut, setOptOut] = useState(false);
+  const toggleOptOut = async (v: boolean) => {
+    setOptOut(v);
+    try { await api("/hi/analytics/opt-out", { method: "PUT", body: { opt_out: v } }); } catch { setOptOut(!v); }
+  };
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -36,6 +41,7 @@ export default function Account() {
     catch { setLoadError(true); }
     finally { setLoading(false); }
     try { const s = await api<{ tier: string }>("/hi/subscription/me"); setTier(s.tier); } catch {}
+    try { const o = await api<{ opt_out: boolean }>("/hi/analytics/opt-out"); setOptOut(o.opt_out); } catch {}
   }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
@@ -104,6 +110,15 @@ export default function Account() {
           </View>
           <MaterialCommunityIcons name="chevron-right" size={22} color={colors.onSurfaceTertiary} />
         </Pressable>
+
+        <View style={styles.privacyCard}>
+          <MaterialCommunityIcons name="shield-lock-outline" size={20} color={colors.brandPrimary} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.planCardTitle}>Limit product analytics</Text>
+            <Text style={styles.planCardSub}>Only essential app events are recorded. Never your addresses, photos, docs or chats.</Text>
+          </View>
+          <Switch testID="analytics-opt-out" value={optOut} onValueChange={toggleOptOut} trackColor={{ true: colors.brandPrimary, false: colors.surfaceTertiary }} />
+        </View>
 
         <Text style={styles.section}>Guidance preferences</Text>
         <Text style={styles.hint}>Homie tailors its chat and project plans to these.</Text>

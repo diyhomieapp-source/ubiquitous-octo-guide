@@ -5,6 +5,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 import { colors, spacing, radius, font, type } from "@/src/theme";
 import { api } from "@/src/api";
+import { track } from "@/src/utils/analytics";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
 
 type Step = { key: string; label: string; done: boolean };
@@ -26,6 +27,7 @@ export default function Welcome() {
 
   const load = useCallback(async () => {
     try { setOv(await api<Overview>("/hi/account/overview")); } catch {} finally { setLoading(false); }
+    track("welcome_viewed", { source: "banner" });
   }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
 

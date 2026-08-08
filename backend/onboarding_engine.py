@@ -169,6 +169,8 @@ def build_router(get_current_user: Callable) -> APIRouter:
         await _get_prefs(user["id"])
         await _db.hi_user_prefs.update_one({"user_id": user["id"]}, {"$set": {"onboarding_complete": True, "updated_at": _now()}})
         await _track(user["id"], "onboarding_completed")
+        import analytics_engine
+        await analytics_engine.capture(user, "onboarding_completed", {"progress": 100})
         return {"ok": True}
 
     # ---------------- properties (multi-property setup)
@@ -191,6 +193,9 @@ def build_router(get_current_user: Callable) -> APIRouter:
                "is_active": existing == 0, "created_at": _now(), "updated_at": _now()}
         await _db.hi_properties.insert_one(dict(doc))
         await _track(user["id"], "property_added", {"property_id": doc["id"]})
+        import analytics_engine
+        await analytics_engine.capture(user, "property_created", {
+            "property_type": req.property_type, "has_year_built": bool(req.year_built)}, property_id=doc["id"])
         doc.pop("_id", None)
         return doc
 

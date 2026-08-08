@@ -202,6 +202,11 @@ def build_router(get_current_user: Callable) -> APIRouter:
         ends = (datetime.now(timezone.utc) + timedelta(days=7)).isoformat()
         await _db.users.update_one({"id": user["id"]},
                                    {"$set": {"hi_pro_trial_ends_at": ends, "hi_pro_trial_used": True}})
+        try:
+            import analytics_engine
+            await analytics_engine.capture(user, "trial_started", {"tier": "pro"})
+        except Exception:
+            pass
         return {"ok": True, "ends_at": ends, "days_left": 7}
 
     @r.get("/plans")

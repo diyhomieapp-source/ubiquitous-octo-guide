@@ -210,6 +210,10 @@ def build_router(get_current_user: Callable) -> APIRouter:
         }
         await _db.hi_projects.insert_one(dict(doc))
         await _track(user["id"], "project_started", {"project_id": doc["id"], "category": cat})
+        import analytics_engine
+        await analytics_engine.capture(user, "project_started", {
+            "project_category": cat, "has_room_context": bool(req.room_id), "has_asset_context": bool(req.asset_id),
+            "source": "room" if req.room_id else ("asset" if req.asset_id else "dashboard")}, property_id=prop["id"])
         doc.pop("_id", None)
         return {"needs_clarification": False, "project": doc}
 

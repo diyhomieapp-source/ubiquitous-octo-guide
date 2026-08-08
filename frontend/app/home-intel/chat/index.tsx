@@ -5,6 +5,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 import { colors, spacing, radius, font, type } from "@/src/theme";
 import { api } from "@/src/api";
+import { track } from "@/src/utils/analytics";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
 import { UpgradeNudge } from "@/src/components/UpgradeNudge";
 
@@ -18,6 +19,7 @@ export default function ChatList() {
 
   const load = useCallback(async () => {
     try { const d = await api<{ conversations: Conv[] }>("/hi/chat/conversations"); setConvs(d.conversations); } catch {} finally { setLoading(false); }
+    track("homie_opened", { source: "chat_list" });
   }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
 

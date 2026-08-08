@@ -50,6 +50,9 @@ import reminders_engine
 import inventory_engine
 import onboarding_engine
 import subscription_engine
+import analytics_engine
+import escalation_engine
+import rewards_engine
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -8883,6 +8886,22 @@ app.include_router(onboarding_engine.build_router(get_current_user))
 subscription_engine.configure(db, logger)
 app.include_router(subscription_engine.build_router(get_current_user))
 
+# Product Analytics, Error Monitoring & Privacy-Safe Events (Build Blueprint 11).
+analytics_engine.configure(db, logger, os.environ.get("APP_VERSION", "1.0.0"))
+analytics_engine.init_sentry()
+app.include_router(analytics_engine.build_user_router(get_current_user))
+app.include_router(analytics_engine.build_admin_router(require_admin))
+
+# Professional Escalation & Shareable Job Summary (Build Blueprint 12).
+escalation_engine.configure(db, logger)
+app.include_router(escalation_engine.build_router(get_current_user))
+app.include_router(escalation_engine.build_public_router())
+
+# Community Points & Rewards Foundation (Build Blueprint 13).
+rewards_engine.configure(db, logger)
+app.include_router(rewards_engine.build_router(get_current_user))
+app.include_router(rewards_engine.build_admin_router(require_admin))
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
@@ -8973,6 +8992,8 @@ async def _startup_seed_community():
     await education_engine.seed_education()
     await campaign_engine.seed_campaigns()
     await appstore_engine.seed_appstore()
+    await analytics_engine.seed()
+    await rewards_engine.seed()
 
 
 @app.on_event("startup")
