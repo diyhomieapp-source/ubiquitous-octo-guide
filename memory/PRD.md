@@ -397,3 +397,13 @@ Test credentials: demo_home@diyhomie.com / Test1234 ; admin Diyhomieapp@gmail.co
 - Verified iteration_63 (16/16 backend pytest + full frontend E2E). SECURITY confirmed: no raw secret returned/stored/displayed anywhere. Pipedream + Browserbase dormant until keys added.
 
 ### PENDING QUEUE: B19 Building Intelligence Capture / Digital Twin Core (building next); B20 Home Knowledge Graph & Document Intelligence (queued). Earlier: B14 Photo Room Design (Gemini Nano Banana), B17 AI Orchestration Gateway.
+
+---
+## Session update (fork) cont. — Blueprint 19 shipped (Digital Twin Core)
+- **B19 Building Intelligence Capture Platform & Digital Twin Core** — NEW `digital_twin_engine.py`. ONE evolving twin per property (dt_twins, versioned) enriched by multi-source captures (manual/photo/walkthrough + future AR/LiDAR/MeasureAssist/plan-import). Collections: dt_twins, dt_floors, dt_rooms, dt_connections, dt_elements, dt_measurement_refs, dt_capture_sessions, dt_artifacts, dt_evidence, dt_conflicts, dt_settings. References existing hi_rooms/hi_measurements (no duplication).
+- Confidence & Conflict engine: SOURCE_RANK hierarchy (user_confirmed/manual > document > AR/LiDAR > photo/walkthrough > ai_estimate). New lower/equal-rank evidence that differs beyond conflict_threshold raises a CONFLICT instead of overwriting confirmed data. Conflict resolution: keep_existing / use_new / manual / unknown. Twin confidence + model_status auto-recomputed.
+- Routers: /api/hi/twin/* (overview, capture-sessions lifecycle, rooms/measurements/connections evidence, conflicts list+resolve, room-context read API) + /api/hi/admin/twin/* (settings: capture-type toggles + limits + conflict_threshold; queue; metrics). Wired + configured in server.py (no startup seed needed; settings lazy-created).
+- Frontend user: app/home-intel/twin/{index,capture,conflicts}.tsx. Entry: HI dashboard "Property Digital Twin" (hi-twin). Admin: src/components/admin/TwinModule.tsx → /admin "Digital Twin" (admin-nav-twin).
+- Verified iteration_64 (16/16 backend pytest + full frontend E2E, mobile + web). Conflict engine confirmed: manual value never overwritten by photo estimate.
+
+### PENDING QUEUE: B20 Home Knowledge Graph & Document Intelligence (queued, NOT started); B14 Photo Room Design (Gemini Nano Banana); B17 AI Orchestration Gateway.
