@@ -104,6 +104,25 @@ EVENT_CATALOG = [
     ("points_awarded", "rewards", "Points awarded", ["event_type", "points"]),
     ("points_reversed", "rewards", "Points reversed", ["points"]),
     ("reward_account_restricted", "rewards", "Reward account restricted", []),
+    # guided measurement (Blueprint 15)
+    ("measurement_home_opened", "measurement", "Measure home opened", ["source"]),
+    ("measurement_started", "measurement", "Measurement started", ["source"]),
+    ("manual_measurement_created", "measurement", "Manual measurement created", ["measurement_type", "unit"]),
+    ("camera_measurement_started", "measurement", "Camera estimate started", []),
+    ("camera_measurement_saved", "measurement", "Camera estimate saved", ["measurement_type"]),
+    ("measurement_confirmed", "measurement", "Measurement confirmed", []),
+    ("measurement_edited", "measurement", "Measurement edited", []),
+    ("measurement_linked_to_project", "measurement", "Measurement linked to project", []),
+    ("measurement_request_completed", "measurement", "Measurement request completed", []),
+    # project cleanup & disposal (Blueprint 16)
+    ("cleanup_session_started", "cleanup", "Cleanup session started", []),
+    ("leftover_material_added", "cleanup", "Leftover material added", ["material_category", "recommended_action"]),
+    ("waste_item_added", "cleanup", "Waste item added", ["waste_category"]),
+    ("waste_item_classified", "cleanup", "Waste item classified", ["risk_level"]),
+    ("disposal_guidance_viewed", "cleanup", "Disposal guidance viewed", ["waste_category"]),
+    ("material_moved_to_inventory", "cleanup", "Material moved to inventory", []),
+    ("waste_item_marked_handled", "cleanup", "Waste item handled", []),
+    ("cleanup_session_completed", "cleanup", "Cleanup session completed", ["unresolved_items"]),
 ]
 _APPROVED = {name: set(props) for name, _fa, _d, props in EVENT_CATALOG}
 _FEATURE_AREA = {name: fa for name, fa, _d, _p in EVENT_CATALOG}

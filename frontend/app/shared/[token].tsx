@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Image } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -17,7 +17,7 @@ export default function SharedJob() {
     catch (e: any) { setError(e?.message || "This link is not available."); }
     finally { setLoading(false); }
   }, [token]);
-  useState(() => { load(); return 0; });
+  useEffect(() => { load(); }, [load]);
 
   if (loading) return <View style={styles.center}><ActivityIndicator size="large" color={colors.brandPrimary} /></View>;
   if (error) return (

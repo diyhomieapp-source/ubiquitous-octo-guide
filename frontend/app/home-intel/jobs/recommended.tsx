@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, ActivityIndicator, Alert } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -16,7 +16,7 @@ export default function ProfessionalRecommended() {
   const [description, setDescription] = useState((params.description as string) || "");
 
   // Log that escalation was shown (once per mount).
-  useState(() => { track("professional_escalation_shown", { source: (params.source as string) || "manual", risk_level: (params.risk as string) || "elevated" }); return 0; });
+  useEffect(() => { track("professional_escalation_shown", { source: (params.source as string) || "manual", risk_level: (params.risk as string) || "elevated" }); }, []);
 
   const createSummary = async () => {
     if (!title.trim()) { Alert.alert("Add a title", "Give this job a short title so a pro knows what it's about."); return; }

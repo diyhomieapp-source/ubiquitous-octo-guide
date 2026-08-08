@@ -53,6 +53,8 @@ import subscription_engine
 import analytics_engine
 import escalation_engine
 import rewards_engine
+import measurement_engine
+import cleanup_engine
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -8901,6 +8903,14 @@ app.include_router(escalation_engine.build_public_router())
 rewards_engine.configure(db, logger)
 app.include_router(rewards_engine.build_router(get_current_user))
 app.include_router(rewards_engine.build_admin_router(require_admin))
+
+# Guided Measurement & AR Capture Foundation (Build Blueprint 15).
+measurement_engine.configure(db, logger)
+app.include_router(measurement_engine.build_router(get_current_user))
+
+# Project Cleanup, Leftover Materials & Disposal Guidance (Build Blueprint 16).
+cleanup_engine.configure(db, logger)
+app.include_router(cleanup_engine.build_router(get_current_user))
 
 app.add_middleware(
     CORSMiddleware,
