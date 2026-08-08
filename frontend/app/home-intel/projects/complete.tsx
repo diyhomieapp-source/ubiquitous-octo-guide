@@ -52,6 +52,7 @@ export default function CompleteProject() {
         <ScrollView contentContainerStyle={{ padding: spacing.lg }}>
           <View style={styles.doneCard}><MaterialCommunityIcons name="party-popper" size={44} color={colors.brandPrimary} /><Text style={styles.doneTitle}>Saved to your home history</Text></View>
           <Text style={styles.next}>What&apos;s next?</Text>
+          <NextBtn testID="next-cleanup" icon="broom" label="Clean up & log leftovers" highlight onPress={() => router.replace(`/home-intel/cleanup?project_id=${id}`)} />
           <NextBtn testID="next-maintenance" icon="calendar-clock" label="Schedule maintenance" onPress={() => Alert.alert("Maintenance", "The Maintenance Scheduler is coming in the next update.")} />
           <NextBtn testID="next-another" icon="plus-circle-outline" label="Start another project" onPress={() => router.replace("/home-intel/projects/start")} />
           <NextBtn testID="next-pro" icon="account-hard-hat" label="Share with a professional" onPress={() => router.replace("/pros")} />
@@ -96,8 +97,8 @@ export default function CompleteProject() {
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) { return <><Text style={styles.label}>{label}</Text>{children}</>; }
-function NextBtn({ icon, label, onPress, testID }: any) {
-  return <Pressable testID={testID} style={styles.nextBtn} onPress={onPress}><MaterialCommunityIcons name={icon} size={20} color={colors.brandPrimary} /><Text style={styles.nextText}>{label}</Text><MaterialCommunityIcons name="chevron-right" size={20} color={colors.onSurfaceTertiary} /></Pressable>;
+function NextBtn({ icon, label, onPress, testID, highlight }: any) {
+  return <Pressable testID={testID} style={[styles.nextBtn, highlight && styles.nextBtnHi]} onPress={onPress}><MaterialCommunityIcons name={icon} size={20} color={colors.brandPrimary} /><Text style={styles.nextText}>{label}</Text><MaterialCommunityIcons name="chevron-right" size={20} color={colors.onSurfaceTertiary} /></Pressable>;
 }
 
 const styles = StyleSheet.create({
@@ -118,5 +119,6 @@ const styles = StyleSheet.create({
   doneTitle: { color: colors.onSurface, fontFamily: font.display, fontSize: type.xl, marginTop: spacing.md, textAlign: "center" },
   next: { color: colors.onSurface, fontFamily: font.bold, fontSize: type.lg, marginTop: spacing.lg, marginBottom: spacing.sm },
   nextBtn: { flexDirection: "row", alignItems: "center", gap: spacing.sm, backgroundColor: colors.surfaceSecondary, borderColor: colors.border, borderWidth: 1, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.sm },
+  nextBtnHi: { borderColor: colors.brandPrimary, backgroundColor: colors.brandPrimary + "14" },
   nextText: { flex: 1, color: colors.onSurface, fontFamily: font.bold, fontSize: type.base },
 });

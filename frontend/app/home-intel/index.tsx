@@ -128,6 +128,14 @@ export default function HomeIntelDashboard() {
           <MaterialCommunityIcons name="book-open-variant" size={20} color={colors.brandPrimary} />
           <Text style={styles.secondaryText}>Knowledge Base</Text>
         </Pressable>
+        <Pressable testID="hi-collab" style={styles.secondary} onPress={() => router.push("/home-intel/collab")}>
+          <MaterialCommunityIcons name="account-multiple-plus-outline" size={20} color={colors.brandPrimary} />
+          <Text style={styles.secondaryText}>Share &amp; Collaborators</Text>
+        </Pressable>
+        <Pressable testID="hi-shared" style={styles.secondary} onPress={() => router.push("/home-intel/collab/shared")}>
+          <MaterialCommunityIcons name="home-account" size={20} color={colors.brandPrimary} />
+          <Text style={styles.secondaryText}>Shared With Me</Text>
+        </Pressable>
         <Pressable testID="hi-inventory" style={styles.secondary} onPress={() => router.push("/home-intel/inventory")}>
           <MaterialCommunityIcons name="toolbox-outline" size={20} color={colors.brandPrimary} />
           <Text style={styles.secondaryText}>My Toolbox</Text>

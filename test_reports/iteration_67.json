@@ -1,0 +1,28 @@
+{
+  "summary": "Blueprint 22 (Property Collaboration, Roles & Shared Access) end-to-end tested. Backend: 20/20 pytest tests PASSED covering owner invite creation (plaintext token returned once, hash never exposed), invite listing (excludes invite_token_hash), invite acceptance, my-permissions, shared-with-me, server-side authorization (non-owner invitee gets 403 on /invites, /audit, POST /invite; stranger gets 403 on /my-permissions), garbage-token rejection ('no longer active'), role change (owner only), member removal (immediate access revocation confirmed via shared-with-me + my-permissions 403), assignment create/list/respond, and invite revoke. Frontend: Owner flow (hi-collab -> cb-role-editor -> cb-email -> cb-invite -> cb-token card) works; Invitee flow (hi-shared -> sw-token -> sw-accept -> sw-prop-*) works. Guided Cleanup Nudge on /home-intel/projects/complete works: cmp-save shows post-completion 'What's next?' list with highlighted next-cleanup navigating to /home-intel/cleanup?project_id=... All critical acceptance criteria met.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_collaboration_b22.py",
+    "/app/test_reports/pytest/collab_b22_iter67.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "collaboration_engine.py: revoke_invite currently returns 404 (not 403) when a non-owner tries to revoke; matches project convention (don't leak invite existence). Acceptable.",
+    "accept_invite in-place upserts a previously 'removed' member — after removal, if the same token/email is re-invited and accepted, the member becomes active again. This is the intended behavior; documented via audit trail."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_collaboration_b22.py (new)"
+  ],
+  "success_rate": { "backend": "100%", "frontend": "100%" },
+  "seed_data_creation": "Backend tests register throwaway TEST_stranger_<ts>@diyhomie.com users (registered via /api/auth/register). One-off TEST_revoke_<ts>@diyhomie.com invite created and revoked as part of test_owner_creates_and_revokes_invite. Owner-property (My Home) had the invitee accepted, then removed by tests — expected end state.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Backend router is at /api/hi/collab/*. Tokens are plaintext-once (returned only from POST /invite) and stored as SHA-256; list endpoints strip invite_token_hash. Reusable pytest module at /app/backend/tests/test_collaboration_b22.py. Frontend testIDs: hi-collab, hi-shared, cb-role-<role>, cb-email, cb-invite, cb-token, cb-remove-*, cb-revoke-*, sw-token, sw-accept, sw-prop-*, cmp-save, next-cleanup. Login uses testIDs auth-email-input / auth-password-input / auth-submit-button on /auth?mode=login. Cleanup hub URL: /home-intel/cleanup?project_id=<id>.",
+  "rca_of_issue": "N/A — no defects found."
+}

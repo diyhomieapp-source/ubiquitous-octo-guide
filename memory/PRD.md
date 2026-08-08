@@ -428,3 +428,14 @@ Test credentials: demo_home@diyhomie.com / Test1234 ; admin Diyhomieapp@gmail.co
 - Backend curl-verified (NBA, blocker surfacing/resolve, budget change impact). Frontend E2E pending testing_agent.
 
 ### PENDING QUEUE: B14 Photo Room Design (Gemini Nano Banana); B17 AI Orchestration Gateway; Twin-from-photos; Connect Pipedream (needs key).
+
+---
+## Session update (fork) cont. — Blueprint 22 shipped (Property Collaboration & Shared Access)
+- **B22 Property Collaboration, Roles & Shared Access** — NEW `collaboration_engine.py`. Property-scoped SERVER-SIDE RBAC on top of existing JWT auth (NO changes to login/auth). Roles: owner/property_manager/editor/contributor/viewer/professional_guest (expiring). ROLE_PERMS map + reusable `check_access(pid,user,permission_key)` / `require(...)` helpers (owner bypass; wildcard `room.*` matching; guest expiry auto-suspend). Collections: prop_members, collab_invites, collab_activity, task_assignments, collab_audit. Users collection = `db.users`; properties owner field = hi_properties.user_id, name field = "name".
+- Invites: secure `secrets.token_urlsafe(32)` tokens stored ONLY as SHA-256 hash; plaintext returned once; dedupe pending invite per email; 14-day (guest 7-day) expiry. Accept validates hash+expiry, creates/activates member. Owner-only: invite/list-invites/revoke/change-role/remove/audit. Server-side 403 enforced (verified: non-owner gets 403 on /invites). Assignments (assign/respond/my-assignments). Activity feed + full audit log.
+- Routers: /api/hi/collab/* (owned, shared-with-me, my-permissions, members, invites, invite, invites/accept, members/{id}/role|remove, activity, audit, assign, assignments, my-assignments, assignments/{id}/respond). Configured in server.py.
+- Frontend: app/home-intel/collab/{index(owner manage),shared(shared-with-me + accept + my assignments),accept(deep-link redirect)}.tsx. Entries: HI dashboard "Share & Collaborators" (hi-collab) + "Shared With Me" (hi-shared).
+- **Guided Cleanup Nudge**: project completion screen (complete.tsx) now shows a highlighted "Clean up & log leftovers" action (next-cleanup) → /home-intel/cleanup.
+- Backend curl-verified end-to-end (invite→register→accept→shared-with-me→scoped perms→403 enforcement). TEST USER: collab_test@diyhomie.com / Test1234. Frontend E2E pending testing_agent.
+
+### PENDING QUEUE: B14 Photo Room Design (Gemini Nano Banana); B17 AI Orchestration Gateway (route AI via Knowledge Base); Twin-from-photos; Connect Pipedream (needs key).
