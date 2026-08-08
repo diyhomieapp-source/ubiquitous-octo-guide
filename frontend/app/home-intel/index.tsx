@@ -152,6 +152,10 @@ export default function HomeIntelDashboard() {
           <MaterialCommunityIcons name="trophy-outline" size={20} color={colors.brandPrimary} />
           <Text style={styles.secondaryText}>DIYhomie Points</Text>
         </Pressable>
+        <Pressable testID="hi-exit" style={styles.secondary} onPress={() => router.push("/home-intel/exit")}>
+          <MaterialCommunityIcons name="tag-arrow-right-outline" size={20} color={colors.brandPrimary} />
+          <Text style={styles.secondaryText}>Sell, Donate or Recycle</Text>
+        </Pressable>
 
         {loading ? <ActivityIndicator color={colors.brandPrimary} style={{ marginTop: spacing.xl }} /> : (
           <>

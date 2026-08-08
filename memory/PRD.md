@@ -466,3 +466,13 @@ Test credentials: demo_home@diyhomie.com / Test1234 ; admin Diyhomieapp@gmail.co
 - Curl-verified: dashboard summary + connectors + 5 domains, ai-costs, refresh 200.
 
 Test credentials: demo_home@diyhomie.com / Test1234 ; admin Diyhomieapp@gmail.com / diyhomie1122.
+
+---
+## Session update (fork) cont. — Blueprint 26 shipped
+
+**B26 Asset Exit, Resale & Responsible Disposition Engine** — `asset_exit_engine.py` (additive). Flow: identify → assess condition (user-reported AND optional AI photo-observed, kept SEPARATE; AI never certifies function/authenticity/safety) → estimate exit paths (AI valuation ranges, always ESTIMATES not offers) → compare effort/speed/value/suitability → route to approved partner (user-value ranking, commission last, disclosures shown) → complete → asset lifecycle update (hi_assets status sold/traded_in/donated/recycled/disposed; inventory archived; history preserved). DIYhomie holds no funds / verifies no buyers / handles no payments. Private-sale safety education included. Recycle/donate/dispose flagged needs_verification (local rules vary).
+- User: `/api/hi/exit/*` (config, cases CRUD, assess, options, compare w/ highlights best/highest-return/fastest/lowest-effort/most-sustainable, select, safety, listing generate+review, complete, report-valuation). Screens `app/home-intel/exit/{index,[id]}.tsx`. Entry: HI dashboard "Sell, Donate or Recycle" (testID hi-exit).
+- Admin: `/api/hi/admin/exit/*` (dashboard, categories enable/disable, partners CRUD+pause/activate, valuation flags resolve). Module `AssetExitModule.tsx` → /admin key `assetexit`. 7 seeded exit partners.
+- Curl-verified: full flow (start→assess→options w/ AI valuation $300-400 for iPhone→compare best=private_sale→complete sold), admin dashboard, demo→403 on admin. AI valuation/listing use _llm_json (feature_area tagged for B25 cost tracking).
+
+Admin nav order now starts: Overview, Homie HQ, Asset Exit & Resale, Product Analytics, ... + Rewards Funding.

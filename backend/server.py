@@ -63,6 +63,7 @@ import collaboration_engine
 import recommendation_engine
 import rewards_funding_engine
 import homie_hq_engine
+import asset_exit_engine
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -8977,6 +8978,12 @@ app.include_router(rewards_funding_engine.build_admin_router(require_admin))
 homie_hq_engine.configure(db, logger, PLAN_TIERS)
 app.include_router(homie_hq_engine.build_admin_router(require_admin))
 
+# Asset Exit, Resale & Responsible Disposition (Build Blueprint 26).
+asset_exit_engine.configure(db, logger, _llm_json, EMERGENT_LLM_KEY)
+app.include_router(asset_exit_engine.build_router(get_current_user))
+app.include_router(asset_exit_engine.build_admin_router(require_admin))
+
+
 
 
 app.add_middleware(
@@ -9076,6 +9083,7 @@ async def _startup_seed_community():
     await recommendation_engine.seed_recommendations()
     await rewards_funding_engine.seed_funding()
     await homie_hq_engine.seed_hq()
+    await asset_exit_engine.seed_exit()
 
 
 @app.on_event("startup")
