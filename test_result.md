@@ -376,3 +376,14 @@ NOTE: generation is a single backend call, so stages are time-progressed (approx
 - Frontend: admin MonitoringModule.tsx (status card + services + live metrics + status-bucket badges + top failing + recent errors + incident log/resolve + refresh). nav admin-nav-monitoring. Admin-only (no user screen).
 - CURL-VERIFIED: 404 captured → error_events; health(degraded w/ err_rate 33% on tiny sample), metrics(reqs/errors/avg/p95/by_status), errors(top_failing), incident create+resolve, non-admin 403. Lint clean.
 - SCOPE NOTE: auto-scaling & code rollback need infra/hosting control not available here; surfaced as advisory thresholds + note to connect Sentry/DataDog. Self-verified via curl (admin-only feature).
+
+## Iteration 56 — Blueprint 09: Subscription Access, Feature Gating & Billing (main agent, forked)
+- NEW MODULE /app/backend/subscription_engine.py (HI-facing). Wired in server.py: import + configure(db,logger) + include_router(build_router(get_current_user)) after onboarding (B08). Reuses EXISTING tested Stripe checkout/webhook/portal in server.py — owns NO payment secrets.
+- Tiers free/starter/pro derived from user.subscription_tier (master→pro). Added "starter" ($9, lookup diyhomie_starter_monthly) to PLAN_TIERS alongside pro ($12).
+- Entitlement matrix LIMITS (free/starter/pro): homes 1/3/∞, projects 3/25/∞, chat_daily 15/100/∞, inventory 25/250/∞, documents 10/100/∞ + flags reminders/code_check/export/priority_ai.
+- Shared gate: check(user,feature) + enforce(user,feature)→HTTPException(402). Wired enforce into: conversation_hub send_message ("chat" daily), project_planner /start ("project"), onboarding create_property ("home").
+- Endpoints: GET /api/hi/subscription/me (tier, plan, limits, usage snapshot, status), GET /api/hi/subscription/plans (catalogue w/ highlights + current flag).
+- CURL-VERIFIED (demo_home@diyhomie.com free tier): /me returns tier free + usage; /plans lists free/starter($9)/pro($12); project start → 402; property create → 402. Backend reloaded clean, routes registered.
+- FRONTEND: NEW app/home-intel/upgrade.tsx paywall (usage bars, plan cards w/ highlights, Choose Starter/Pro → POST /billing/checkout {tier,origin_url} via WebBrowser mirroring existing app/paywall.tsx, Manage billing → /billing/customer-portal). "Your plan" card added to home-intel/account (→ /home-intel/upgrade). 402 handling added to chat/[id].tsx, projects/start.tsx, account/index.tsx addHome → Alert w/ "See plans" → /home-intel/upgrade. Lint clean. Unauth render smoke OK.
+- PENDING: frontend E2E via testing agent (login flow → paywall render w/ real plans/usage, gating alerts). Home Switcher shortcut + First Run banner on home-intel/index.tsx also PENDING authenticated verification.
+- NOTE: Stripe key in pod is a LIVE key (sk_live) — do NOT complete real checkout in tests; only verify checkout URL/session creation.

@@ -1,10 +1,10 @@
 import { useCallback, useState } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, ActivityIndicator, Alert } from "react-native";
-import { useFocusEffect } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 import { colors, spacing, radius, font, type } from "@/src/theme";
-import { api } from "@/src/api";
+import { api, ApiError } from "@/src/api";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
 
 type Prefs = { experience_level: string; budget_sensitivity: string; risk_tolerance: string; tone: string; units: string };
@@ -22,7 +22,9 @@ const PREF_FIELDS: { key: keyof Prefs; label: string; opts: { k: string; l: stri
 const PROP_TYPES = ["House", "Apartment", "Condo", "Townhouse", "Mobile Home", "Other"];
 
 export default function Account() {
+  const router = useRouter();
   const [ov, setOv] = useState<Overview | null>(null);
+  const [tier, setTier] = useState<string>("free");
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -32,6 +34,7 @@ export default function Account() {
     try { setOv(await api<Overview>("/hi/account/overview")); setLoadError(false); }
     catch { setLoadError(true); }
     finally { setLoading(false); }
+    try { const s = await api<{ tier: string }>("/hi/subscription/me"); setTier(s.tier); } catch {}
   }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
@@ -45,7 +48,14 @@ export default function Account() {
     try {
       await api("/hi/account/properties", { method: "POST", body: { name: form.name.trim(), property_type: form.property_type, year_built: form.year_built ? parseInt(form.year_built, 10) : undefined } });
       setForm({ name: "", property_type: "House", year_built: "" }); setAdding(false); load();
-    } catch (e: any) { Alert.alert("Couldn't add", e?.message || "Try again."); }
+    } catch (e: any) {
+      if (e instanceof ApiError && e.status === 402) {
+        Alert.alert("Home limit reached", e.message, [
+          { text: "Not now", style: "cancel" },
+          { text: "See plans", onPress: () => router.push("/home-intel/upgrade") },
+        ]);
+      } else { Alert.alert("Couldn't add", e?.message || "Try again."); }
+    }
   };
   const removeHome = (id: string) => {
     Alert.alert("Remove home?", "This removes the home profile.", [
@@ -87,6 +97,15 @@ export default function Account() {
             ))}
           </View>
         )}
+
+        <Pressable testID="account-plan-card" style={styles.planCard} onPress={() => router.push("/home-intel/upgrade")}>
+          <View style={styles.planIcon}><MaterialCommunityIcons name="crown-outline" size={20} color={colors.brandPrimary} /></View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.planCardTitle}>{tier === "free" ? "Free plan" : (tier === "starter" ? "Starter plan" : "Pro plan")}</Text>
+            <Text style={styles.planCardSub}>{tier === "pro" ? "You have unlimited access." : "View plans, usage & upgrade"}</Text>
+          </View>
+          <MaterialCommunityIcons name="chevron-right" size={22} color={colors.onSurfaceTertiary} />
+        </Pressable>
 
         <Text style={styles.section}>Guidance preferences</Text>
         <Text style={styles.hint}>Homie tailors its chat and project plans to these.</Text>
@@ -146,6 +165,10 @@ export default function Account() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.surface },
   progressCard: { backgroundColor: colors.surfaceSecondary, borderColor: colors.border, borderWidth: 1, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.md },
+  planCard: { flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: colors.surfaceSecondary, borderColor: colors.border, borderWidth: 1, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.md },
+  planIcon: { width: 40, height: 40, borderRadius: radius.pill, backgroundColor: colors.surfaceTertiary, alignItems: "center", justifyContent: "center" },
+  planCardTitle: { color: colors.onSurface, fontFamily: font.bold, fontSize: type.lg },
+  planCardSub: { color: colors.onSurfaceTertiary, fontFamily: font.regular, fontSize: type.sm, marginTop: 2 },
   progressHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   progressTitle: { color: colors.onSurface, fontFamily: font.bold, fontSize: type.lg },
   progressPct: { color: colors.brandPrimary, fontFamily: font.bold, fontSize: type.lg },

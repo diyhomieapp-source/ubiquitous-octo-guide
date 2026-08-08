@@ -182,6 +182,8 @@ def build_router(get_current_user: Callable) -> APIRouter:
     async def create_property(req: PropertyReq, user: dict = Depends(get_current_user)):
         if not req.name.strip():
             raise HTTPException(status_code=400, detail="Give this home a name.")
+        import subscription_engine
+        await subscription_engine.enforce(user, "home")
         existing = await _db.hi_properties.count_documents({"user_id": user["id"]})
         doc = {"id": _new_id(), "user_id": user["id"], "name": req.name.strip()[:80], "address": req.address,
                "property_type": req.property_type,

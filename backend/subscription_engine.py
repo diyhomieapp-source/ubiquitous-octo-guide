@@ -1,0 +1,153 @@
+"""
+DIYhomie — Subscription Access, Feature Gating & Billing (Build Blueprint 09).
+
+Adds a Home-Intelligence–facing subscription layer with three tiers
+(free / starter / pro) and a reusable feature-gating helper the other HI
+engines call to enforce plan limits. Checkout reuses the existing, tested
+Stripe recurring-subscription flow in server.py (POST /api/billing/checkout),
+so this module owns NO payment secrets — it only reads the user's
+`subscription_tier` (kept in sync by the existing Stripe webhook) and derives
+entitlements from it.
+
+Endpoints (prefix /api/hi/subscription):
+  GET /me     — current tier, plan meta, limits, live usage snapshot
+  GET /plans  — plan catalogue for the paywall
+
+Shared helpers (imported by other engines):
+  _tier(user)              -> "free" | "starter" | "pro"
+  check(user, feature)     -> (allowed: bool, info: dict)
+  enforce(user, feature)   -> raises HTTPException(402) when over the limit
+"""
+from datetime import datetime, timezone
+from typing import Callable, Tuple
+
+from fastapi import APIRouter, Depends, HTTPException
+
+_db = None
+_logger = None
+
+TIERS = ["free", "starter", "pro"]
+
+# Product-facing plan metadata. `checkout_tier` maps to server.py PLAN_TIERS keys
+# that drive the existing Stripe checkout (None = free, no checkout).
+PLAN_META = {
+    "free":    {"label": "Free",    "price_label": "$0",     "amount": 0,    "checkout_tier": None,
+                "tagline": "The essentials to get started"},
+    "starter": {"label": "Starter", "price_label": "$9/mo",  "amount": 900,  "checkout_tier": "starter",
+                "tagline": "For active homeowners"},
+    "pro":     {"label": "Pro",     "price_label": "$12/mo", "amount": 1200, "checkout_tier": "pro",
+                "tagline": "Unlimited everything"},
+}
+
+# -1 == unlimited. Count-based limits, plus feature flags.
+LIMITS = {
+    "free":    {"homes": 1,  "projects": 3,  "chat_daily": 15,  "inventory": 25,  "documents": 10,
+                "reminders": False, "code_check": False, "export": False, "priority_ai": False},
+    "starter": {"homes": 3,  "projects": 25, "chat_daily": 100, "inventory": 250, "documents": 100,
+                "reminders": True,  "code_check": False, "export": True,  "priority_ai": False},
+    "pro":     {"homes": -1, "projects": -1, "chat_daily": -1,  "inventory": -1,  "documents": -1,
+                "reminders": True,  "code_check": True,  "export": True,  "priority_ai": True},
+}
+
+FEATURE_HIGHLIGHTS = {
+    "free": ["1 home profile", "3 saved projects", "15 Homie AI chats / day",
+             "Track up to 25 tools & materials", "10 documents in your vault"],
+    "starter": ["3 home profiles", "25 saved projects", "100 Homie AI chats / day",
+                "250 inventory items", "100 vault documents", "Maintenance reminders"],
+    "pro": ["Unlimited homes", "Unlimited projects", "Unlimited Homie AI chats",
+            "Unlimited inventory & documents", "Local code checks", "Priority AI & data export"],
+}
+
+# feature key -> LIMITS key
+FEATURE_LIMIT_KEY = {
+    "home": "homes", "project": "projects", "inventory": "inventory",
+    "document": "documents", "chat": "chat_daily",
+}
+
+DENY_MSG = {
+    "home": "You've reached your plan's home limit. Upgrade to add more homes.",
+    "project": "You've reached your plan's saved-project limit. Upgrade for more projects.",
+    "chat": "You've hit today's Homie AI chat limit on your plan. Upgrade for more daily chats.",
+    "inventory": "You've reached your plan's inventory limit. Upgrade to track more items.",
+    "document": "You've reached your plan's document limit. Upgrade for more vault storage.",
+}
+
+
+def configure(db, logger):
+    global _db, _logger
+    _db, _logger = db, logger
+
+
+def _tier(user: dict) -> str:
+    st = (user.get("subscription_tier") or "free").lower()
+    if st == "master":          # legacy top tier grants full HI access
+        return "pro"
+    if st in ("starter", "pro"):
+        return st
+    return "free"
+
+
+async def _usage_count(user_id: str, feature: str) -> int:
+    if feature == "home":
+        return await _db.hi_properties.count_documents({"user_id": user_id})
+    if feature == "project":
+        return await _db.hi_projects.count_documents({"user_id": user_id, "status": {"$ne": "archived"}})
+    if feature == "inventory":
+        return await _db.hi_inventory_items.count_documents({"user_id": user_id, "status": {"$ne": "archived"}})
+    if feature == "document":
+        return await _db.hi_documents.count_documents({"user_id": user_id})
+    if feature == "chat":
+        today = datetime.now(timezone.utc).date().isoformat()
+        return await _db.hi_conversation_messages.count_documents(
+            {"user_id": user_id, "role": "user", "created_at": {"$regex": f"^{today}"}})
+    return 0
+
+
+async def check(user: dict, feature: str) -> Tuple[bool, dict]:
+    """Return (allowed, {tier, limit, used}). limit == -1 means unlimited."""
+    tier = _tier(user)
+    lk = FEATURE_LIMIT_KEY[feature]
+    limit = LIMITS[tier][lk]
+    if limit == -1:
+        return True, {"tier": tier, "limit": -1, "used": None}
+    used = await _usage_count(user["id"], feature)
+    return (used < limit), {"tier": tier, "limit": limit, "used": used}
+
+
+async def enforce(user: dict, feature: str):
+    """Raise HTTPException(402) when the user is at/over the plan limit."""
+    allowed, _info = await check(user, feature)
+    if not allowed:
+        raise HTTPException(status_code=402, detail=DENY_MSG.get(feature, "Upgrade required to continue."))
+
+
+def build_router(get_current_user: Callable) -> APIRouter:
+    r = APIRouter(prefix="/api/hi/subscription", dependencies=[Depends(get_current_user)])
+
+    @r.get("/me")
+    async def me(user: dict = Depends(get_current_user)):
+        tier = _tier(user)
+        usage = {}
+        for f in ("home", "project", "chat", "inventory", "document"):
+            _, info = await check(user, f)
+            usage[f] = {"used": info["used"], "limit": info["limit"]}
+        return {
+            "tier": tier,
+            "plan": PLAN_META[tier],
+            "limits": LIMITS[tier],
+            "highlights": FEATURE_HIGHLIGHTS[tier],
+            "usage": usage,
+            "status": user.get("subscription_status", "active" if tier != "free" else "none"),
+            "has_customer": bool(user.get("stripe_customer_id")),
+        }
+
+    @r.get("/plans")
+    async def plans(user: dict = Depends(get_current_user)):
+        cur = _tier(user)
+        return {"current_tier": cur, "plans": [
+            {"tier": t, **PLAN_META[t], "highlights": FEATURE_HIGHLIGHTS[t],
+             "limits": LIMITS[t], "current": t == cur}
+            for t in TIERS
+        ]}
+
+    return r

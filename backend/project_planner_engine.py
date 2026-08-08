@@ -176,6 +176,8 @@ def build_router(get_current_user: Callable) -> APIRouter:
         goal = (req.goal or "").strip()
         if not goal:
             raise HTTPException(status_code=400, detail="Tell us what you'd like to do.")
+        import subscription_engine
+        await subscription_engine.enforce(user, "project")
         prop = await _get_or_create_property(user["id"])
         # classify goal → title + category (or a single clarifying question)
         system = (

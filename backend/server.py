@@ -49,6 +49,7 @@ import push_engine
 import reminders_engine
 import inventory_engine
 import onboarding_engine
+import subscription_engine
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -5292,6 +5293,8 @@ class SubscribeReq(BaseModel):
 
 # Server-side plan definitions. NEVER trust prices/amounts from the client.
 PLAN_TIERS = {
+    "starter": {"name": "DIYhomie Starter", "amount": 900, "credits": 150, "voice_minutes": 20,
+                "lookup_key": "diyhomie_starter_monthly", "label": "Starter"},
     "pro": {"name": "DIYhomie Pro", "amount": 1200, "credits": 500, "voice_minutes": 60,
             "lookup_key": "diyhomie_pro_monthly", "label": "Pro"},
     "master": {"name": "DIYhomie Master", "amount": 2900, "credits": 2000, "voice_minutes": 240,
@@ -8875,6 +8878,10 @@ app.include_router(inventory_engine.build_router(get_current_user))
 # Account, Property Onboarding & Guidance Preferences (Build Blueprint 08).
 onboarding_engine.configure(db, logger)
 app.include_router(onboarding_engine.build_router(get_current_user))
+
+# Subscription Access, Feature Gating & Billing (Build Blueprint 09).
+subscription_engine.configure(db, logger)
+app.include_router(subscription_engine.build_router(get_current_user))
 
 app.add_middleware(
     CORSMiddleware,

@@ -5,7 +5,7 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 import { colors, spacing, radius, font, type } from "@/src/theme";
-import { api } from "@/src/api";
+import { api, ApiError } from "@/src/api";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
 import { pickFromLibrary, takePhoto } from "@/src/utils/pickImage";
 
@@ -72,7 +72,15 @@ export default function ChatThread() {
       await api(`/hi/chat/conversations/${id}/message`, { method: "POST", body: { text, image_base64: photo || undefined } });
       await load();
       setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 80);
-    } catch (e: any) { Alert.alert("Couldn't send", e?.message || "Try again."); load(); }
+    } catch (e: any) {
+      if (e instanceof ApiError && e.status === 402) {
+        setMsgs((m) => m.filter((x) => x.id !== optimistic.id));
+        Alert.alert("Daily chat limit reached", e.message, [
+          { text: "Not now", style: "cancel" },
+          { text: "See plans", onPress: () => router.push("/home-intel/upgrade") },
+        ]);
+      } else { Alert.alert("Couldn't send", e?.message || "Try again."); load(); }
+    }
     finally { setSending(false); }
   };
 

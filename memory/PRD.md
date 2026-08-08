@@ -376,7 +376,7 @@ Test credentials: demo_home@diyhomie.com / Test1234 ; admin Diyhomieapp@gmail.co
 - Note: maintenance/documents lists remain user-scoped (acceptable). DRY: _get_or_create_property still duplicated across engines (future refactor).
 
 **QUEUED / PENDING:**
-- Blueprint 09 — Subscriptions/Billing (Paddle): NEEDS Paddle API keys from user (route via integration_expert). free/starter/pro plans + feature gating + checkout.
+- Blueprint 09 — Subscriptions/Billing: DONE (Stripe, not Paddle — reused existing tested Stripe checkout/webhook/portal). New `subscription_engine.py` defines free/starter/pro HI tiers + entitlement matrix + reusable enforce() gate. Added "starter" ($9) to PLAN_TIERS alongside pro ($12); legacy "master" maps to pro. Gating live on: Homie chat (daily), project create, home create → HTTP 402 → frontend routes to /home-intel/upgrade paywall (usage bars + plan cards + Manage billing). "Your plan" card in Setup & Preferences. NOTE: Stripe key in env is a LIVE key — real checkout not exercised in tests (only session/URL creation).
 - Guided First Run: turn onboarding checklist into a first-launch walkthrough.
 - Push: awaiting user's google-services.json for Android push before build. (central chat front-door using room/asset/project/doc context; context selector; photo ID; conversation→approved records with user approval; history; hi_conversation_*).
 - Blueprint 07 — Tool/Material/Supply Inventory (hi_inventory_*; add/identify(photo)/edit/archive; storage locations; project shopping-list matching 'Already Have/Need to Buy/Need Verification'; usage/leftovers). Integrates with B03 project materials.

@@ -45,7 +45,14 @@ export default function StartProject() {
             { text: "OK", onPress: () => router.replace(`/home-intel/projects/${pid}`) }]);
         } else { throw e; }
       }
-    } catch (e: any) { Alert.alert("Couldn't start", e?.message || "Try again."); }
+    } catch (e: any) {
+      if (e instanceof ApiError && e.status === 402) {
+        Alert.alert("Project limit reached", e.message, [
+          { text: "Not now", style: "cancel" },
+          { text: "See plans", onPress: () => router.push("/home-intel/upgrade") },
+        ]);
+      } else { Alert.alert("Couldn't start", e?.message || "Try again."); }
+    }
     finally { setBusy(false); }
   };
 

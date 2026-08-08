@@ -268,6 +268,8 @@ def build_router(get_current_user: Callable) -> APIRouter:
         text = (req.text or "").strip()
         if not text and not req.image_base64:
             raise HTTPException(status_code=400, detail="Type a message or attach a photo.")
+        import subscription_engine
+        await subscription_engine.enforce(user, "chat")
 
         # persist the user's message (store image if present)
         photo_id = None
