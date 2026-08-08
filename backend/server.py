@@ -67,6 +67,7 @@ import asset_exit_engine
 import ar_guidance_engine
 import notification_engine
 import compliance_engine
+import pro_workspace_engine
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -9001,6 +9002,12 @@ compliance_engine.configure(db, logger)
 app.include_router(compliance_engine.build_router(get_current_user))
 app.include_router(compliance_engine.build_admin_router(require_admin))
 
+# Professional Existing Conditions Workspace (Build Blueprint 30).
+pro_workspace_engine.configure(db, logger)
+app.include_router(pro_workspace_engine.build_router(get_current_user))
+app.include_router(pro_workspace_engine.build_admin_router(require_admin))
+
+
 
 
 
@@ -9108,6 +9115,7 @@ async def _startup_seed_community():
     await ar_guidance_engine.seed_ar()
     await notification_engine.seed_notifications()
     await compliance_engine.seed_compliance()
+    await pro_workspace_engine.seed_pro()
 
 
 @app.on_event("startup")
