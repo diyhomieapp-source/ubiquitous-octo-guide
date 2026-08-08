@@ -1,0 +1,35 @@
+{
+  "summary": "Frontend-only E2E test of Blueprint 15 (Guided Measurement) and Blueprint 16 (Cleanup & Disposal) via web preview at mobile viewport 390x844. Logged in as demo_home@diyhomie.com and exercised every required flow. Overall: 9/10 acceptance criteria PASS. One functional bug found: after tapping 'Finish cleanup' the completion summary card disappears immediately because the hub POSTs a new /hi/cleanup/sessions on the follow-up load(), creating a fresh empty active session and clearing outcome/isDone state. All measurement flows (manual create, list, detail edit, edit-history, verify/confirm badge, camera_estimate warning + ESTIMATE tag) work as designed. Cleanup add-leftover, keep→Toolbox IN TOOLBOX tag, add-waste → waste guidance screen (risk-colored safety note + what-to-do text + local verification note), pick action + mark-as-handled all work. proj-cleanup on project workspace navigates to /home-intel/cleanup?project_id=... correctly. No deprecated Expo/React-Native packages detected in scope of screens tested.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "home-intel/cleanup/index.tsx",
+        "issue": "After tapping 'Finish cleanup', the completion summary card flashes and is immediately replaced by an empty new session. `complete()` calls `await load()` which POSTs `/hi/cleanup/sessions` again; because the previous session is now completed, the backend returns a NEW active session with empty leftovers/waste and outcome=null, so isDone becomes false and the celebratory summary is lost. Fix: after `complete()` do NOT call load(); instead update local state (setSession({...session, status: 'completed'})) and keep `outcome` from the complete response. Also consider guarding the POST in load() so it only creates a new session if none exists / previous is not completed — otherwise re-focusing this screen after completion will always spawn a new session.",
+        "testID": "cleanup-complete",
+        "priority": "HIGH"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Fix cleanup completion summary regression: stop re-creating a session on load() after complete(); persist `outcome`/`session.status='completed'` locally so the summary card stays visible until the user leaves the screen.",
+    "Optional hardening: on cleanup hub mount, GET the latest session for the project first; only POST /hi/cleanup/sessions if there is no active session. This prevents duplicate session churn on every focus.",
+    "Nit: pass mode=login to /auth or provide a router.push('/auth?mode=login') helper — default landing mode is 'register', which is easy to misfire in tests and for returning users. Not a blocker."
+  ],
+  "critical_code_review_comments": [
+    "measure/[id].tsx correctly wires PUT /hi/measurements/:id, POST /hi/measurements/:id/confirm, and DELETE with a native confirm — good use of testIDs (d-length/width/height/save/confirm/notes).",
+    "cleanup/index.tsx: load() POSTs /hi/cleanup/sessions unconditionally on every focus — creates unnecessary sessions on tab switch/navigation and breaks the completion summary. Prefer GET+conditional POST.",
+    "cleanup/add-waste.tsx uses router.replace to jump into waste guidance — good, but on `Mark as handled` we router.back() which pops to the previous stack entry; because we replaced, back returns to hub as expected. OK."
+  ],
+  "updated_files": [],
+  "success_rate": { "backend": "100%", "frontend": "90%" },
+  "seed_data_creation": "Created a few measurements (TEST_North_Wall manual and TEST_Estimate_Wall camera_estimate), a leftover (TEST_White_Tile → Toolbox), and a waste item (TEST_Half_Paint_Can Paint) tied to an existing project of demo_home@diyhomie.com. All prefixed TEST_ for easy cleanup.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Use /auth?mode=login (default is register). Demo user is demo_home@diyhomie.com / Test1234 and already has an existing project (4ae43f68-20cf-4412-b4a6-1bda9764b9f7 as of this run) — you can skip creating one. The only functional gap to retest is the completion-summary persistence on /home-intel/cleanup after tapping cleanup-complete.",
+  "rca_of_issue": "Completion-summary disappears bug: complete() -> setOutcome(o) -> await load() -> load() calls POST /hi/cleanup/sessions with project_id, which starts a new active session; then setSession(full.session)/setLeftovers([])/setWaste([])/setOutcome(null) overwrites the just-set outcome and flips isDone back to false. Repro: create a project, tap Cleanup & Disposal, add any leftover/waste, tap Finish cleanup. Observed: card is empty again with 'No leftovers logged / No waste logged' and no green summary. Expected: green 'Cleanup complete — N kept, N to Toolbox, N waste handled' persists until user navigates away. Mitigation: after complete, do NOT call load(). Just: setSession(s=>({...s,status:'completed'})). Also guard load() to not POST a new session when one exists or the last was just completed."
+}
