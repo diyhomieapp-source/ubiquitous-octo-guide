@@ -9,6 +9,7 @@ import { ScreenHeader } from "@/src/components/ScreenHeader";
 
 type Asset = { id: string; name: string; category: string; status: string };
 type Task = { id: string; user_description: string; status: string; risk_level: string; asset_name?: string; created_at: string };
+type Home = { id: string; name?: string | null; is_active?: boolean };
 
 const STATUS_COLOR: Record<string, string> = {
   active: colors.info, completed: colors.success, unresolved: colors.warning, escalated: colors.error,
@@ -20,19 +21,68 @@ export default function HomeIntelDashboard() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [count, setCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [homes, setHomes] = useState<Home[]>([]);
+  const [onboarding, setOnboarding] = useState<{ complete: boolean; progress: number } | null>(null);
+  const [switcherOpen, setSwitcherOpen] = useState(false);
 
   const load = useCallback(async () => {
     try {
       const d = await api<{ asset_count: number; recent_assets: Asset[]; recent_tasks: Task[] }>("/hi/dashboard");
       setAssets(d.recent_assets); setTasks(d.recent_tasks); setCount(d.asset_count);
     } catch {} finally { setLoading(false); }
+    try {
+      const o = await api<{ properties: Home[]; onboarding: { complete: boolean; progress: number } }>("/hi/account/overview");
+      setHomes(o.properties); setOnboarding(o.onboarding);
+    } catch {}
   }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  const activeHome = homes.find((h) => h.is_active);
+  const switchHome = async (id: string) => {
+    setSwitcherOpen(false);
+    if (id === activeHome?.id) return;
+    try { await api(`/hi/account/properties/${id}/activate`, { method: "POST" }); setLoading(true); load(); } catch {}
+  };
 
   return (
     <View style={styles.root}>
       <ScreenHeader title="Home Intelligence" />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing["3xl"] }}>
+
+        {homes.length > 0 && (
+          <View style={styles.switcherWrap}>
+            <Pressable testID="hi-home-switcher" style={styles.switcher} onPress={() => homes.length > 1 ? setSwitcherOpen((v) => !v) : router.push("/home-intel/account")}>
+              <MaterialCommunityIcons name="home-city-outline" size={18} color={colors.brandPrimary} />
+              <Text style={styles.switcherText} numberOfLines={1}>{activeHome?.name || "My Home"}</Text>
+              <MaterialCommunityIcons name={switcherOpen ? "chevron-up" : "chevron-down"} size={18} color={colors.onSurfaceTertiary} />
+            </Pressable>
+            {switcherOpen && (
+              <View style={styles.switcherMenu}>
+                {homes.map((h) => (
+                  <Pressable key={h.id} testID={`hi-home-opt-${h.id}`} style={styles.switcherOpt} onPress={() => switchHome(h.id)}>
+                    <Text style={[styles.switcherOptText, h.is_active && { color: colors.brandPrimary, fontFamily: font.bold }]} numberOfLines={1}>{h.name || "Unnamed home"}</Text>
+                    {h.is_active && <MaterialCommunityIcons name="check" size={16} color={colors.brandPrimary} />}
+                  </Pressable>
+                ))}
+                <Pressable style={styles.switcherOpt} onPress={() => { setSwitcherOpen(false); router.push("/home-intel/account"); }}>
+                  <Text style={[styles.switcherOptText, { color: colors.brandPrimary }]}>Manage homes…</Text>
+                </Pressable>
+              </View>
+            )}
+          </View>
+        )}
+
+        {onboarding && !onboarding.complete && (
+          <Pressable testID="hi-onboarding-banner" style={styles.banner} onPress={() => router.push("/home-intel/welcome")}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.bannerTitle}>Finish setting up ({onboarding.progress}%)</Text>
+              <View style={styles.bannerTrack}><View style={[styles.bannerFill, { width: `${onboarding.progress}%` }]} /></View>
+              <Text style={styles.bannerSub}>A few quick steps so Homie fits your home.</Text>
+            </View>
+            <MaterialCommunityIcons name="chevron-right" size={22} color={colors.brandPrimary} />
+          </Pressable>
+        )}
+
         <Text style={styles.hero}>What do you need help with?</Text>
 
         <Pressable testID="hi-fix" style={styles.primary} onPress={() => router.push("/home-intel/help")}>
@@ -112,6 +162,17 @@ export default function HomeIntelDashboard() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.surface },
+  switcherWrap: { marginBottom: spacing.md, zIndex: 10 },
+  switcher: { flexDirection: "row", alignItems: "center", gap: spacing.sm, backgroundColor: colors.surfaceSecondary, borderColor: colors.border, borderWidth: 1, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
+  switcherText: { flex: 1, color: colors.onSurface, fontFamily: font.bold, fontSize: type.base },
+  switcherMenu: { backgroundColor: colors.surfaceSecondary, borderColor: colors.border, borderWidth: 1, borderRadius: radius.md, marginTop: spacing.xs, overflow: "hidden" },
+  switcherOpt: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.md, paddingVertical: spacing.md, borderTopColor: colors.border, borderTopWidth: 1 },
+  switcherOptText: { color: colors.onSurfaceSecondary, fontFamily: font.medium, fontSize: type.base, flex: 1 },
+  banner: { flexDirection: "row", alignItems: "center", gap: spacing.sm, backgroundColor: colors.brandPrimary + "18", borderColor: colors.brandPrimary + "55", borderWidth: 1, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.md },
+  bannerTitle: { color: colors.onSurface, fontFamily: font.bold, fontSize: type.base },
+  bannerTrack: { height: 6, borderRadius: 3, backgroundColor: colors.surface, marginVertical: 6, overflow: "hidden" },
+  bannerFill: { height: 6, borderRadius: 3, backgroundColor: colors.brandPrimary },
+  bannerSub: { color: colors.onSurfaceTertiary, fontFamily: font.regular, fontSize: type.sm },
   hero: { color: colors.onSurface, fontFamily: font.display, fontSize: type["3xl"], marginBottom: spacing.lg },
   primary: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, backgroundColor: colors.brandPrimary, borderRadius: radius.md, paddingVertical: spacing.lg },
   primaryText: { color: colors.onBrandPrimary, fontFamily: font.bold, fontSize: type.lg },
