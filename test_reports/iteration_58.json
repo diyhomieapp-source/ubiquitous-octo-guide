@@ -1,0 +1,23 @@
+{
+  "summary": "Frontend-only E2E on Expo Web for DIYhomie Blueprint 09 subscription-experience features. All three new features render and route correctly for FREE user demo_home@diyhomie.com. Guided Walkthrough (/home-intel/welcome) loads a real screen (no 404) with progress bar '2 of 4 done · 50%', all 4 step testIDs (welcome-step-profile/property/rooms/assets), completed steps show strikethrough + 'Completed', incomplete steps show CTA (welcome-cta-<key>) that navigates correctly, and welcome-finish ('Skip for now') POSTs /api/hi/account/onboarding/complete (200) and returns to /home-intel. Upgrade Nudge (hi-upgrade-nudge) renders warning-styled 'You've reached your homes limit · 3 of 1 used · tap to see plans' and routes to /home-intel/upgrade. Plan Perks screen (/home-intel/perks) shows Free plan badge, 'What you get today' unlocked list with green checks, 'Unlock with Pro' locked list, and perks-upgrade button routes to /home-intel/upgrade. account-plan-card in /home-intel/account correctly routes FREE user to /home-intel/upgrade. No console errors during flows.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "welcome.tsx `finish()` calls router.replace('/home-intel') inside the try/finally regardless of success — good UX but silently swallows errors; consider surfacing a toast on failure so users know retry.",
+    "perks.tsx pro upsell list uses `plans.pro.highlights` instead of a dedicated locked-perks payload — cosmetic but works; comment in code already acknowledges this."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (frontend-only)", "frontend": "100%"},
+  "seed_data_creation": "None. Note: welcome-finish test flipped demo_home's onboarding_complete to true on backend (as expected by request). Banner will no longer appear on subsequent visits until backend state is reset — flag for main agent if further onboarding-banner testing is needed.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "demo_home@diyhomie.com onboarding_complete was toggled to true during welcome-finish test. To retest the hi-onboarding-banner, reset that flag on the demo user (e.g., PATCH the users collection or re-seed).",
+  "rca_of_issue": "N/A — no failures observed."
+}

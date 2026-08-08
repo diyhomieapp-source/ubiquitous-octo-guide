@@ -64,6 +64,26 @@ FEATURE_LIMIT_KEY = {
     "document": "documents", "chat": "chat_daily",
 }
 
+
+def _cap(n: int) -> str:
+    return "Unlimited" if n == -1 else str(n)
+
+
+def perks_for(tier: str) -> list:
+    """Full capability list for a tier, each flagged included/locked."""
+    L = LIMITS[tier]
+    return [
+        {"label": f"{_cap(L['homes'])} home profile" + ("" if L['homes'] == 1 else "s"), "included": True},
+        {"label": f"{_cap(L['projects'])} saved projects", "included": True},
+        {"label": f"{('Unlimited' if L['chat_daily'] == -1 else L['chat_daily'])} Homie AI chats per day", "included": True},
+        {"label": f"Track {_cap(L['inventory'])} tools & materials", "included": True},
+        {"label": f"{_cap(L['documents'])} vault documents", "included": True},
+        {"label": "Maintenance reminders", "included": L["reminders"]},
+        {"label": "Data export", "included": L["export"]},
+        {"label": "Local code checks", "included": L["code_check"]},
+        {"label": "Priority AI responses", "included": L["priority_ai"]},
+    ]
+
 DENY_MSG = {
     "home": "You've reached your plan's home limit. Upgrade to add more homes.",
     "project": "You've reached your plan's saved-project limit. Upgrade for more projects.",
@@ -136,6 +156,7 @@ def build_router(get_current_user: Callable) -> APIRouter:
             "plan": PLAN_META[tier],
             "limits": LIMITS[tier],
             "highlights": FEATURE_HIGHLIGHTS[tier],
+            "perks": perks_for(tier),
             "usage": usage,
             "status": user.get("subscription_status", "active" if tier != "free" else "none"),
             "has_customer": bool(user.get("stripe_customer_id")),

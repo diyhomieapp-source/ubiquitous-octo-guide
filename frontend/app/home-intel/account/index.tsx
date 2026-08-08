@@ -96,11 +96,11 @@ export default function Account() {
           </View>
         )}
 
-        <Pressable testID="account-plan-card" style={styles.planCard} onPress={() => router.push("/home-intel/upgrade")}>
+        <Pressable testID="account-plan-card" style={styles.planCard} onPress={() => router.push(tier === "free" ? "/home-intel/upgrade" : "/home-intel/perks")}>
           <View style={styles.planIcon}><MaterialCommunityIcons name="crown-outline" size={20} color={colors.brandPrimary} /></View>
           <View style={{ flex: 1 }}>
             <Text style={styles.planCardTitle}>{tier === "free" ? "Free plan" : (tier === "starter" ? "Starter plan" : "Pro plan")}</Text>
-            <Text style={styles.planCardSub}>{tier === "pro" ? "You have unlimited access." : "View plans, usage & upgrade"}</Text>
+            <Text style={styles.planCardSub}>{tier === "free" ? "View plans, usage & upgrade" : "See everything you've unlocked"}</Text>
           </View>
           <MaterialCommunityIcons name="chevron-right" size={22} color={colors.onSurfaceTertiary} />
         </Pressable>
