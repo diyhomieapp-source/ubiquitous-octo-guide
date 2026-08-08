@@ -123,6 +123,12 @@ EVENT_CATALOG = [
     ("material_moved_to_inventory", "cleanup", "Material moved to inventory", []),
     ("waste_item_marked_handled", "cleanup", "Waste item handled", []),
     ("cleanup_session_completed", "cleanup", "Cleanup session completed", ["unresolved_items"]),
+    ("global_search_opened", "search", "Global search opened", ["surface"]),
+    ("search_query_submitted", "search", "Search query submitted", ["result_count", "context_type"]),
+    ("search_result_opened", "search", "Search result opened", ["entity_type"]),
+    ("search_no_results", "search", "Search returned no results", ["context_type"]),
+    ("homie_search_used", "search", "Homie conversational search used", ["result_count"]),
+    ("search_filter_applied", "search", "Search filter applied", ["filter"]),
 ]
 _APPROVED = {name: set(props) for name, _fa, _d, props in EVENT_CATALOG}
 _FEATURE_AREA = {name: fa for name, fa, _d, _p in EVENT_CATALOG}

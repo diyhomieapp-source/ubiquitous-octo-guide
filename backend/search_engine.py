@@ -117,6 +117,34 @@ def _score(query: str, title: str, extra: str, base: int, terms: list) -> int:
     return s + base if s > 0 else 0
 
 
+def _homie_summary(query: str, results: list, ordered: list) -> str:
+    """Deterministic, source-aware summary in Homie's voice. Never claims a
+    result exists when none does; distinguishes exact / likely / general."""
+    if not results:
+        return f"I couldn't find anything matching \u201c{query}\u201d in your home records or our guides yet."
+    top = results[0]
+    private = [r for r in results if r["permission_scope"] == "owner"]
+    fragments = []
+    for grp in ordered:
+        rs = grp["results"]
+        first = rs[0]["title"]
+        more = len(rs) - 1
+        label = grp["group"].lower()
+        if more > 0:
+            fragments.append(f"{first} and {more} more in {label}")
+        else:
+            fragments.append(f"{first} in {label}")
+    listed = "; ".join(fragments[:4])
+    if top["relevance_score"] >= 100 and top["permission_scope"] == "owner":
+        lead = "I found an exact match:"
+    elif private:
+        lead = "Here's what I found in your home:"
+    else:
+        lead = "I didn't find this in your home, but here's general guidance:"
+    return f"{lead} {listed}."
+
+
+
 async def _active_property(user_id: str) -> Optional[dict]:
     p = await _db.hi_properties.find_one({"user_id": user_id, "is_active": True}, {"_id": 0})
     if not p:
@@ -243,6 +271,8 @@ def build_router(get_current_user: Callable) -> APIRouter:
             grouped.setdefault(res["group"], []).append(res)
         ordered = [{"group": g, "results": grouped[g]} for g in GROUP_ORDER if g in grouped]
 
+        summary = _homie_summary(q, results, ordered)
+
         # Sanitized query log (observability).
         try:
             await _db.search_query_logs.insert_one({
@@ -253,7 +283,17 @@ def build_router(get_current_user: Callable) -> APIRouter:
         except Exception:
             pass
 
-        return {"query": q, "result_count": len(results), "groups": ordered, "results": results}
+        # Product analytics (privacy-safe; no-ops when telemetry keys absent).
+        try:
+            import analytics_engine
+            await analytics_engine.capture(user, "search_query_submitted",
+                                           {"result_count": len(results), "context_type": context_type})
+            if len(results) == 0:
+                await analytics_engine.capture(user, "search_no_results", {"context_type": context_type})
+        except Exception:
+            pass
+
+        return {"query": q, "result_count": len(results), "summary": summary, "groups": ordered, "results": results}
 
     @r.post("/select")
     async def log_select(entity_type: str = Query(...), user: dict = Depends(get_current_user)):
@@ -262,6 +302,11 @@ def build_router(get_current_user: Callable) -> APIRouter:
             last = await _db.search_query_logs.find_one({"user_id": user["id"]}, sort=[("created_at", -1)])
             if last:
                 await _db.search_query_logs.update_one({"id": last["id"]}, {"$set": {"selected_result_type": entity_type}})
+        except Exception:
+            pass
+        try:
+            import analytics_engine
+            await analytics_engine.capture(user, "search_result_opened", {"entity_type": entity_type})
         except Exception:
             pass
         return {"ok": True}

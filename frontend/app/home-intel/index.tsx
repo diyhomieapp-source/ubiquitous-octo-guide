@@ -53,10 +53,15 @@ export default function HomeIntelDashboard() {
   return (
     <View style={styles.root}>
       <ScreenHeader title="Home Intelligence" right={
-        <Pressable testID="hi-inbox" onPress={() => router.push("/home-intel/inbox")}>
-          <MaterialCommunityIcons name="bell-outline" size={22} color={colors.onSurface} />
-          {unread > 0 ? <View style={styles.badge}><Text style={styles.badgeText}>{unread > 9 ? "9+" : unread}</Text></View> : null}
-        </Pressable>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.md }}>
+          <Pressable testID="hi-search" onPress={() => router.push("/find")} accessibilityLabel="Search" accessibilityRole="button">
+            <MaterialCommunityIcons name="magnify" size={22} color={colors.onSurface} />
+          </Pressable>
+          <Pressable testID="hi-inbox" onPress={() => router.push("/home-intel/inbox")}>
+            <MaterialCommunityIcons name="bell-outline" size={22} color={colors.onSurface} />
+            {unread > 0 ? <View style={styles.badge}><Text style={styles.badgeText}>{unread > 9 ? "9+" : unread}</Text></View> : null}
+          </Pressable>
+        </View>
       } />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing["3xl"] }}>
 

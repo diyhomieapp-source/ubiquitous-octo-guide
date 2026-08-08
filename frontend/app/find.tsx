@@ -29,6 +29,7 @@ export default function FindScreen() {
   const [q, setQ] = useState("");
   const [groups, setGroups] = useState<any[]>([]);
   const [count, setCount] = useState<number | null>(null);
+  const [summary, setSummary] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searched, setSearched] = useState(false);
@@ -41,7 +42,7 @@ export default function FindScreen() {
       let path = `/hi/search?q=${encodeURIComponent(text.trim())}`;
       if (params.context_type && params.context_id) path += `&context_type=${params.context_type}&context_id=${params.context_id}`;
       const res = await api<any>(path);
-      setGroups(res.groups || []); setCount(res.result_count); setSearched(true);
+      setGroups(res.groups || []); setCount(res.result_count); setSummary(res.summary || ""); setSearched(true);
     } catch (e: any) { setError(e?.message || "Search failed. Try again."); } finally { setLoading(false); }
   }, [params.context_type, params.context_id]);
 
@@ -59,7 +60,7 @@ export default function FindScreen() {
 
   const noResultActions = [
     { icon: "robot-happy-outline", label: "Ask Homie", route: "/homie" },
-    { icon: "fridge-plus-outline", label: "Add Asset", route: "/home-intel/asset-add" },
+    { icon: "plus-box-outline", label: "Add Asset", route: "/home-intel/asset-add" },
     { icon: "file-upload-outline", label: "Upload Document", route: "/home-intel/documents/add" },
     { icon: "hammer-screwdriver", label: "Start Project", route: "/home-intel/projects/start" },
     { icon: "book-open-variant", label: "Search Guides", route: "/search" },
@@ -112,6 +113,13 @@ export default function FindScreen() {
           <EmptyState icon="magnify" title="Find anything in your home" message="Try “kitchen projects”, “water heater manual”, or “what's due this month”." />
         ) : null}
 
+        {!loading && count && count > 0 ? (
+          <View style={styles.summaryCard}>
+            <View style={styles.summaryIcon}><MaterialCommunityIcons name="robot-happy-outline" size={16} color={colors.brandPrimary} /></View>
+            <Text style={styles.summaryText}>{summary}</Text>
+          </View>
+        ) : null}
+
         {!loading && count && count > 0 ? groups.map((g) => (
           <View key={g.group} style={{ gap: spacing.sm }}>
             <View style={styles.groupHead}>
@@ -152,6 +160,9 @@ const styles = StyleSheet.create({
   ctxLink: { color: colors.brandPrimary, fontFamily: font.bold },
   groupHead: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
   groupTitle: { color: colors.onSurface, fontFamily: font.bold, fontSize: type.base, flex: 1 },
+  summaryCard: { flexDirection: "row", gap: spacing.sm, alignItems: "flex-start", backgroundColor: colors.brandPrimary + "12", borderColor: colors.brandPrimary + "33", borderWidth: 1, borderRadius: radius.md, padding: spacing.md },
+  summaryIcon: { width: 26, height: 26, borderRadius: 13, backgroundColor: colors.brandPrimary + "22", alignItems: "center", justifyContent: "center" },
+  summaryText: { flex: 1, color: colors.onSurface, fontFamily: font.medium, fontSize: type.sm, lineHeight: 18 },
   groupCount: { color: colors.onSurfaceTertiary, fontFamily: font.bold, fontSize: type.sm },
   resultCard: { flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: colors.surfaceSecondary, borderColor: colors.border, borderWidth: 1, borderRadius: radius.md, padding: spacing.md, minHeight: 44 },
   resultIcon: { width: 40, height: 40, borderRadius: radius.sm, backgroundColor: colors.brandPrimary + "18", alignItems: "center", justifyContent: "center" },

@@ -67,7 +67,12 @@ export default function Projects() {
 
   return (
     <View style={[styles.root, { paddingTop: insets.top + spacing.lg }]}>
-      <Text style={styles.h1}>YOUR PROJECTS</Text>
+      <View style={styles.headRow}>
+        <Text style={styles.h1}>YOUR PROJECTS</Text>
+        <Pressable testID="projects-search" hitSlop={10} onPress={() => router.push("/find")} accessibilityLabel="Search" accessibilityRole="button">
+          <MaterialCommunityIcons name="magnify" size={24} color={colors.onSurface} />
+        </Pressable>
+      </View>
       <Text style={styles.sub}>Pick up any job right where you left off.</Text>
 
       <View style={styles.chipRowWrap}>
@@ -134,6 +139,7 @@ export default function Projects() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.surface, paddingHorizontal: spacing.lg },
   h1: { color: colors.onSurface, fontFamily: font.display, fontSize: 36, lineHeight: 38 },
+  headRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   sub: { color: colors.onSurfaceTertiary, fontFamily: font.regular, fontSize: type.base, marginTop: 2 },
   chipRowWrap: { height: 56, justifyContent: "center" },
   chipRow: { gap: spacing.sm, paddingRight: spacing.lg, alignItems: "center" },
