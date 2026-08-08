@@ -137,7 +137,7 @@ export default function Account() {
             <Text style={styles.addHomeText}>Add another home</Text>
           </Pressable>
         )}
-        <Text style={styles.note}>New homes are saved to your account. Switching the active home for rooms, projects &amp; toolbox is coming next.</Text>
+        <Text style={styles.note}>Set a home active to view and manage its rooms, projects, maintenance &amp; toolbox. Each home stays fully separate.</Text>
       </ScrollView>
     </View>
   );

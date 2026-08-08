@@ -370,9 +370,14 @@ Test credentials: demo_home@diyhomie.com / Test1234 ; admin Diyhomieapp@gmail.co
 
 **FULL BLUEPRINT SEQUENCE COMPLETE:** B01,B02,B03,B04,B05,B06,B07,B08,B10 all built+tested; plus Maintenance Reminders, Templates-in-Homie.
 
+**Active Home Switching (DONE, tested iter55 — 14/14 backend + frontend, no regressions):**
+- Retrofitted all 7 HI engines' `_get_or_create_property()` to prefer the `is_active` property (fallback to any). Added active-property (property_id) filtering to project list (/api/hi/projects) and toolbox list (/api/hi/inventory). Rooms/assets/dashboard already property-scoped via helper.
+- Switch via /api/hi/account/properties/{id}/activate (Setup & Preferences 'Set active'). Verified: switching homes shows only that home's rooms/projects/toolbox; creates attach to active home; no leakage; switching back restores.
+- Note: maintenance/documents lists remain user-scoped (acceptable). DRY: _get_or_create_property still duplicated across engines (future refactor).
+
 **QUEUED / PENDING:**
-- Push: awaiting user's google-services.json to finish Android push before build (in-app reminders already live).
-- Follow-up: active-home switching retrofit across engines (centralize property resolution to the is_active property).
-- Blueprint 09 — Subscriptions/Billing (Paddle) was pasted earlier but not yet prioritized/built. (central chat front-door using room/asset/project/doc context; context selector; photo ID; conversation→approved records with user approval; history; hi_conversation_*).
+- Blueprint 09 — Subscriptions/Billing (Paddle): NEEDS Paddle API keys from user (route via integration_expert). free/starter/pro plans + feature gating + checkout.
+- Guided First Run: turn onboarding checklist into a first-launch walkthrough.
+- Push: awaiting user's google-services.json for Android push before build. (central chat front-door using room/asset/project/doc context; context selector; photo ID; conversation→approved records with user approval; history; hi_conversation_*).
 - Blueprint 07 — Tool/Material/Supply Inventory (hi_inventory_*; add/identify(photo)/edit/archive; storage locations; project shopping-list matching 'Already Have/Need to Buy/Need Verification'; usage/leftovers). Integrates with B03 project materials.
 - Blueprint 08 — Account, Property Onboarding & Preferences (UserProfile prefs: guidance_detail_level/preferred_interaction/diy_experience; goals; multi-property + UserPropertyAccess; property switcher across all /home-intel screens; notification/privacy prefs; guest sessions). NOTE: app already has JWT auth/register — B08 should extend, not duplicate.
