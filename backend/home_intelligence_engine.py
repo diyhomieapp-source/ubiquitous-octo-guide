@@ -107,7 +107,8 @@ async def transcribe_audio(file_path: str) -> str:
 
 # --------------------------------------------------------------- data helpers
 async def _get_or_create_property(user_id: str) -> dict:
-    prop = await _db.hi_properties.find_one({"user_id": user_id}, {"_id": 0})
+    prop = (await _db.hi_properties.find_one({"user_id": user_id, "is_active": True}, {"_id": 0})
+            or await _db.hi_properties.find_one({"user_id": user_id}, {"_id": 0}))
     if not prop:
         prop = {"id": _new_id(), "user_id": user_id, "address": None,
                 "home_type": None, "created_at": _now()}

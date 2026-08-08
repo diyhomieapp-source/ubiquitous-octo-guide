@@ -1,0 +1,39 @@
+{
+  "summary": "Active Home Switching (property_id-scoped retrofit for rooms/assets/projects/inventory) tested end-to-end. Backend: 14/14 pytest tests pass (/app/backend/tests/test_active_home_switching.py). REGRESSION on demo (active=My Home): /api/hi/rooms/map=5 rooms, /api/hi/assets>=1, /api/hi/projects=3, /api/hi/inventory=3, /api/hi/dashboard 200, /api/hi/maintenance/home 200, /api/hi/documents 200, /api/hi/chat/conversations + /message returns reply. ACTIVE SWITCH: POST /api/hi/account/properties/{Lake Cabin id}/activate → GET projects=0, inventory=0, rooms/map=0 (all EMPTY); maintenance/documents still 200 (user-scoped, acceptable per spec). Exactly one is_active at a time verified (only Lake Cabin=true after activate; only My Home=true after restore). Property-scoped creates verified: created a TEST_ toolbox item and a project while Lake Cabin was active; both invisible when switching back to My Home (proves no leakage). Frontend UI (mobile 390x844, /home-intel/account): 'Set active' button (testID home-activate-<id>) moves ACTIVE tag correctly (My Home → Lake Cabin → back to My Home). Navigating to My Projects while Lake Cabin active shows empty state 'No projects yet' with 0 proj-<id> cards; My Toolbox shows empty state 'Your toolbox is empty' with 0 inv-item cards. Switching back restores 3 project cards and 3 inventory items — screens reload on focus (useFocusEffect) as intended. Final DB state: My Home is is_active=true (per main agent request); Lake Cabin=false; TEST_UI_1786152988=false. One test-created project on Lake Cabin ('Fix Leaky Faucet' from LLM titling of TEST_ActiveSwitch_Proj — status stayed 'draft' because PUT /status archived is not supported for this project) was deleted via direct mongo cleanup after tests. Only harmless RN-web warnings (shadow*→boxShadow, props.pointerEvents, expo-notifications listener on web).",
+  "backend_issues": {"critical": [], "minor": [
+    {"endpoint": "PUT /api/hi/projects/{id}/status", "issue": "Setting status='archived' via PUT /status appears to leave the project in the list (no 400, no removal). No dedicated DELETE endpoint exists for projects — cleanup requires status=completed or direct DB delete. Not caused by this retrofit; pre-existing behavior."}
+  ]},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/home-intel/account", "issues": ["Trailing helper text still reads 'Switching the active home for rooms, projects & toolbox is coming next.' — this line is now stale (feature is live). Copy update recommended."]}
+    ],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_active_home_switching.py",
+    "/app/test_reports/pytest/active_home_switching_iter55.xml"
+  ],
+  "action_items": [
+    "Update stale copy on Setup & Preferences screen (`/app/frontend/app/home-intel/account/index.tsx` line ~140) — the 'coming next' note is misleading since active-home switching is live."
+  ],
+  "critical_code_review_comments": [
+    "All 7 engines (project_planner, inventory, room_intelligence, home_intelligence, maintenance, document_vault, conversation_hub) implement _get_or_create_property() with the same pattern: prefer is_active=True, fallback to any, else create default. Consistent and DRY-compliant — though the helper is duplicated across 7 files. Consider extracting into a shared util (`hi_common.py`) to reduce duplication.",
+    "project_planner_engine list endpoint filters by {user_id, property_id} — good. But no `status:{$ne:'archived'}` filter, so archived projects would still appear if the archive path ever worked.",
+    "inventory_engine list filters by {user_id, property_id, status:{$ne:'archived'}} — good.",
+    "onboarding_engine.activate: updates all user's properties to is_active=false then sets target to true — atomic-enough for MVP (two ops, one collection). Documented invariant: exactly one active at a time.",
+    "maintenance and documents lists remain user-scoped (not property-scoped) — flagged as intentional by main agent. Acceptable but user-visible inconsistency (maintenance items from Lake Cabin visible while My Home is active). Consider labeling in UI later.",
+    "No 500s or regressions detected on document vault or maintenance after the retrofit."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_active_home_switching.py (new)",
+    "/app/test_reports/iteration_55.json (new)"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "seed_data_creation": "Left demo user (demo_home@diyhomie.com) with My Home as the sole active property (3 projects, 3 toolbox items, 5 rooms, 1 asset intact). Cleaned up test residue: deleted one 'Fix Leaky Faucet' project on Lake Cabin via mongosh (status=draft, created by LLM during test_create_project_on_lake_not_visible). Test toolbox items are archived by their fixture cleanup. Lake Cabin and TEST_UI_1786152988 remain as empty comparison homes (needed for regression re-runs).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Active Home Switching is GREEN. Regression file: /app/backend/tests/test_active_home_switching.py (14 tests, idempotent — safely re-runnable). Demo user preconditions the tests need: (1) property named 'My Home' with 5 rooms + 3 projects + 3 toolbox items + >=1 asset, (2) an empty property named 'Lake Cabin'. The test fixture always restores My Home as active at the end. Endpoints of note: POST /api/hi/projects/start (NOT POST /api/hi/projects — that returns 405); POST /api/hi/chat/conversations/{cid}/message uses body {text}; /api/hi/account/properties returns {properties:[...]}, not a bare list. There is no DELETE endpoint for projects; use PUT /{project_id}/status with 'archived' or clean via mongo.",
+  "rca_of_issue": "N/A — no functional issues found. Only minor copy staleness in account screen ('coming next' phrase) — reported as action item."
+}

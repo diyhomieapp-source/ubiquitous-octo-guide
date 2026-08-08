@@ -41,7 +41,8 @@ def _new_id():
 
 
 async def _get_or_create_property(user_id):
-    prop = await _db.hi_properties.find_one({"user_id": user_id}, {"_id": 0})
+    prop = (await _db.hi_properties.find_one({"user_id": user_id, "is_active": True}, {"_id": 0})
+            or await _db.hi_properties.find_one({"user_id": user_id}, {"_id": 0}))
     if not prop:
         prop = {"id": _new_id(), "user_id": user_id, "name": "My Home", "address": None,
                 "property_type": None, "created_at": _now()}
@@ -145,6 +146,8 @@ def build_router(get_current_user: Callable) -> APIRouter:
     async def list_items(q: Optional[str] = None, category: Optional[str] = None,
                          location: Optional[str] = None, user: dict = Depends(get_current_user)):
         query = {"user_id": user["id"], "status": {"$ne": "archived"}}
+        prop = await _get_or_create_property(user["id"])
+        query["property_id"] = prop["id"]
         if category:
             query["category"] = category
         if location:

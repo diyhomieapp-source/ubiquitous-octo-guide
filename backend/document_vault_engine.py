@@ -59,7 +59,8 @@ async def _log(document_id, user_id, action):
 
 
 async def _get_or_create_property(user_id):
-    prop = await _db.hi_properties.find_one({"user_id": user_id}, {"_id": 0})
+    prop = (await _db.hi_properties.find_one({"user_id": user_id, "is_active": True}, {"_id": 0})
+            or await _db.hi_properties.find_one({"user_id": user_id}, {"_id": 0}))
     if not prop:
         prop = {"id": _new_id(), "user_id": user_id, "name": "My Home", "address": None,
                 "property_type": None, "created_at": _now()}
