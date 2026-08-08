@@ -42,6 +42,7 @@ export default function RewardsHome() {
         </View>
 
         <View style={styles.linkRow}>
+          <Pressable testID="rewards-redeem" style={[styles.linkBtn, styles.linkBtnFill]} onPress={() => router.push("/home-intel/rewards/redemption")}><MaterialCommunityIcons name="gift-outline" size={16} color="#fff" /><Text style={[styles.linkText, { color: "#fff" }]}>Redeem</Text></Pressable>
           <Pressable testID="rewards-activity" style={styles.linkBtn} onPress={() => router.push("/home-intel/rewards/activity")}><MaterialCommunityIcons name="history" size={16} color={colors.brandPrimary} /><Text style={styles.linkText}>Activity</Text></Pressable>
           <Pressable testID="rewards-terms" style={styles.linkBtn} onPress={() => router.push("/home-intel/rewards/terms")}><MaterialCommunityIcons name="information-outline" size={16} color={colors.brandPrimary} /><Text style={styles.linkText}>Terms</Text></Pressable>
         </View>
@@ -89,6 +90,7 @@ const styles = StyleSheet.create({
   progressText: { color: colors.onSurfaceTertiary, fontFamily: font.medium, fontSize: type.sm, marginTop: 6 },
   linkRow: { flexDirection: "row", gap: spacing.sm, marginBottom: spacing.md },
   linkBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, borderColor: colors.brandPrimary, borderWidth: 1.5, borderRadius: radius.sm, paddingVertical: spacing.sm },
+  linkBtnFill: { backgroundColor: colors.brandPrimary },
   linkText: { color: colors.brandPrimary, fontFamily: font.bold, fontSize: type.sm },
   section: { color: colors.onSurface, fontFamily: font.bold, fontSize: type.lg, marginTop: spacing.md, marginBottom: spacing.sm },
   earnRow: { flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: colors.surfaceSecondary, borderColor: colors.border, borderWidth: 1, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.sm },

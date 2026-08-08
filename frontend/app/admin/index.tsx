@@ -38,16 +38,20 @@ import { IntegrationsModule } from "@/src/components/admin/IntegrationsModule";
 import { TwinModule } from "@/src/components/admin/TwinModule";
 import { KnowledgeModule } from "@/src/components/admin/KnowledgeModule";
 import { RecommendationsModule } from "@/src/components/admin/RecommendationsModule";
+import { RewardsFundingModule } from "@/src/components/admin/RewardsFundingModule";
+import { HomieHqModule } from "@/src/components/admin/HomieHqModule";
 
-type Mod = "overview" | "analytics" | "homeops" | "integrations" | "twin" | "knowledge" | "recpartners" | "finance" | "roi" | "freemium" | "quizzes" | "experts" | "certs" | "education" | "campaigns" | "export" | "appstore" | "monitoring" | "investor" | "crm" | "vendors" | "suppliers" | "kits" | "proleads" | "proaccounts" | "credentials" | "partners" | "prompts" | "audit" | "notifications" | "automations" | "features" | "email" | "affiliate" | "feedback" | "tickets" | "blog";
+type Mod = "overview" | "homiehq" | "analytics" | "homeops" | "integrations" | "twin" | "knowledge" | "recpartners" | "rewardsfunding" | "finance" | "roi" | "freemium" | "quizzes" | "experts" | "certs" | "education" | "campaigns" | "export" | "appstore" | "monitoring" | "investor" | "crm" | "vendors" | "suppliers" | "kits" | "proleads" | "proaccounts" | "credentials" | "partners" | "prompts" | "audit" | "notifications" | "automations" | "features" | "email" | "affiliate" | "feedback" | "tickets" | "blog";
 const MODULES: { key: Mod; label: string; icon: string }[] = [
   { key: "overview", label: "Overview", icon: "view-dashboard-outline" },
+  { key: "homiehq", label: "Homie HQ", icon: "radar" },
   { key: "analytics", label: "Product Analytics", icon: "chart-timeline-variant" },
   { key: "homeops", label: "Home Intelligence Ops", icon: "shield-home-outline" },
   { key: "integrations", label: "Integrations", icon: "transit-connection-variant" },
   { key: "twin", label: "Digital Twin", icon: "home-analytics" },
   { key: "knowledge", label: "Knowledge Graph", icon: "book-open-variant" },
   { key: "recpartners", label: "Product Partners", icon: "tag-multiple-outline" },
+  { key: "rewardsfunding", label: "Rewards Funding", icon: "gift-outline" },
   { key: "finance", label: "CFO Dashboard", icon: "finance" },
   { key: "crm", label: "CRM / Contacts", icon: "account-multiple-outline" },
   { key: "email", label: "Email Marketing", icon: "email-fast-outline" },
@@ -139,12 +143,14 @@ export default function AdminWorkstation() {
       {/* Content */}
       <View style={{ flex: 1 }}>
         {mod === "overview" && <Overview />}
+        {mod === "homiehq" && <HomieHqModule />}
         {mod === "analytics" && <AnalyticsModule />}
         {mod === "homeops" && <HomeOpsModule />}
         {mod === "integrations" && <IntegrationsModule />}
         {mod === "twin" && <TwinModule />}
         {mod === "knowledge" && <KnowledgeModule />}
         {mod === "recpartners" && <RecommendationsModule />}
+        {mod === "rewardsfunding" && <RewardsFundingModule />}
         {mod === "finance" && <FinanceModule />}
         {mod === "crm" && <CrmModule />}
         {mod === "email" && <EmailModule />}

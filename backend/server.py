@@ -61,6 +61,8 @@ import knowledge_graph_engine
 import project_intelligence_engine
 import collaboration_engine
 import recommendation_engine
+import rewards_funding_engine
+import homie_hq_engine
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -463,7 +465,10 @@ GUIDE_SYSTEM = (
 )
 
 
-async def _llm_json(system: str, user_text: str, max_tokens: int = 1800) -> dict:
+async def _llm_json(system: str, user_text: str, max_tokens: int = 1800, feature_area: str = "general") -> dict:
+    import time as _time
+    _t0 = _time.monotonic()
+    _in_chars = len(system) + len(user_text)
     if PERPLEXITY_API_KEY:
         try:
             from openai import AsyncOpenAI
@@ -473,12 +478,28 @@ async def _llm_json(system: str, user_text: str, max_tokens: int = 1800) -> dict
                 messages=[{"role": "system", "content": system}, {"role": "user", "content": user_text}],
                 max_tokens=max_tokens,
             )
-            return _strip_json(resp.choices[0].message.content)
+            _out = resp.choices[0].message.content
+            try:
+                await homie_hq_engine.record_ai_usage("perplexity", feature_area, _in_chars, len(_out or ""), (_time.monotonic() - _t0) * 1000, "ok")
+            except Exception:
+                pass
+            return _strip_json(_out)
         except Exception as e:
             logger.warning(f"Perplexity guide failed, falling back: {e}")
     from emergentintegrations.llm.chat import LlmChat, UserMessage
     chat = LlmChat(api_key=EMERGENT_LLM_KEY, session_id=new_id(), system_message=system).with_model("openai", "gpt-4o-mini")
-    out = await chat.send_message(UserMessage(text=user_text))
+    try:
+        out = await chat.send_message(UserMessage(text=user_text))
+    except Exception as e:
+        try:
+            await homie_hq_engine.record_ai_usage("openai", feature_area, _in_chars, 0, (_time.monotonic() - _t0) * 1000, "error")
+        except Exception:
+            pass
+        raise
+    try:
+        await homie_hq_engine.record_ai_usage("openai", feature_area, _in_chars, len(out or ""), (_time.monotonic() - _t0) * 1000, "ok")
+    except Exception:
+        pass
     return _strip_json(out)
 
 
@@ -8947,6 +8968,17 @@ recommendation_engine.configure(db, logger)
 app.include_router(recommendation_engine.build_router(get_current_user))
 app.include_router(recommendation_engine.build_admin_router(require_admin))
 
+# Community Rewards Funding, Redemption & Financial Controls (Build Blueprint 24).
+rewards_funding_engine.configure(db, logger)
+app.include_router(rewards_funding_engine.build_router(get_current_user))
+app.include_router(rewards_funding_engine.build_admin_router(require_admin))
+
+# Homie HQ Operations, Growth & AI Cost Intelligence (Build Blueprint 25).
+homie_hq_engine.configure(db, logger, PLAN_TIERS)
+app.include_router(homie_hq_engine.build_admin_router(require_admin))
+
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
@@ -9042,6 +9074,8 @@ async def _startup_seed_community():
     await integration_gateway_engine.seed_connectors()
     await knowledge_graph_engine.seed_knowledge()
     await recommendation_engine.seed_recommendations()
+    await rewards_funding_engine.seed_funding()
+    await homie_hq_engine.seed_hq()
 
 
 @app.on_event("startup")

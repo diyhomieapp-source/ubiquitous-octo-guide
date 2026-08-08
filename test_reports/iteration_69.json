@@ -1,0 +1,40 @@
+{
+  "summary": "Backend + frontend testing of Blueprint 24 (Community Rewards Funding & Redemption + Admin Financial Controls) and Blueprint 25 (Homie HQ Operations, Growth & AI Cost Intelligence). Wrote pytest suite /app/backend/tests/test_blueprints_24_25.py with 21 tests: 20 passed, 1 skipped (insufficient-points path only exercised when user cannot afford biggest item — after funding fixture user has 5k pts so $25 card is affordable). Verified end-to-end: catalog with points_cost/affordable/available, idempotent redemption (same idempotency_key returns duplicate:true and does NOT double-deduct — verified balance delta = single cost), emergency mode toggles catalog.redemption_enabled and redeem->503, admin financial controls (command-center, revenue record/receive/reverse, settings PUT, provider pause/activate, fraud-reviews list), non-admin gets 403 on all 5 admin rewards endpoints, and B13 regression endpoints /api/hi/rewards/home + /activity still return 200. Homie HQ dashboard returns full shape (summary, attention.urgent/needs_review/opportunities/successes, domains.app_health/revenue/ai_cost/growth/support, connectors with posthog/sentry/paddle=dormant and internal_db/ai_usage/monitoring=connected), refresh, ai-costs (with disclaimer), insights/alerts/recommendations/approvals/experiments lists, settings GET/PUT, experiment create+decide, non-admin 403 on 6 admin HQ endpoints. Frontend (web): admin login via /auth?mode=login works; /admin loads with testIDs admin-nav-homiehq and admin-nav-rewardsfunding; Homie HQ module renders Urgent/Needs review/AI cost/Opportunities/Successes sections with connector chips (Posthog/Sentry/Paddle/Internal Db/Ai Usage/Monitoring) and Approve/Reject buttons; Rewards Funding module renders funding pool ($203 confirmed / $148 available / $5 committed / $50 reserve), liability & sustainability (green), record-revenue form (rf-amount, rf-record successfully recorded $15 affiliate), emergency Switch (rf-emergency), providers, fraud reviews. Demo user (mobile viewport) sees Redeem button (rewards-redeem) on rewards home, navigates to /home-intel/rewards/redemption showing 4,150 pts, three cards ($5/$10/$25 with points_cost and greyed-out $25 with '850 more points needed'), redeem-<id> tap succeeded (balance dropped 5150→4150, redemption history shows Delivered).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": [
+      {"component": "shadow* styles", "issue": "Console warning: 'shadow*' style props are deprecated. Use 'boxShadow'. Not from B24/B25 modules — pre-existing across app."},
+      {"component": "Image resizeMode", "issue": "Console warning: Image: style.resizeMode is deprecated. Please use props.resizeMode."},
+      {"component": "props.pointerEvents", "issue": "Console warning: props.pointerEvents is deprecated. Use style.pointerEvents."}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_blueprints_24_25.py",
+    "/app/test_reports/pytest/b24_b25_iter69.xml"
+  ],
+  "action_items": [
+    "No functional fixes required for B24/B25 — all core flows pass.",
+    "(Optional cosmetic, pre-existing) Migrate shadow* -> boxShadow, Image style.resizeMode -> props.resizeMode, props.pointerEvents -> style.pointerEvents to silence RN Web deprecation warnings."
+  ],
+  "critical_code_review_comments": [
+    "rewards_funding_engine.py L405: `return await _recompute_pool() and await _settings()` — relies on truthy pool dict; works because dict is truthy, but the intent (recompute-then-return-settings) would be clearer as two awaited statements.",
+    "homie_hq_engine.py L432 (in HighImpactActions handling): action_key 'disable_core_feature' is HIGH_IMPACT — correctly routed to pending_approval regardless of automation_level. Verified in dashboard: three 'APPROVAL · HIGH' cards visible.",
+    "rewards_funding_engine.py fraud approve path (L432) uses `_db.reward_catalog_items.find_one({'id': None})` which always returns None — falls back to synthetic item. Intentional (redemption already has denomination) but confusing; could look up by original catalog_item_id if stored on the redemption.",
+    "server.py is 9000+ lines — long-standing size concern; not in scope for this session."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_blueprints_24_25.py (new)"
+  ],
+  "success_rate": {"backend": "100% (20/20 executed, 1 skipped)", "frontend": "100% of tested flows"},
+  "seed_data_creation": "Test fixture funded_and_pointed calls POST /api/hi/admin/rewards/revenue (affiliate $500 mark_received) and POST /api/hi/admin/rewards/adjust (5000 pts, reason=TEST_B24_topup) for demo_home user. One $5 gift card redemption was recorded end-to-end during frontend testing.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Login route is /auth?mode=login (default /auth opens register mode). Admin nav module keys: 'homiehq' and 'rewardsfunding'. Demo user has ~4,150 points and prior redemptions after this run. Funding pool has confirmed_funds~$203, available_budget~$148. If retesting insufficient-points path, first clear/spend down demo user's points or grant a large-denomination item that exceeds balance.",
+  "rca_of_issue": "N/A — no bugs found. All 20 backend tests and all frontend flows pass. Note: initial UI testing attempt failed because default /auth mode is 'register', which returned 400 on existing account; using /auth?mode=login fixes this (correct behavior)."
+}

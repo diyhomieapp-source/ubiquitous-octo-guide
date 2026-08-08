@@ -356,10 +356,13 @@ def build_admin_router(require_admin: Callable) -> APIRouter:
             return await _db.reward_redemptions.count_documents({"status": st})
         fulfillment = {st: await _c(st) for st in ["points_held", "provider_processing", "fulfilled", "failed", "reversed", "fraud_review"]}
         fraud_pending = await _db.fraud_reviews.count_documents({"status": "pending"})
+        providers = await _db.reward_providers.find({}, {"_id": 0}).to_list(50)
+        recent_revenue = await _db.revenue_events.find({}, {"_id": 0}).sort("created_at", -1).to_list(15)
         return {
             "revenue": {"confirmed_total": round(sum(e.get("amount", 0) for e in rev_received), 2),
-                        "by_source": by_source, "pending_events": rev_pending, "reversed_events": rev_reversed},
-            "funding": pool, "settings": s,
+                        "by_source": by_source, "pending_events": rev_pending, "reversed_events": rev_reversed,
+                        "recent": recent_revenue},
+            "funding": pool, "settings": s, "providers": providers,
             "liability": {"outstanding_points": outstanding, "estimated_liability": est_liab,
                           "funding_ratio": funding_ratio, "sustainability_status": sustain},
             "fulfillment": fulfillment, "fraud_pending": fraud_pending}

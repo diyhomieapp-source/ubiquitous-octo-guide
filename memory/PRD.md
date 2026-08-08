@@ -451,3 +451,18 @@ Test credentials: demo_home@diyhomie.com / Test1234 ; admin Diyhomieapp@gmail.co
 ### PENDING QUEUE: B14 Photo Room Design (Gemini Nano Banana); B17 AI Orchestration Gateway; Twin-from-photos; Connect Pipedream (needs key).
 
 - B23 fix: admin sidebar key collision resolved — renamed Product Partners key to "recpartners" (Partner Platform keeps "partners"). Verified iteration_68: 17/17 backend + full frontend.
+
+---
+## Session update (fork) cont. — Blueprint 24 & 25 shipped
+
+**B24 Community Rewards Funding, Redemption & Financial Controls** — `rewards_funding_engine.py` (additive; does NOT touch B13 rewards_engine ledger). Only CONFIRMED-RECEIVED partner revenue funds the redemption budget (allocation % per source, safety reserve). Redemptions HOLD points (not permanently deducted) until provider confirms; idempotency_key prevents double-taps; fraud risk scoring gates risky redemptions to review; emergency pause halts redemptions without touching core features. Tango-style provider abstraction (simulated until real keys via Integration Gateway).
+- User: `/api/hi/rewards-funding/*` (catalog, history, redeem). Screen `app/home-intel/rewards/redemption.tsx` + "Redeem" entry on rewards home.
+- Admin: `/api/hi/admin/rewards/*` (command-center, revenue record/receive/reverse, settings, emergency-mode, fraud-reviews decide, providers pause/activate). Module `RewardsFundingModule.tsx` → /admin key `rewardsfunding`. (Shares prefix with B13 admin router via distinct sub-paths — no collision.)
+- Curl-verified: revenue funds pool ($500 affiliate → $50 available after $50 reserve), demo catalog returns 3 gift cards, liability/sustainability computed.
+
+**B25 Homie HQ Operations, Growth & AI Cost Intelligence** — `homie_hq_engine.py` (admin-only). Does NOT replace PostHog/Sentry (both dormant, keyless). Normalizes internal signals (payment_transactions, hi_projects, hi_support_tickets, error_events, fraud_reviews, revenue_events, ai_usage_records) into standardized metrics; insight engine produces evidence+confidence+impact insights (anomaly/trend/correlation/opportunity/risk); recommendation engine gates by automation_level (observe/recommend/prepare/approval_required/automated); Approval Center — high-impact actions require explicit admin approval, only low-risk safe actions auto-execute. AI Cost Intelligence: `record_ai_usage()` wired into central `_llm_json` → AIUsageRecord per call (provider, feature_area, est cost, latency; NO prompt content). Cost per active user/subscriber/feature/provider + daily threshold alerts (never disables safety features). Experiments (PostHog-aligned, guardrail-gated winners).
+- Admin: `/api/hi/admin/hq/*` (dashboard "what needs attention" urgent/needs_review/opportunities/successes, refresh, metrics, ai-costs, insights, alerts, recommendations, approvals decide, settings, experiments). Frontend admin module PENDING (built next).
+- Collections: op_metrics, op_alerts, op_insights, op_recommendations, op_approvals, ai_usage_records, op_experiments, op_settings.
+- Curl-verified: dashboard summary + connectors + 5 domains, ai-costs, refresh 200.
+
+Test credentials: demo_home@diyhomie.com / Test1234 ; admin Diyhomieapp@gmail.com / diyhomie1122.
