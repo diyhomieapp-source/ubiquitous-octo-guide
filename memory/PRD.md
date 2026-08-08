@@ -417,3 +417,14 @@ Test credentials: demo_home@diyhomie.com / Test1234 ; admin Diyhomieapp@gmail.co
 - Backend curl-verified (retrieval w/ source refs, contribute→review, publish→global v2, lineage, version snapshots, 403 gating). Frontend E2E pending testing_agent.
 
 ### PENDING QUEUE: B21 Adaptive Project Intelligence & Execution Engine (enhancement to B03 — building next); B14 Photo Room Design (Gemini); B17 AI Orchestration Gateway; Twin-from-photos; Connect Pipedream (needs key).
+
+---
+## Session update (fork) cont. — Blueprint 21 shipped (Adaptive Project Intelligence)
+- **B21 Adaptive Project Intelligence & Execution Engine** (enhances B03 planner, no rewrite) — NEW `project_intelligence_engine.py`. Reads existing hi_projects/hi_project_phases/hi_project_steps/hi_project_materials; adds pi_blockers, pi_decisions, pi_change_events, pi_budget_snapshots.
+- Next-Best-Action engine: prioritizes active blockers > hard safety stop > acquire missing materials > current/next step > plan/complete. Returns {title, why, actions, phase}.
+- Blockers CRUD (auto-sets project status 'blocked' for safety/professional; auto-unblocks when last active blocker resolved). Decisions (pending→answered). Change-impact review: POST /change returns impact_summary + recommendations (budget Low → keep safety, defer optional upgrades; measurement → recalc quantities; material → compatibility+confirm; scope → safety preserved); /change-events/{id}/apply records budget_preference. Budget snapshot (estimated required/optional vs actual, limit, variance, over_budget). Safety-gated step completion (428 requires confirm for risky steps).
+- Routers: /api/hi/pi/* (workspace, next-best-action, blockers, decisions, change+apply+history, budget get/put, steps safe-complete). Configured in server.py (no seed).
+- Frontend: app/home-intel/projects/intelligence.tsx (NBA card + progress + blockers add/resolve + needed-now + budget + change-details preview/apply). Entry: project workspace "Next Best Step & Blockers" (proj-intelligence).
+- Backend curl-verified (NBA, blocker surfacing/resolve, budget change impact). Frontend E2E pending testing_agent.
+
+### PENDING QUEUE: B14 Photo Room Design (Gemini Nano Banana); B17 AI Orchestration Gateway; Twin-from-photos; Connect Pipedream (needs key).

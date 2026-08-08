@@ -1,0 +1,41 @@
+{
+  "summary": "Blueprint 21 — Adaptive Project Intelligence & Execution Engine — tested end-to-end (backend + mobile UI). Backend: 16/16 pytest cases passed against /api/hi/pi/* covering auth (401 no token, 404 cross-owner), workspace/NBA shape, blockers (create -> NBA switches to 'blocked' + surfaces blocker_id; safety blocker sets project status='blocked'; resolve unblocks project & clears NBA phase), change impact (budget-Low returns 'Lowering the budget' summary + KEEP-safety + defer-optional recs; apply preserves history; invalid type -> 400), budget CRUD (limit + actual persist; over_budget=true when actual>limit; variance correct), and safety gate (risky step with safety_note returns 428 without confirm, 200 with confirm=true). Frontend: logged in as demo_home, navigated Project workspace -> tapped proj-intelligence -> /home-intel/projects/intelligence. Verified purple NBA card (title 'Get the materials you still need' + why), progress bar (3/10 · 30%), Budget card, Needed-now list. Added blocker (pi-add-blocker -> pi-blocker-desc -> pi-blocker-save): appears in list AND NBA switches to 'Resolve: TEST_UI Need to remeasure wall'. Resolved blocker (pi-resolve-*) -> NBA reverts. Set budget limit 999 via pi-limit + pi-limit-save (persisted). Change flow (pi-change -> Budget/Low -> pi-preview shows 'Lowering the budget' + 'Keep all required safety materials' + 'Defer optional upgrades' -> pi-apply). No critical issues found.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "intelligence.tsx loading state",
+        "issue": "If /workspace fails (e.g., auth expired), the catch is silent, setLoading(false) fires but `data` stays null, so the screen renders an infinite ActivityIndicator with no error/retry affordance. Reference: /app/frontend/app/home-intel/projects/intelligence.tsx:36,68",
+        "testID": "n/a",
+        "priority": "LOW"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_project_intelligence_b21.py",
+    "/app/test_reports/pytest/project_intelligence_b21.xml"
+  ],
+  "action_items": [
+    "Optional: surface an error/retry state in ProjectIntelligence when the /workspace fetch fails instead of an infinite spinner (currently the catch is empty and loading is set to false while data stays null)."
+  ],
+  "critical_code_review_comments": [
+    "Blueprint 21 engine is well-scoped, idempotent, and additive (uses new pi_* collections; never mutates planner data). Change history is preserved (change-events remain even after apply).",
+    "Cross-user protection on nested resources (blockers/change-events) is correctly enforced by re-checking hi_projects ownership before mutating.",
+    "_change_impact for budget-Low returns copy that includes 'Keep all required safety materials' + 'Defer optional upgrades' — matches acceptance criteria.",
+    "Safe-complete correctly returns HTTP 428 (Precondition Required) when confirm=false on a risky step; a step is considered risky if it has a safety_note OR the project risk_level is High/Professional Recommended.",
+    "Frontend intelligence.tsx swallows fetch errors silently — consider adding an error banner + retry."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (16/16)", "frontend": "100% (all critical flows verified)"},
+  "seed_data_creation": "None — used existing demo_home projects (Install a Floating Oak Shelf, Replace Main Electrical Panel). Test artefacts prefixed with 'TEST_' where written.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "demo_home has 3 existing projects. Blueprint 21 endpoints live under /api/hi/pi/*. Auth flow: /auth defaults to REGISTER mode; use /auth?mode=login to sign in existing users. Regression suite: pytest backend/tests/test_project_intelligence_b21.py -v.",
+  "rca_of_issue": "No blocking issues. Only a minor UX observation: on the intelligence screen, if the /workspace API fails, the screen loops on ActivityIndicator forever because the catch block is empty and the render guard is `if (loading || !data)`. Reproduce: navigate to /home-intel/projects/intelligence?id=<bad-id> while unauthenticated — screen shows infinite spinner (see /tmp/pi_screen.png from first run)."
+}

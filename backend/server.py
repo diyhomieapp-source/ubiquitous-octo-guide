@@ -58,6 +58,7 @@ import cleanup_engine
 import integration_gateway_engine
 import digital_twin_engine
 import knowledge_graph_engine
+import project_intelligence_engine
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -8930,6 +8931,10 @@ app.include_router(digital_twin_engine.build_admin_router(require_admin))
 knowledge_graph_engine.configure(db, logger)
 app.include_router(knowledge_graph_engine.build_router(get_current_user))
 app.include_router(knowledge_graph_engine.build_admin_router(require_admin))
+
+# Adaptive Project Intelligence & Execution Engine (Build Blueprint 21).
+project_intelligence_engine.configure(db, logger)
+app.include_router(project_intelligence_engine.build_router(get_current_user))
 
 app.add_middleware(
     CORSMiddleware,
