@@ -74,6 +74,8 @@ import sync_engine
 import multimodal_engine
 import community_engine as community_b35
 import emergency_engine
+import release_engine
+import investor_intel_engine
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -9040,6 +9042,14 @@ app.include_router(community_b35.build_admin_router(require_admin))
 emergency_engine.configure(db, logger, _llm_json)
 app.include_router(emergency_engine.build_router(get_current_user))
 
+# Quality Assurance, Release Management & Production Readiness (Build Blueprint 37).
+release_engine.configure(db, logger)
+app.include_router(release_engine.build_admin_router(require_admin))
+
+# Investor Intelligence Center & Acquisition Readiness (Build Blueprint 38).
+investor_intel_engine.configure(db, logger)
+app.include_router(investor_intel_engine.build_admin_router(require_admin))
+
 
 
 
@@ -9155,6 +9165,8 @@ async def _startup_seed_community():
     await multimodal_engine.seed_voice()
     await community_b35.seed_community()
     await emergency_engine.seed_emergency()
+    await release_engine.seed_release()
+    await investor_intel_engine.seed_invintel()
 
 
 @app.on_event("startup")
