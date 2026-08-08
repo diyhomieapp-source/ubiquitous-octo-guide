@@ -48,6 +48,7 @@ import admin_ops_engine
 import push_engine
 import reminders_engine
 import inventory_engine
+import onboarding_engine
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -8870,6 +8871,10 @@ app.include_router(reminders_engine.build_router(get_current_user))
 # Tool, Material & Supply Inventory (Build Blueprint 07).
 inventory_engine.configure(db, logger, EMERGENT_LLM_KEY)
 app.include_router(inventory_engine.build_router(get_current_user))
+
+# Account, Property Onboarding & Guidance Preferences (Build Blueprint 08).
+onboarding_engine.configure(db, logger)
+app.include_router(onboarding_engine.build_router(get_current_user))
 
 app.add_middleware(
     CORSMiddleware,

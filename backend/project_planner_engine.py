@@ -242,6 +242,11 @@ def build_router(get_current_user: Callable) -> APIRouter:
                 category=p.get("project_category"), types=["project", "safety", "tool_list", "material_list"], limit=6)
         except Exception:
             approved_templates = ""
+        try:
+            import onboarding_engine
+            guidance_prefs = await onboarding_engine.get_guidance_context(user["id"])
+        except Exception:
+            guidance_prefs = ""
         system = (
             "You are DIYhomie's safety-first project planner. Create a structured DIY project plan.\n"
             "SAFETY: Classify risk_level as one of [Low Risk, Moderate Risk, High Risk, Professional "
@@ -268,6 +273,8 @@ def build_router(get_current_user: Callable) -> APIRouter:
             f"Context:\n{ctx}")
         if approved_templates:
             user_text += f"\n\nAPPROVED GUIDANCE (vetted templates — prefer when relevant):\n{approved_templates}"
+        if guidance_prefs:
+            user_text += f"\n\n{guidance_prefs}"
         try:
             data = await _llm_json(system, user_text, max_tokens=2600)
         except Exception as e:

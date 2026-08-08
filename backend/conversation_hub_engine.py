@@ -304,6 +304,11 @@ def build_router(get_current_user: Callable) -> APIRouter:
             approved_templates = await admin_ops_engine.get_published_templates(limit=6)
         except Exception:
             approved_templates = ""
+        try:
+            import onboarding_engine
+            guidance_prefs = await onboarding_engine.get_guidance_context(user["id"])
+        except Exception:
+            guidance_prefs = ""
         # recent history (last 8 turns)
         hist = await _db.hi_conversation_messages.find(
             {"conversation_id": cid}, {"_id": 0, "role": 1, "text": 1}).sort("created_at", -1).to_list(9)
@@ -328,6 +333,8 @@ def build_router(get_current_user: Callable) -> APIRouter:
             "Return STRICT JSON: {\"reply\": string, \"suggested_actions\": [{\"type\": string, "
             "\"label\": short button text, \"payload\": object}]}.")
         ut = f"HOME CONTEXT:\n{ctx_text}\n\nRECENT CONVERSATION:\n{hist_text or '(none)'}\n\nUSER MESSAGE: {text or '(sent a photo)'}"
+        if guidance_prefs:
+            ut += f"\n\n{guidance_prefs}"
         if approved_templates:
             ut += f"\n\nAPPROVED GUIDANCE (vetted templates — prefer when relevant):\n{approved_templates}"
         if photo_id:
