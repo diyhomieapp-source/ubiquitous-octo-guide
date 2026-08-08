@@ -362,8 +362,17 @@ Test credentials: demo_home@diyhomie.com / Test1234 ; admin Diyhomieapp@gmail.co
 - Frontend: app/home-intel/inventory/{index,add,[id]}.tsx (add uses photo→identify autofill), 'Match against my toolbox' button on projects/materials.tsx, 'My Toolbox' entry (testID hi-inventory) on HI dashboard.
 - Reusable test: /app/backend/tests/test_inventory_b07.py.
 
-**QUEUED (not yet built):**
-- Blueprint 08 — Account/Property Onboarding & Preferences (NEXT): guest flow, multi-property setup, guidance preferences. NOTE: app already has JWT auth/register — B08 should EXTEND (properties, preferences), not duplicate auth.
-- Push: awaiting user's google-services.json to finish Android push before build. (central chat front-door using room/asset/project/doc context; context selector; photo ID; conversation→approved records with user approval; history; hi_conversation_*).
+**Blueprint 08 — Account, Property Onboarding & Guidance Preferences (DONE, tested iter54 — 16/16 backend + frontend):**
+- Backend `onboarding_engine.py` (/api/hi/account): guidance preferences (experience_level/budget_sensitivity/risk_tolerance/tone/units) auto-defaulted; onboarding overview with progress + steps + /onboarding/complete; multi-property SETUP CRUD (create/edit/activate/delete; first is active; last-home delete 409); is_active flag. Collection: hi_user_prefs (+ extended hi_properties fields). get_guidance_context() + default_skill_level() injected into conversation_hub chat AND project_planner (verified metric units in chat).
+- Frontend: app/home-intel/account/index.tsx (onboarding progress, preference chips, homes list/add/activate/remove, load-error+retry state). Entry: dashboard "Setup & Preferences" (testID hi-account).
+- Fixed review notes: removed no-op property_type ternary; added error/retry state (no infinite spinner).
+- DEFERRED (planned follow-up): cross-feature "active-home switching" — rooms/assets/projects/maintenance/toolbox still read the single/first property; the active flag + property CRUD data model is ready for the retrofit.
+
+**FULL BLUEPRINT SEQUENCE COMPLETE:** B01,B02,B03,B04,B05,B06,B07,B08,B10 all built+tested; plus Maintenance Reminders, Templates-in-Homie.
+
+**QUEUED / PENDING:**
+- Push: awaiting user's google-services.json to finish Android push before build (in-app reminders already live).
+- Follow-up: active-home switching retrofit across engines (centralize property resolution to the is_active property).
+- Blueprint 09 — Subscriptions/Billing (Paddle) was pasted earlier but not yet prioritized/built. (central chat front-door using room/asset/project/doc context; context selector; photo ID; conversation→approved records with user approval; history; hi_conversation_*).
 - Blueprint 07 — Tool/Material/Supply Inventory (hi_inventory_*; add/identify(photo)/edit/archive; storage locations; project shopping-list matching 'Already Have/Need to Buy/Need Verification'; usage/leftovers). Integrates with B03 project materials.
 - Blueprint 08 — Account, Property Onboarding & Preferences (UserProfile prefs: guidance_detail_level/preferred_interaction/diy_experience; goals; multi-property + UserPropertyAccess; property switcher across all /home-intel screens; notification/privacy prefs; guest sessions). NOTE: app already has JWT auth/register — B08 should extend, not duplicate.

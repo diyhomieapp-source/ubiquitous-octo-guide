@@ -184,7 +184,7 @@ def build_router(get_current_user: Callable) -> APIRouter:
             raise HTTPException(status_code=400, detail="Give this home a name.")
         existing = await _db.hi_properties.count_documents({"user_id": user["id"]})
         doc = {"id": _new_id(), "user_id": user["id"], "name": req.name.strip()[:80], "address": req.address,
-               "property_type": req.property_type if req.property_type in PROP_TYPES else req.property_type,
+               "property_type": req.property_type,
                "year_built": req.year_built, "square_footage": req.square_footage, "climate_zone": req.climate_zone,
                "is_active": existing == 0, "created_at": _now(), "updated_at": _now()}
         await _db.hi_properties.insert_one(dict(doc))

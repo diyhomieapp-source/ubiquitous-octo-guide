@@ -24,11 +24,14 @@ const PROP_TYPES = ["House", "Apartment", "Condo", "Townhouse", "Mobile Home", "
 export default function Account() {
   const [ov, setOv] = useState<Overview | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState({ name: "", property_type: "House", year_built: "" });
 
   const load = useCallback(async () => {
-    try { setOv(await api<Overview>("/hi/account/overview")); } catch {} finally { setLoading(false); }
+    try { setOv(await api<Overview>("/hi/account/overview")); setLoadError(false); }
+    catch { setLoadError(true); }
+    finally { setLoading(false); }
   }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
@@ -51,7 +54,19 @@ export default function Account() {
     ]);
   };
 
-  if (loading || !ov) return <View style={styles.root}><ScreenHeader title="Setup & Preferences" /><ActivityIndicator color={colors.brandPrimary} style={{ marginTop: spacing.xl }} /></View>;
+  if (loading) return <View style={styles.root}><ScreenHeader title="Setup & Preferences" /><ActivityIndicator color={colors.brandPrimary} style={{ marginTop: spacing.xl }} /></View>;
+  if (loadError || !ov) return (
+    <View style={styles.root}>
+      <ScreenHeader title="Setup & Preferences" />
+      <View style={styles.errBox}>
+        <MaterialCommunityIcons name="wifi-off" size={36} color={colors.onSurfaceTertiary} />
+        <Text style={styles.errText}>Couldn&apos;t load your setup. Check your connection and try again.</Text>
+        <Pressable testID="account-retry" style={styles.retryBtn} onPress={() => { setLoading(true); load(); }}>
+          <Text style={styles.retryText}>Retry</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
 
   return (
     <View style={styles.root}>
@@ -163,4 +178,8 @@ const styles = StyleSheet.create({
   addHome: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, borderColor: colors.brandPrimary, borderWidth: 1, borderRadius: radius.md, paddingVertical: spacing.md, marginTop: spacing.sm },
   addHomeText: { color: colors.brandPrimary, fontFamily: font.bold, fontSize: type.base },
   note: { color: colors.onSurfaceTertiary, fontFamily: font.regular, fontSize: type.sm, marginTop: spacing.md, lineHeight: 18 },
+  errBox: { alignItems: "center", gap: spacing.md, marginTop: spacing["3xl"], paddingHorizontal: spacing.xl },
+  errText: { color: colors.onSurfaceTertiary, fontFamily: font.regular, fontSize: type.base, textAlign: "center", lineHeight: 22 },
+  retryBtn: { backgroundColor: colors.brandPrimary, borderRadius: radius.md, paddingHorizontal: spacing.xl, paddingVertical: spacing.md },
+  retryText: { color: colors.onBrandPrimary, fontFamily: font.bold, fontSize: type.base },
 });
