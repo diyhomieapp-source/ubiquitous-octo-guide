@@ -1,0 +1,42 @@
+{
+  "summary": "Blueprint 23 (Product Recommendation, Partner Routing & Affiliate Attribution) tested end-to-end. Backend: 17/17 pytest cases passed against /api/hi/rec/* and /api/hi/admin/rec/* — safety-first ordering, disclosure only for commission partners, HVAC 'needs_verification' with verify_note, click handoff returns product_url + disclosure + 'DIYhomie doesn't process the payment' note (no purchase claim), for-project derives needs from not-owned materials, admin dashboard/weights/partners/conversions all correct, affiliate>safety rejected 400, activation guard blocks commission partners without disclosure/link/tracking, conversions record + reverse works and totals reflect it, and non-admin gets 403 on admin routes. Frontend user (mobile 390x844): logged in as demo_home, opened project → tapped proj-recommend → /home-intel/rec renders rec cards with color-coded compat labels (LIKELY FITS, VERIFY FIRST), price or 'Price not verified · <partner>', disclosure text for commission items, HVAC verify_note visible, safety_warning shown, Save/Report/View Product with correct testIDs; Save visibly strikes out the card. Frontend admin (desktop 1440x900): logged in as admin, /admin, admin-nav-partners visible, RecommendationsModule shows stat cards (Partners/Active/Mismatches/Commission $), ranking-weights list, HomeFix + Acme partner cards, rec-toggle-* pause/activate round-trips (ACTIVE → PAUSED → ACTIVE), conversions list rendered. CRITICAL bug found: admin sidebar has TWO nav items both keyed 'partners' (line 50 'Product Partners' and line 72 'Partner Platform') → both RecommendationsModule and PartnersModule render together when either is tapped, and both nav items share testID admin-nav-partners. React Native issues detected: none new for this blueprint.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "admin/index.tsx sidebar",
+        "issue": "Duplicate module key 'partners' — line 50 (Product Partners → RecommendationsModule) and line 72 (Partner Platform → PartnersModule) both use key 'partners'. As a result: (a) both modules render simultaneously in the right pane whenever either nav item is tapped, (b) both sidebar buttons share testID='admin-nav-partners', and (c) the Mod type union at line 42 lists 'partners' twice. Rename Blueprint 23's key to something unique (e.g. 'recpartners' / 'product_partners') and update both the MODULES entry, the render condition, and the Mod union. Reference: /app/frontend/app/admin/index.tsx:42,50,72,147,169",
+        "testID": "admin-nav-partners",
+        "priority": "HIGH"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_recommendation_engine_b23.py",
+    "/app/test_reports/pytest/recommendation_b23.xml"
+  ],
+  "action_items": [
+    "Rename the second 'partners' module key (Partner Platform, /app/frontend/app/admin/index.tsx:72) — or Blueprint 23's key at line 50 — to a unique value (e.g. 'recpartners'). Update the Mod type union (line 42, currently has 'partners' twice) and the two render branches at lines 147 and 169 so only one module renders per selection and the sidebar buttons have distinct testIDs (e.g. admin-nav-recpartners vs admin-nav-partners).",
+    "OPTIONAL cleanup: the click response returns a POSIX apostrophe in the note ('DIYhomie doesn\\'t process the payment'). Backend test tolerates both forms — no action required unless copy strictly demands a specific quote."
+  ],
+  "critical_code_review_comments": [
+    "admin/index.tsx: duplicate 'partners' module key collision (see UI bug above).",
+    "recommendation_engine.py: seeding guard checks both 'connector_key' and 'key' fields — good; safe to re-run on cold start.",
+    "recommendation_engine._compat_and_score: correctly forces 'needs_verification' when safety_critical=True and specs don't fully match, and forces 'compatible' only on full spec overlap — matches the acceptance criteria.",
+    "recommendation_engine._generate: safety-first sort ((status_rank, -score)) is authoritative in both create_need and get_recs — affiliate score truly cannot jump the queue."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_recommendation_engine_b23.py (new)",
+    "/app/test_reports/iteration_68.json (new)",
+    "SEED (Mongo direct write) — hi_project_materials for project 2fef9e2e-d4d8-47e9-b908-f80bf2ac6354 to enable UI verification: TEST_paint (interior latex), TEST_roller kit 9in, TEST_hvac filter 16x25x1 (all user_status='need_it'). Prefixed TEST_ for cleanup."
+  ],
+  "success_rate": { "backend": "100% (17/17)", "frontend": "~90% (user flow fully verified; admin renders but with duplicate-key collision)" },
+  "seed_data_creation": "Inserted 3 hi_project_materials with TEST_ prefix onto demo_home's 'Floating Shelf Installation' project (id 2fef9e2e-d4d8-47e9-b908-f80bf2ac6354) so /for-project returns groups. Also created (via admin API tests) partners prefixed TEST_ and one conversion with TEST_txn_* reference (later reversed).",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Reuse /app/backend/tests/test_recommendation_engine_b23.py. Backend routes: /api/hi/rec/* (user) and /api/hi/admin/rec/* (admin). Seeded materials on project 2fef9e2e-d4d8-47e9-b908-f80bf2ac6354 (demo_home) allow the /home-intel/rec UI to display cards without more seeding. Admin token lives at localStorage['diyhomie_token'] as a JSON-encoded string (must JSON.parse before Bearer). Frontend uses testIDs auth-email-input / auth-password-input / auth-submit-button. Known bug: duplicate 'partners' key in admin/index.tsx causes RecommendationsModule and PartnersModule to render simultaneously.",
+  "rca_of_issue": "Duplicate 'partners' module key: developer added a new Blueprint 23 entry at MODULES[6] with key='partners' without noticing the existing 'partners' entry (Partner Platform) later in the array. Because setMod('partners') is shared and both render blocks {mod === 'partners' && <X />} exist, both modules mount together. Reproduction: login as admin (Diyhomieapp@gmail.com/diyhomie1122) at web viewport, click either 'Product Partners' or 'Partner Platform' in the sidebar → RecommendationsModule and PartnersModule both appear stacked. Mitigation: assign a unique key to the Blueprint 23 entry (e.g. 'recpartners'), update the Mod union to include it, and change the render condition + testID accordingly."
+}

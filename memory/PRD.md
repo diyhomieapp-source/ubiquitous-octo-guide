@@ -439,3 +439,13 @@ Test credentials: demo_home@diyhomie.com / Test1234 ; admin Diyhomieapp@gmail.co
 - Backend curl-verified end-to-end (invite→register→accept→shared-with-me→scoped perms→403 enforcement). TEST USER: collab_test@diyhomie.com / Test1234. Frontend E2E pending testing_agent.
 
 ### PENDING QUEUE: B14 Photo Room Design (Gemini Nano Banana); B17 AI Orchestration Gateway (route AI via Knowledge Base); Twin-from-photos; Connect Pipedream (needs key).
+
+---
+## Session update (fork) cont. — Blueprint 23 shipped (Product Recommendation & Affiliate Attribution)
+- **B23 Product Recommendation, Partner Routing & Affiliate Attribution** — NEW `recommendation_engine.py` (distinct from existing affiliate_engine which is blog/SEO). Project-first, NOT a marketplace — DIYhomie never processes payments. Ranking is SAFETY-FIRST: compatibility rank sorts before ranking_score; affiliate weight lowest and server-side-guarded to never exceed safety weight. Collections: rec_partners, rec_catalog_items, rec_compat_rules, product_needs, product_recommendations, affiliate_clicks, partner_conversions, rec_config.
+- Compatibility statuses (compatible/likely_compatible/needs_verification/incompatible[excluded]) driven by spec overlap + compat rules (e.g. hvac_filter needs size verification). Disclosure text shown only for commission partners, before handoff. Outbound handoff creates AffiliateClick + returns external URL + disclosure, NEVER claims purchase / collects payment. Partner-confirmed conversions only (admin record + reverse); purchases never inferred. Partner activation guarded (needs disclosure if commission + link format + tracking).
+- Routers: /api/hi/rec/* (needs, needs/{id}/recommendations, recommendations/{id}/action|click, for-project/{id}) + /api/hi/admin/rec/* (dashboard, partners create/activate/pause, weights PUT [guarded], mismatches, conversions record/reverse/list). Seeded 2 partners (HomeFix affiliate + Acme manufacturer) + 3 catalog items + 2 compat rules on startup.
+- Frontend user: app/home-intel/rec/index.tsx (per-material recommendations w/ compatibility labels, verify notes, safety warning, disclosure, View Product via Linking + click record, save/have/not-relevant/report actions). Entry: project workspace "Recommended Products" (proj-recommend). Admin: src/components/admin/RecommendationsModule.tsx → /admin "Product Partners" (admin-nav-partners).
+- Backend curl-verified (compat gating, safety-first ranking, disclosure, click handoff, save action, partner-confirmed conversion, policy guard rejects affiliate>safety, 403 gating). Frontend E2E pending testing_agent.
+
+### PENDING QUEUE: B14 Photo Room Design (Gemini Nano Banana); B17 AI Orchestration Gateway; Twin-from-photos; Connect Pipedream (needs key).

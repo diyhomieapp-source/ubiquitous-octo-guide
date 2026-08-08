@@ -60,6 +60,7 @@ import digital_twin_engine
 import knowledge_graph_engine
 import project_intelligence_engine
 import collaboration_engine
+import recommendation_engine
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -8941,6 +8942,11 @@ app.include_router(project_intelligence_engine.build_router(get_current_user))
 collaboration_engine.configure(db, logger)
 app.include_router(collaboration_engine.build_router(get_current_user))
 
+# Product Recommendation, Partner Routing & Affiliate Attribution (Build Blueprint 23).
+recommendation_engine.configure(db, logger)
+app.include_router(recommendation_engine.build_router(get_current_user))
+app.include_router(recommendation_engine.build_admin_router(require_admin))
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
@@ -9035,6 +9041,7 @@ async def _startup_seed_community():
     await rewards_engine.seed()
     await integration_gateway_engine.seed_connectors()
     await knowledge_graph_engine.seed_knowledge()
+    await recommendation_engine.seed_recommendations()
 
 
 @app.on_event("startup")

@@ -137,6 +137,9 @@ export default function ProjectWorkspace() {
         <Pressable testID="proj-intelligence" style={styles.wideBtn} onPress={() => router.push(`/home-intel/projects/intelligence?id=${id}`)}>
           <MaterialCommunityIcons name="lightbulb-on-outline" size={18} color={colors.brandPrimary} /><Text style={styles.wideText}>  Next Best Step &amp; Blockers</Text>
         </Pressable>
+        <Pressable testID="proj-recommend" style={styles.wideBtn} onPress={() => router.push(`/home-intel/rec?project_id=${id}`)}>
+          <MaterialCommunityIcons name="tag-search-outline" size={18} color={colors.brandPrimary} /><Text style={styles.wideText}>  Recommended Products</Text>
+        </Pressable>
         <Pressable testID="proj-cleanup" style={styles.wideBtn} onPress={() => router.push(`/home-intel/cleanup?project_id=${id}`)}>
           <MaterialCommunityIcons name="broom" size={18} color={colors.brandPrimary} /><Text style={styles.wideText}>  Cleanup &amp; Disposal</Text>
         </Pressable>
