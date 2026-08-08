@@ -23,6 +23,7 @@ export default function ProjectIntelligence() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const [showBlocker, setShowBlocker] = useState(false);
@@ -33,7 +34,9 @@ export default function ProjectIntelligence() {
   const [limit, setLimit] = useState("");
 
   const load = useCallback(async () => {
-    try { const d = await api<any>(`/hi/pi/projects/${id}/workspace`); setData(d); setLimit(d.budget.budget_limit != null ? String(d.budget.budget_limit) : ""); } catch {} finally { setLoading(false); }
+    setErr(false);
+    try { const d = await api<any>(`/hi/pi/projects/${id}/workspace`); setData(d); setLimit(d.budget.budget_limit != null ? String(d.budget.budget_limit) : ""); }
+    catch { setErr(true); } finally { setLoading(false); }
   }, [id]);
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
@@ -65,7 +68,18 @@ export default function ProjectIntelligence() {
     catch (e: any) { Alert.alert("Failed", e?.message || "Try again."); } finally { setBusy(false); }
   };
 
-  if (loading || !data) return <View style={styles.root}><ScreenHeader title="Project Intelligence" /><ActivityIndicator color={colors.brandPrimary} style={{ marginTop: spacing.xl }} /></View>;
+  if (loading || !data) return (
+    <View style={styles.root}>
+      <ScreenHeader title="Project Intelligence" />
+      {err ? (
+        <View style={{ alignItems: "center", paddingTop: spacing["3xl"], gap: spacing.md }}>
+          <MaterialCommunityIcons name="wifi-off" size={36} color={colors.onSurfaceTertiary} />
+          <Text style={{ color: colors.onSurfaceSecondary, fontFamily: font.medium, fontSize: type.base }}>Could not load this project.</Text>
+          <Pressable testID="pi-retry" style={styles.primarySm} onPress={() => { setLoading(true); load(); }}><Text style={styles.primarySmText}>  Retry  </Text></Pressable>
+        </View>
+      ) : <ActivityIndicator color={colors.brandPrimary} style={{ marginTop: spacing.xl }} />}
+    </View>
+  );
 
   const nba = data.next_best_action;
   const b = data.budget;
