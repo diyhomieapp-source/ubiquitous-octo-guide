@@ -44,8 +44,10 @@ import { AssetExitModule } from "@/src/components/admin/AssetExitModule";
 import { ARModule } from "@/src/components/admin/ARModule";
 import { NotifOrchestrationModule } from "@/src/components/admin/NotifOrchestrationModule";
 import { ComplianceModule } from "@/src/components/admin/ComplianceModule";
+import { ProWorkspaceModule } from "@/src/components/admin/ProWorkspaceModule";
+import { DataGovernanceModule } from "@/src/components/admin/DataGovernanceModule";
 
-type Mod = "overview" | "homiehq" | "assetexit" | "arguidance" | "notiforch" | "compliance" | "analytics" | "homeops" | "integrations" | "twin" | "knowledge" | "recpartners" | "rewardsfunding" | "finance" | "roi" | "freemium" | "quizzes" | "experts" | "certs" | "education" | "campaigns" | "export" | "appstore" | "monitoring" | "investor" | "crm" | "vendors" | "suppliers" | "kits" | "proleads" | "proaccounts" | "credentials" | "partners" | "prompts" | "audit" | "notifications" | "automations" | "features" | "email" | "affiliate" | "feedback" | "tickets" | "blog";
+type Mod = "overview" | "homiehq" | "assetexit" | "arguidance" | "notiforch" | "compliance" | "proworkspace" | "datagovernance" | "analytics" | "homeops" | "integrations" | "twin" | "knowledge" | "recpartners" | "rewardsfunding" | "finance" | "roi" | "freemium" | "quizzes" | "experts" | "certs" | "education" | "campaigns" | "export" | "appstore" | "monitoring" | "investor" | "crm" | "vendors" | "suppliers" | "kits" | "proleads" | "proaccounts" | "credentials" | "partners" | "prompts" | "audit" | "notifications" | "automations" | "features" | "email" | "affiliate" | "feedback" | "tickets" | "blog";
 const MODULES: { key: Mod; label: string; icon: string }[] = [
   { key: "overview", label: "Overview", icon: "view-dashboard-outline" },
   { key: "homiehq", label: "Homie HQ", icon: "radar" },
@@ -60,6 +62,8 @@ const MODULES: { key: Mod; label: string; icon: string }[] = [
   { key: "arguidance", label: "AR Guidance", icon: "cube-scan" },
   { key: "notiforch", label: "Notification Center", icon: "bell-cog-outline" },
   { key: "compliance", label: "Permit & Code", icon: "clipboard-check-outline" },
+  { key: "proworkspace", label: "Pro Workspace", icon: "briefcase-outline" },
+  { key: "datagovernance", label: "Data Governance", icon: "shield-lock-outline" },
   { key: "finance", label: "CFO Dashboard", icon: "finance" },
   { key: "crm", label: "CRM / Contacts", icon: "account-multiple-outline" },
   { key: "email", label: "Email Marketing", icon: "email-fast-outline" },
@@ -163,6 +167,8 @@ export default function AdminWorkstation() {
         {mod === "arguidance" && <ARModule />}
         {mod === "notiforch" && <NotifOrchestrationModule />}
         {mod === "compliance" && <ComplianceModule />}
+        {mod === "proworkspace" && <ProWorkspaceModule />}
+        {mod === "datagovernance" && <DataGovernanceModule />}
         {mod === "finance" && <FinanceModule />}
         {mod === "crm" && <CrmModule />}
         {mod === "email" && <EmailModule />}

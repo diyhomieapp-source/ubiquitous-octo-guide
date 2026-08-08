@@ -18,6 +18,7 @@ type Options = {
   body?: any;
   auth?: boolean;
   timeout?: number;
+  headers?: Record<string, string>;
 };
 
 export class ApiError extends Error {
@@ -30,8 +31,8 @@ export class ApiError extends Error {
 }
 
 export async function api<T = any>(path: string, opts: Options = {}): Promise<T> {
-  const { method = "GET", body, auth = true, timeout = 90000 } = opts;
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const { method = "GET", body, auth = true, timeout = 90000, headers: extraHeaders } = opts;
+  const headers: Record<string, string> = { "Content-Type": "application/json", ...(extraHeaders || {}) };
   if (auth) {
     const token = await getToken();
     if (token) headers["Authorization"] = `Bearer ${token}`;

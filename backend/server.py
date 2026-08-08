@@ -68,6 +68,8 @@ import ar_guidance_engine
 import notification_engine
 import compliance_engine
 import pro_workspace_engine
+import data_governance_engine
+import dashboard_engine
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -9007,6 +9009,15 @@ pro_workspace_engine.configure(db, logger)
 app.include_router(pro_workspace_engine.build_router(get_current_user))
 app.include_router(pro_workspace_engine.build_admin_router(require_admin))
 
+# Data Governance, Privacy, Retention & Account Portability (Build Blueprint 31).
+data_governance_engine.configure(db, logger, pwd_context.verify)
+app.include_router(data_governance_engine.build_router(get_current_user))
+app.include_router(data_governance_engine.build_admin_router(require_admin))
+
+# Home Intelligence Dashboard & Property Health Timeline (Build Blueprint 32).
+dashboard_engine.configure(db, logger, _llm_json)
+app.include_router(dashboard_engine.build_router(get_current_user))
+
 
 
 
@@ -9116,6 +9127,8 @@ async def _startup_seed_community():
     await notification_engine.seed_notifications()
     await compliance_engine.seed_compliance()
     await pro_workspace_engine.seed_pro()
+    await data_governance_engine.seed_governance()
+    await dashboard_engine.seed_dashboard()
 
 
 @app.on_event("startup")

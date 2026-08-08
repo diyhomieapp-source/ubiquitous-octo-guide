@@ -96,6 +96,15 @@ export default function HomeIntelDashboard() {
 
         <UpgradeNudge />
 
+        <Pressable testID="hi-dashboard" style={styles.dashCard} onPress={() => router.push("/home-intel/dashboard")}>
+          <MaterialCommunityIcons name="view-dashboard-outline" size={22} color={colors.brandPrimary} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.dashTitle}>Home Dashboard</Text>
+            <Text style={styles.dashSub}>Your top actions, home care & timeline in one place</Text>
+          </View>
+          <MaterialCommunityIcons name="chevron-right" size={22} color={colors.brandPrimary} />
+        </Pressable>
+
         <Text style={styles.hero}>What do you need help with?</Text>
 
         <Pressable testID="hi-fix" style={styles.primary} onPress={() => router.push("/home-intel/help")}>
@@ -166,6 +175,14 @@ export default function HomeIntelDashboard() {
           <MaterialCommunityIcons name="tag-arrow-right-outline" size={20} color={colors.brandPrimary} />
           <Text style={styles.secondaryText}>Sell, Donate or Recycle</Text>
         </Pressable>
+        <Pressable testID="hi-pro-workspace" style={styles.secondary} onPress={() => router.push("/pro-workspace")}>
+          <MaterialCommunityIcons name="briefcase-outline" size={20} color={colors.brandPrimary} />
+          <Text style={styles.secondaryText}>Pro Workspace</Text>
+        </Pressable>
+        <Pressable testID="hi-privacy" style={styles.secondary} onPress={() => router.push("/home-intel/privacy")}>
+          <MaterialCommunityIcons name="shield-lock-outline" size={20} color={colors.brandPrimary} />
+          <Text style={styles.secondaryText}>Privacy &amp; Data</Text>
+        </Pressable>
 
         {loading ? <ActivityIndicator color={colors.brandPrimary} style={{ marginTop: spacing.xl }} /> : (
           <>
@@ -222,6 +239,9 @@ const styles = StyleSheet.create({
   bannerFill: { height: 6, borderRadius: 3, backgroundColor: colors.brandPrimary },
   bannerSub: { color: colors.onSurfaceTertiary, fontFamily: font.regular, fontSize: type.sm },
   hero: { color: colors.onSurface, fontFamily: font.display, fontSize: type["3xl"], marginBottom: spacing.lg },
+  dashCard: { flexDirection: "row", alignItems: "center", gap: spacing.sm, backgroundColor: colors.brandPrimary + "12", borderColor: colors.brandPrimary + "55", borderWidth: 1, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.lg },
+  dashTitle: { color: colors.onSurface, fontFamily: font.bold, fontSize: type.base },
+  dashSub: { color: colors.onSurfaceTertiary, fontFamily: font.regular, fontSize: type.xs, marginTop: 2 },
   primary: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, backgroundColor: colors.brandPrimary, borderRadius: radius.md, paddingVertical: spacing.lg },
   primaryText: { color: colors.onBrandPrimary, fontFamily: font.bold, fontSize: type.lg },
   secondary: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, borderColor: colors.brandPrimary, borderWidth: 1, borderRadius: radius.md, paddingVertical: spacing.md, marginTop: spacing.md },
