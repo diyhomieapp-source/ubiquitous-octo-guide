@@ -1,6 +1,5 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert, Switch, TextInput } from "react-native";
-import { useFocusEffect } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 import { colors, spacing, radius, font, type } from "@/src/theme";
@@ -17,7 +16,7 @@ export function VoiceModule() {
     try { const d = await api<any>("/hi/admin/voice/dashboard"); setDash(d); setLimit(String(d.settings?.free_voice_daily_limit ?? "")); }
     catch (e: any) { Alert.alert("Load failed", e?.message || "Try again."); } finally { setLoading(false); }
   }, []);
-  useFocusEffect(useCallback(() => { load(); }, [load]));
+  useEffect(() => { load(); }, [load]);
 
   const setSetting = async (key: string, value: any) => {
     setBusy(true);
