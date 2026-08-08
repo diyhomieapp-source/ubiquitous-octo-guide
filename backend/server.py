@@ -76,6 +76,9 @@ import community_engine as community_b35
 import emergency_engine
 import release_engine
 import investor_intel_engine
+import platform_engine
+import design_engine
+import search_engine
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -9050,6 +9053,20 @@ app.include_router(release_engine.build_admin_router(require_admin))
 investor_intel_engine.configure(db, logger)
 app.include_router(investor_intel_engine.build_admin_router(require_admin))
 
+# Platform Domain Architecture, API Contracts & Service Boundaries (Build Blueprint 39).
+platform_engine.configure(db, logger)
+app.include_router(platform_engine.build_admin_router(require_admin))
+
+# Design System, Navigation & Accessibility Foundation (Build Blueprint 40).
+design_engine.configure(db, logger)
+app.include_router(design_engine.build_admin_router(require_admin))
+app.include_router(design_engine.build_public_router())
+
+# Universal Search, Discovery & Contextual Navigation (Build Blueprint 41).
+search_engine.configure(db, logger)
+app.include_router(search_engine.build_router(get_current_user))
+app.include_router(search_engine.build_admin_router(require_admin))
+
 
 
 
@@ -9167,6 +9184,9 @@ async def _startup_seed_community():
     await emergency_engine.seed_emergency()
     await release_engine.seed_release()
     await investor_intel_engine.seed_invintel()
+    await platform_engine.seed_platform()
+    await design_engine.seed_design()
+    await search_engine.seed_search()
 
 
 @app.on_event("startup")

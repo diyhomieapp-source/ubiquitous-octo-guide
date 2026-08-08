@@ -1,0 +1,35 @@
+{
+  "summary": "Build Blueprints 37-41 wiring verified end-to-end. Backend: 33/33 pytest cases pass covering B40 design (public tokens/foundation + admin overview/registry/components incl. approve-before-a11y=passed rejection AND safety_card born-approved rejection), B39 platform (domains, api-standards, events list, invalid event_type => 400, valid project.started event recorded), B37 release (dashboard, releases/incidents/flags lists, release create + status transition to deployed), B38 invintel dashboard + 7 list endpoints, B41 user search (kitchen/electrical/shelf/warranty/light fixture, projects rank above guides for 'electrical', nonsense query => result_count 0, POST /select ok, context_type=room scoping strips global guides/templates/community, cross-user isolation verified: demo user owner-scoped ids disjoint from admin owner-scoped ids), B41 admin search (health, reindex, config GET/PUT, synonyms CRUD, logs). Frontend: /design-system renders buttons, safety cards, AI response card, states, tokens (all testIDs present). Demo login → home tab shows home-search magnify icon which opens /find; typing 'kitchen' returns grouped results, 'zzz_nomatch_iter77' shows EmptyState + 5 no-result action chips. Admin sidebar exposes 5 new keys design/searchops/release/invintel/platform, each renders without crashing, and existing modules (overview, homiehq, communityhub, voice) still work — no admin menu key collisions.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "app/find.tsx", "issue": "MaterialCommunityIcons emits console warning \"fridge-plus-outline\" is not a valid icon name for family 'material-community' (used in noResultActions 'Add Asset' chip).", "testID": "find-action-Add Asset", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_b37_41_iter77.py",
+    "/app/test_reports/pytest/b37_41_iter77.xml"
+  ],
+  "action_items": [
+    "Optional cosmetic: change 'fridge-plus-outline' to a valid MaterialCommunityIcons name (e.g. 'fridge-outline' or 'plus-box-outline') in /app/frontend/app/find.tsx noResultActions to silence the icon-name warning."
+  ],
+  "critical_code_review_comments": [
+    "search_engine.py: authorization is enforced BEFORE ranking — private records are resolved strictly from the caller's own hi_properties (pid) and user_id (uid); cross-user isolation confirmed via test (admin vs demo 'kitchen' — owner-scoped id sets are disjoint).",
+    "search_engine.py _sanitize() correctly redacts token-like strings from logs and truncates to 200 chars, preventing sensitive info in search_query_logs.",
+    "design_engine.py enforces two independent guardrails: (a) safety_card cannot be created with status=approved (product+content ownership) and (b) any component transitioning to 'approved' requires accessibility_review_status=passed — both verified.",
+    "release_engine.py update_release blocks completion unless rollback_plan exists AND all CRITICAL_JOURNEYS pass AND no failing AI eval cases — good gating. (Not exercised end-to-end in tests, but logic reviewed.)",
+    "platform_engine.emit_event is a clean reusable helper other engines can call, and event_type is validated against DOMAIN_EVENTS on the admin POST path.",
+    "investor_intel_engine.py namespace is /api/hi/admin/invintel/* (NOT /investor_intel as written in the review request). The engine and mount in server.py are consistent; only the review request text has a stale name — no code fix needed.",
+    "All 5 new engines exclude MongoDB _id via projections (or .pop('_id', None) after insert) — no ObjectId serialization risk observed."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (33/33)", "frontend": "100% (design-system + home-search + /find + all 5 new admin modules + regression on existing admin keys)"},
+  "seed_data_creation": "Test data prefixed TEST_iter77: one temp design component (toast v'TEST_iter77', deleted at end), one platform event (project.started, entity_id 'TEST_iter77_entity'), one release ('TEST_iter77' backend release, transitioned to 'deployed'), one temp synonym ('TEST_iter77_term', deleted). All ephemeral or clearly TEST_-prefixed for future cleanup.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "B37-B41 wiring is stable. Backend: /api/hi/search (user), /api/hi/admin/search/* (admin), /api/hi/design/{tokens,foundation} public, /api/hi/admin/design/*, /api/hi/admin/platform/*, /api/hi/admin/release/*, /api/hi/admin/invintel/* (note: 'invintel' NOT 'investor_intel'). Frontend testIDs: home-search (home tab), find-input / find-result-<id> / find-action-<label> / find-back / find-clear on /find; ds-primary/secondary/danger/loading/disabled, ds-safe/verify/stop/emergency, ds-ai, ds-empty/loadingstate/error/offline, ds-back on /design-system; admin-nav-{design,searchops,release,invintel,platform} in /admin sidebar. Cross-user isolation for search verified.",
+  "rca_of_issue": "N/A — no functional bugs found. One low-severity console warning about an invalid MaterialCommunityIcons name in /find.tsx (fridge-plus-outline) that renders a fallback glyph but is otherwise harmless."
+}

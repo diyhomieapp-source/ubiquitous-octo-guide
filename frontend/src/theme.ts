@@ -49,3 +49,38 @@ export const type = {
   "3xl": 32,
   "4xl": 48,
 };
+
+// ---- Blueprint 40: extended foundation tokens ----
+
+// Elevation (shadow presets) — flat, raised, modal, critical alert.
+export const elevation = {
+  flat: {},
+  raised: { shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.24, shadowRadius: 6, elevation: 2 },
+  modal: { shadowColor: "#000", shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.36, shadowRadius: 20, elevation: 8 },
+  critical: { shadowColor: "#FF3D00", shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.5, shadowRadius: 16, elevation: 12 },
+} as const;
+
+// Motion durations (ms). Reduced-motion consumers should use `motion.reduced`.
+export const motion = { fast: 120, standard: 240, slow: 400, reduced: 0 } as const;
+
+// Semantic typography roles — pair a font family + size for consistent hierarchy.
+export const typography = {
+  display: { fontFamily: font.display, fontSize: 32 },
+  heading: { fontFamily: font.bold, fontSize: 20 },
+  body: { fontFamily: font.regular, fontSize: 14, lineHeight: 20 },
+  caption: { fontFamily: font.regular, fontSize: 12 },
+  button: { fontFamily: font.bold, fontSize: 14 },
+  numeric: { fontFamily: font.display, fontSize: 24 },
+} as const;
+
+// Safety UI palette — color is always paired with an icon + text, never color alone.
+export const safety = {
+  safe: { color: "#00E676", icon: "check-circle-outline", label: "Safe to Continue" },
+  verify: { color: "#FFC400", icon: "alert-outline", label: "Verify First" },
+  stop: { color: "#FF6A00", icon: "hand-back-right-outline", label: "Stop and Escalate" },
+  emergency: { color: "#FF3D00", icon: "alarm-light-outline", label: "Emergency" },
+} as const;
+
+// Accessibility constants.
+export const a11y = { minTouchTarget: 44 } as const;
+

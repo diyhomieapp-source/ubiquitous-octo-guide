@@ -107,6 +107,9 @@ export default function Home() {
             <MaterialCommunityIcons name="lightning-bolt" size={13} color="#FF6A00" />
             <Text style={styles.creditText}>{user?.credits ?? 0}</Text>
           </View>
+          <Pressable testID="home-search" style={styles.iconBtn} onPress={() => router.push("/find")} hitSlop={8}>
+            <MaterialCommunityIcons name="magnify" size={22} color="#fff" />
+          </Pressable>
           <Pressable testID="home-notifications" style={styles.iconBtn} onPress={() => router.push("/notifications")} hitSlop={8}>
             <MaterialCommunityIcons name="bell-outline" size={22} color="#fff" />
             {unread > 0 && (
