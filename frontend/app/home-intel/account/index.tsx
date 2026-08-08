@@ -6,6 +6,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors, spacing, radius, font, type } from "@/src/theme";
 import { api, ApiError } from "@/src/api";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
+import { showLimitReached } from "@/src/utils/paywall";
 
 type Prefs = { experience_level: string; budget_sensitivity: string; risk_tolerance: string; tone: string; units: string };
 type Prop = { id: string; name?: string | null; property_type?: string | null; year_built?: number | null; is_active?: boolean };
@@ -50,10 +51,7 @@ export default function Account() {
       setForm({ name: "", property_type: "House", year_built: "" }); setAdding(false); load();
     } catch (e: any) {
       if (e instanceof ApiError && e.status === 402) {
-        Alert.alert("Home limit reached", e.message, [
-          { text: "Not now", style: "cancel" },
-          { text: "See plans", onPress: () => router.push("/home-intel/upgrade") },
-        ]);
+        showLimitReached(router, "Home limit reached", e.message);
       } else { Alert.alert("Couldn't add", e?.message || "Try again."); }
     }
   };

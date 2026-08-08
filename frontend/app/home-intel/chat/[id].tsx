@@ -8,6 +8,7 @@ import { colors, spacing, radius, font, type } from "@/src/theme";
 import { api, ApiError } from "@/src/api";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
 import { pickFromLibrary, takePhoto } from "@/src/utils/pickImage";
+import { showLimitReached } from "@/src/utils/paywall";
 
 type Action = { type: string; label: string; payload: any; approved: boolean; created_id?: string | null };
 type Msg = { id: string; role: "user" | "assistant"; text: string; suggested_actions?: Action[]; emergency?: boolean; photo_identification?: any };
@@ -75,10 +76,7 @@ export default function ChatThread() {
     } catch (e: any) {
       if (e instanceof ApiError && e.status === 402) {
         setMsgs((m) => m.filter((x) => x.id !== optimistic.id));
-        Alert.alert("Daily chat limit reached", e.message, [
-          { text: "Not now", style: "cancel" },
-          { text: "See plans", onPress: () => router.push("/home-intel/upgrade") },
-        ]);
+        showLimitReached(router, "Daily chat limit reached", e.message);
       } else { Alert.alert("Couldn't send", e?.message || "Try again."); load(); }
     }
     finally { setSending(false); }

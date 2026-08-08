@@ -6,6 +6,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors, spacing, radius, font, type } from "@/src/theme";
 import { api, ApiError } from "@/src/api";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
+import { showLimitReached } from "@/src/utils/paywall";
 
 const CATEGORIES = ["Fix Something", "Maintain Something", "Build Something", "Remodel a Space", "Improve My Yard", "Organize My Home"];
 const SKILLS = ["Beginner", "Intermediate", "Advanced"];
@@ -47,10 +48,7 @@ export default function StartProject() {
       }
     } catch (e: any) {
       if (e instanceof ApiError && e.status === 402) {
-        Alert.alert("Project limit reached", e.message, [
-          { text: "Not now", style: "cancel" },
-          { text: "See plans", onPress: () => router.push("/home-intel/upgrade") },
-        ]);
+        showLimitReached(router, "Project limit reached", e.message);
       } else { Alert.alert("Couldn't start", e?.message || "Try again."); }
     }
     finally { setBusy(false); }
