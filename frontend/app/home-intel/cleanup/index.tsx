@@ -22,7 +22,9 @@ export default function CleanupHub() {
 
   const load = useCallback(async () => {
     try {
-      const s = await api<any>("/hi/cleanup/sessions", { method: "POST", body: { project_id } });
+      // Prefer the existing session (any status) so a completed session stays visible.
+      const existing = await api<{ session: any }>(`/hi/cleanup/sessions/by-project/${project_id}`);
+      const s = existing.session || await api<any>("/hi/cleanup/sessions", { method: "POST", body: { project_id } });
       const full = await api<any>(`/hi/cleanup/sessions/${s.id}`);
       setSession(full.session); setLeftovers(full.leftovers); setWaste(full.waste); setOutcome(full.outcome);
     } catch (e: any) { Alert.alert("Couldn't load", e?.message || "Try again."); }

@@ -1,0 +1,25 @@
+{
+  "summary": "Retest of Blueprint 16 cleanup-completion persistence fix. Logged in as demo_home@diyhomie.com at mobile viewport 390x844, opened existing project 4ae43f68-20cf-4412-b4a6-1bda9764b9f7 -> proj-cleanup -> /home-intel/cleanup. Added leftover TEST_Retest_Tile via add-leftover/lo-name/lo-save. Added waste TEST_Retest_Paint via add-waste/w-name (category Paint) /w-save, then on waste/[wid] guidance screen picked action 'recycle' and tapped w-handled. Tapped cleanup-complete: green completion card 'Cleanup complete — 1 kept, 0 to Toolbox, 1 waste handled, 1 still open' rendered immediately and remained stable for 3+ seconds (no flash-and-vanish regression). Navigated to /home-intel/projects and back into the project workspace -> proj-cleanup: completion card is STILL visible with the same counts and both TEST_ items shown, confirming the by-project session lookup returns the existing completed session instead of POSTing a new one. Fix verified end-to-end. No React Native / Expo deprecation issues detected in this scope.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": ["/app/test_reports/iteration_62.json"],
+  "action_items": [
+    "Optional cleanup: the retest created TEST_Retest_Tile leftover and TEST_Retest_Paint waste on demo_home project 4ae43f68-20cf-4412-b4a6-1bda9764b9f7 and marked that session completed. Future cleanup retests on this project will now see a persistent completed session (which is the intended behavior). If a fresh empty state is desired for future testing, either seed a new project or add an API/UI to start a new cleanup session after completion."
+  ],
+  "critical_code_review_comments": [
+    "cleanup/index.tsx load() now correctly GETs /hi/cleanup/sessions/by-project/{project_id} first and only POSTs a new session when none exists — good conservative fix. Backend by_project sorts by created_at desc, so the most recent (completed) session is returned, preserving the outcome summary on refocus.",
+    "complete() still calls await load() after setting outcome — that's fine now because load() re-reads the same completed session and repopulates outcome from GET /sessions/{sid} instead of clobbering it with a fresh session."
+  ],
+  "updated_files": [],
+  "success_rate": { "backend": "n/a (skipped by request)", "frontend": "100%" },
+  "seed_data_creation": "Added on demo_home project 4ae43f68: TEST_Retest_Tile leftover (Other/Good, no user_selected_action) and TEST_Retest_Paint waste (Paint, action=recycle, handled). Session is now in 'completed' status.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Blueprint 16 cleanup completion persistence bug is FIXED and verified. The demo_home project 4ae43f68-20cf-4412-b4a6-1bda9764b9f7 now has a completed cleanup session with a persistent green summary card — this is the correct new behavior. If a next retest needs a fresh cleanup, create a new project first (demo user is at the 3/3 saved-projects limit though — may need to bump plan or delete a project).",
+  "rca_of_issue": "Previously (iteration_61): complete() -> load() -> load() POSTed /hi/cleanup/sessions which returned a NEW active session (since backend's POST handler excludes completed sessions from the 'existing' check), overwriting outcome/isDone. Fix in cleanup/index.tsx: load() first calls GET /hi/cleanup/sessions/by-project/{project_id} (which returns the most recent session including completed ones); only if that returns null does it POST a new session. Retest confirms the completion summary now persists both immediately after Finish cleanup and after leaving/returning to the screen."
+}
