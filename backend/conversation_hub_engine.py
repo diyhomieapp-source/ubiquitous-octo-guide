@@ -299,6 +299,11 @@ def build_router(get_current_user: Callable) -> APIRouter:
             return {"assistant": a, "photo_identification": photo_id or None}
 
         ctx_text = await _build_context(c["property_id"], c.get("context", {}))
+        try:
+            import admin_ops_engine
+            approved_templates = await admin_ops_engine.get_published_templates(limit=6)
+        except Exception:
+            approved_templates = ""
         # recent history (last 8 turns)
         hist = await _db.hi_conversation_messages.find(
             {"conversation_id": cid}, {"_id": 0, "role": 1, "text": 1}).sort("created_at", -1).to_list(9)
@@ -318,9 +323,13 @@ def build_router(get_current_user: Callable) -> APIRouter:
             "frequency_type in [one_time,monthly,quarterly,biannual,annual], due_in_days:int}), "
             "start_project (payload: {goal, project_category}). Only propose actions clearly implied "
             "by the conversation; otherwise return an empty list.\n"
+            "If APPROVED GUIDANCE templates are provided, treat them as vetted house rules and prefer "
+            "them when relevant.\n"
             "Return STRICT JSON: {\"reply\": string, \"suggested_actions\": [{\"type\": string, "
             "\"label\": short button text, \"payload\": object}]}.")
         ut = f"HOME CONTEXT:\n{ctx_text}\n\nRECENT CONVERSATION:\n{hist_text or '(none)'}\n\nUSER MESSAGE: {text or '(sent a photo)'}"
+        if approved_templates:
+            ut += f"\n\nAPPROVED GUIDANCE (vetted templates — prefer when relevant):\n{approved_templates}"
         if photo_id:
             ut += f"\n\nPHOTO IDENTIFICATION (from the attached image): {photo_id}"
 

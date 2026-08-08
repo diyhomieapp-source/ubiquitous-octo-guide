@@ -639,6 +639,35 @@ def build_user_router(get_current_user: Callable) -> APIRouter:
 
 
 # ---------------------------------------------------------------- external hook
+async def get_published_templates(category: str = None, types: list = None, limit: int = 6) -> str:
+    """Return a bounded text block of PUBLISHED templates for Homie to use as
+    approved guidance context. Drafts/archived are never included."""
+    if _db is None:
+        return ""
+    try:
+        q = {"status": "published"}
+        if types:
+            q["template_type"] = {"$in": types}
+        rows = await _db.hi_content_templates.find(q, {"_id": 0}).sort("updated_at", -1).to_list(30)
+        if category:
+            cl = category.lower()
+            rows.sort(key=lambda t: 0 if (t.get("category", "").lower() == cl) else 1)
+        # always surface safety templates first
+        rows.sort(key=lambda t: 0 if t.get("template_type") == "safety" else 1)
+        picked = rows[:limit]
+        if not picked:
+            return ""
+        bits = []
+        for t in picked:
+            line = f"- [{t.get('template_type')}] {t.get('title')}: {(t.get('content') or '')[:400]}"
+            if t.get("safety_notes"):
+                line += f" | Safety: {(t.get('safety_notes'))[:200]}"
+            bits.append(line)
+        return "\n".join(bits)
+    except Exception:
+        return ""
+
+
 async def record_safety_escalation(user_id: str, *, risk_level: str, trigger_type: str,
                                     ai_response_reference: str = "", conversation_id: str = None,
                                     issue_id: str = None, project_id: str = None):

@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert } from "react-native";
 import { useLocalSearchParams, useFocusEffect } from "expo-router";
 
 import { colors, spacing, radius, font, type } from "@/src/theme";
@@ -20,6 +20,7 @@ export default function ShoppingList() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [grouped, setGrouped] = useState<Record<string, Mat[]>>({});
   const [loading, setLoading] = useState(true);
+  const [matching, setMatching] = useState(false);
 
   const load = useCallback(async () => {
     try { const d = await api<{ grouped: Record<string, Mat[]> }>(`/hi/projects/${id}/materials`); setGrouped(d.grouped); } catch {} finally { setLoading(false); }
@@ -36,12 +37,25 @@ export default function ShoppingList() {
     try { await api(`/hi/projects/materials/${mid}`, { method: "PUT", body: { user_status: status } }); } catch { load(); }
   };
 
+  const matchInventory = async () => {
+    setMatching(true);
+    try {
+      const res = await api<{ counts: { already_have: number; need_to_buy: number } }>(`/hi/inventory/match/${id}/apply`, { method: "POST", body: { apply: true } });
+      load();
+      Alert.alert("Toolbox matched", `${res.counts.already_have} you already have · ${res.counts.need_to_buy} to buy.`);
+    } catch (e: any) { Alert.alert("Couldn't match", e?.message || "Add items to your toolbox first."); }
+    finally { setMatching(false); }
+  };
+
   if (loading) return <View style={styles.root}><ScreenHeader title="Shopping List" /><ActivityIndicator color={colors.brandPrimary} style={{ marginTop: spacing.xl }} /></View>;
 
   return (
     <View style={styles.root}>
       <ScreenHeader title="Shopping List" />
       <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing["3xl"] }}>
+        <Pressable testID="match-toolbox" style={styles.matchBtn} disabled={matching} onPress={matchInventory}>
+          {matching ? <ActivityIndicator color={colors.onBrandPrimary} /> : <Text style={styles.matchText}>Match against my toolbox</Text>}
+        </Pressable>
         {GROUPS.map((g) => {
           const items = grouped[g.key] || [];
           if (items.length === 0) return null;
@@ -75,6 +89,8 @@ export default function ShoppingList() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.surface },
+  matchBtn: { backgroundColor: colors.brandPrimary, borderRadius: radius.md, paddingVertical: spacing.md, alignItems: "center", marginBottom: spacing.sm },
+  matchText: { color: colors.onBrandPrimary, fontFamily: font.bold, fontSize: type.base },
   group: { color: colors.onSurface, fontFamily: font.bold, fontSize: type.lg, marginTop: spacing.lg, marginBottom: spacing.sm },
   card: { backgroundColor: colors.surfaceSecondary, borderColor: colors.border, borderWidth: 1, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.sm },
   cardTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },

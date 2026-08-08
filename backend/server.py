@@ -47,6 +47,7 @@ import conversation_hub_engine
 import admin_ops_engine
 import push_engine
 import reminders_engine
+import inventory_engine
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -8865,6 +8866,10 @@ push_engine.configure(logger)
 app.include_router(push_engine.build_router(get_current_user))
 reminders_engine.configure(db, logger)
 app.include_router(reminders_engine.build_router(get_current_user))
+
+# Tool, Material & Supply Inventory (Build Blueprint 07).
+inventory_engine.configure(db, logger, EMERGENT_LLM_KEY)
+app.include_router(inventory_engine.build_router(get_current_user))
 
 app.add_middleware(
     CORSMiddleware,

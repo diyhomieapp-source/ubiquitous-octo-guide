@@ -59,6 +59,10 @@ export default function HomeIntelDashboard() {
           <MaterialCommunityIcons name="calendar-check-outline" size={20} color={colors.brandPrimary} />
           <Text style={styles.secondaryText}>Home Care &amp; Maintenance</Text>
         </Pressable>
+        <Pressable testID="hi-inventory" style={styles.secondary} onPress={() => router.push("/home-intel/inventory")}>
+          <MaterialCommunityIcons name="toolbox-outline" size={20} color={colors.brandPrimary} />
+          <Text style={styles.secondaryText}>My Toolbox</Text>
+        </Pressable>
         <Pressable testID="hi-vault" style={styles.secondary} onPress={() => router.push("/home-intel/documents")}>
           <MaterialCommunityIcons name="folder-lock-outline" size={20} color={colors.brandPrimary} />
           <Text style={styles.secondaryText}>Document Vault</Text>

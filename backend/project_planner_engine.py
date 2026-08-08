@@ -236,6 +236,12 @@ def build_router(get_current_user: Callable) -> APIRouter:
             raise HTTPException(status_code=409, detail="This looks unsafe for DIY. Please contact a professional.")
 
         ctx = await _context(p["property_id"], p.get("room_id"), p.get("asset_id"))
+        try:
+            import admin_ops_engine
+            approved_templates = await admin_ops_engine.get_published_templates(
+                category=p.get("project_category"), types=["project", "safety", "tool_list", "material_list"], limit=6)
+        except Exception:
+            approved_templates = ""
         system = (
             "You are DIYhomie's safety-first project planner. Create a structured DIY project plan.\n"
             "SAFETY: Classify risk_level as one of [Low Risk, Moderate Risk, High Risk, Professional "
@@ -260,6 +266,8 @@ def build_router(get_current_user: Callable) -> APIRouter:
             f"Skill level: {p.get('skill_level') or 'unknown'}\nBudget: {p.get('budget_preference') or 'unknown'}\n"
             f"Timing: {p.get('timing_preference') or 'unknown'}\nTools on hand: {p.get('available_tools') or 'unknown'}\n"
             f"Context:\n{ctx}")
+        if approved_templates:
+            user_text += f"\n\nAPPROVED GUIDANCE (vetted templates — prefer when relevant):\n{approved_templates}"
         try:
             data = await _llm_json(system, user_text, max_tokens=2600)
         except Exception as e:
