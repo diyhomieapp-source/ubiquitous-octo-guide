@@ -1,0 +1,31 @@
+{
+  "summary": "Blueprint 20 (Home Knowledge Graph & Document Intelligence) — Full stack verified. Backend: 12/12 pytest cases pass covering seeded global retrieval with source_references + assertions ('DIYhomie Wall Painting Procedure'), entity GET with requires_tool/requires_material/governed_by_warning relationships + source, CRITICAL privacy isolation (private entities NOT retrievable by other users; in-review entities NOT retrievable as global before admin publish; other user gets 403/404 on private entity GET), admin dashboard counts, review queue, publish (visibility→global, version bumps, source published), reject (→ draft/private_user), archive, lineage (source+assertions+excerpts), versions + rollback, sources create+list, and full auth guards (401 no-token / 403 non-admin). Frontend user (mobile 390x844): /home-intel → hi-knowledge → kb-input 'paint a wall' → kb-search returns 3 seeded results (Paint an interior wall / Interior latex paint / Paint roller) with 'Source: DIYhomie Wall Painting Procedure' citation on each; kb-contribute → contribute screen accepts kc-title/kc-desc + kc-share and kc-submit persists via API. Frontend admin (desktop 1400x900): /admin → admin-nav-knowledge loads KnowledgeModule with 5 stat cards + review queue (3 pending items showing kg-publish-*/kg-reject-*/kg-archive- buttons); kg-source-name + kg-source-add successfully creates a new source (Sources 11 → 12, TEST_UISRC_124467 appears with Rank 80/Approved_template). All acceptance criteria met including the critical privacy isolation rule.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_knowledge_graph_b20.py",
+    "/app/test_reports/pytest/knowledge_b20.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "knowledge_graph_engine.py:265 — contribute() correctly enforces the two planes: share_public=false → visibility=private_user + status=draft; share_public=true → status=review with visibility=global BUT retrieve() filters on status=='published' for global scope, so in-review items don't leak. Verified by test_share_public_goes_to_review_not_global.",
+    "knowledge_graph_engine.py:162 — retrieve() visibility filter uses owner_id=user_id for private scope; other users cannot see private entities. Verified by test_private_entity_isolated_from_other_user.",
+    "knowledge_graph_engine.py:250 — get_entity enforces visibility: returns 403 if non-global and owner mismatch, 404 if global but not published. Correct.",
+    "knowledge_graph_engine.py:353 — publish action bumps version_number by +1 and publishes the source too. Verified.",
+    "All admin endpoints correctly guarded by require_admin (401 without token / 403 with non-admin token)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_knowledge_graph_b20.py"
+  ],
+  "success_rate": {"backend": "100% (12/12)", "frontend": "100% (user mobile + admin web flows verified)"},
+  "seed_data_creation": "Test entities/sources created via demo_home + admin: TEST_KG_private_*, TEST_KG_iso_*, TEST_KG_rev_*, TEST_KG_pub_*, TEST_KG_rej_*, TEST_KG_arc_*, TEST_KG_src_*, TEST_UI_KB_private_*, TEST_UIREVIEW_*, TEST_UISRC_*. Some remain in the review queue by design (rej/arc/rev). No cleanup needed — all prefixed TEST_ for later removal.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "EXPO_PUBLIC_BACKEND_URL is the public URL in /app/frontend/.env (load via python-dotenv from /app/frontend/.env in backend tests since it's not set in the backend process env). Login via /auth?mode=login, wait for localStorage['diyhomie_token']. Admin console at /admin uses testIDs admin-nav-knowledge → KnowledgeModule (kg-publish-{eid}, kg-reject-{eid}, kg-archive-{eid}, kg-source-name, kg-source-add). User flow: /home-intel → hi-knowledge → kb-input/kb-search/kb-contribute → kc-title/kc-desc/kc-share/kc-submit. Privacy contract: retrieve() only returns global+published to other users; owner sees own private entities only.",
+  "rca_of_issue": ""
+}

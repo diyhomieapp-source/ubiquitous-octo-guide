@@ -57,6 +57,7 @@ import measurement_engine
 import cleanup_engine
 import integration_gateway_engine
 import digital_twin_engine
+import knowledge_graph_engine
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -8925,6 +8926,11 @@ digital_twin_engine.configure(db, logger)
 app.include_router(digital_twin_engine.build_router(get_current_user))
 app.include_router(digital_twin_engine.build_admin_router(require_admin))
 
+# Home Knowledge Graph & Document Intelligence (Build Blueprint 20).
+knowledge_graph_engine.configure(db, logger)
+app.include_router(knowledge_graph_engine.build_router(get_current_user))
+app.include_router(knowledge_graph_engine.build_admin_router(require_admin))
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
@@ -9018,6 +9024,7 @@ async def _startup_seed_community():
     await analytics_engine.seed()
     await rewards_engine.seed()
     await integration_gateway_engine.seed_connectors()
+    await knowledge_graph_engine.seed_knowledge()
 
 
 @app.on_event("startup")

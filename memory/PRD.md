@@ -407,3 +407,13 @@ Test credentials: demo_home@diyhomie.com / Test1234 ; admin Diyhomieapp@gmail.co
 - Verified iteration_64 (16/16 backend pytest + full frontend E2E, mobile + web). Conflict engine confirmed: manual value never overwritten by photo estimate.
 
 ### PENDING QUEUE: B20 Home Knowledge Graph & Document Intelligence (queued, NOT started); B14 Photo Room Design (Gemini Nano Banana); B17 AI Orchestration Gateway.
+
+---
+## Session update (fork) cont. — Blueprint 20 shipped (Knowledge Graph)
+- **B20 Home Knowledge Graph & Document Intelligence** — NEW `knowledge_graph_engine.py`. Source-aware connected knowledge (entities + relationships + sources + excerpts + assertions with SOURCE LINEAGE). Two strictly-separated planes: GLOBAL (approved, published after review) vs PRIVATE (user's own, never public without consent+admin review). RELIABILITY_RANK hierarchy (manufacturer_document > approved_standard/template > admin_research > user_contribution > ai_generated). SAFETY_SENSITIVE predicates never auto-published.
+- Retrieval service `retrieve()` (used by AI Orchestration): token-overlap scoring, visibility-enforced (private only for owner, global must be published), returns source_references + assertions, prefers structured entities. Collections: kg_entities, kg_entity_versions, kg_relationships, kg_sources, kg_excerpts, kg_assertions. Seeded a global "Paint an interior wall" procedure + material/tool/warning + relationships.
+- Routers: /api/hi/knowledge/* (retrieve, entity detail w/ relationships, contribute private→optional review) + /api/hi/admin/knowledge/* (dashboard, review-queue, entities CRUD, review approve/publish/reject/archive, versions + rollback, sources CRUD, lineage). Seeded on startup (seed_knowledge).
+- Frontend user: app/home-intel/knowledge/{index,contribute}.tsx. Entry: HI dashboard "Knowledge Base" (hi-knowledge). Admin: src/components/admin/KnowledgeModule.tsx → /admin "Knowledge Graph" (admin-nav-knowledge).
+- Backend curl-verified (retrieval w/ source refs, contribute→review, publish→global v2, lineage, version snapshots, 403 gating). Frontend E2E pending testing_agent.
+
+### PENDING QUEUE: B21 Adaptive Project Intelligence & Execution Engine (enhancement to B03 — building next); B14 Photo Room Design (Gemini); B17 AI Orchestration Gateway; Twin-from-photos; Connect Pipedream (needs key).
