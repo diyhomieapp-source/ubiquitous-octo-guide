@@ -349,7 +349,15 @@ Test credentials: demo_home@diyhomie.com / Test1234 ; admin Diyhomieapp@gmail.co
 - Collections: hi_admin_users, hi_admin_permissions, hi_admin_audit, hi_content_templates(+_versions), hi_safety_escalations, hi_support_tickets, hi_support_messages, hi_feature_flags.
 - RBAC designed via integration_expert. NOTE: published templates are stored as approved guidance context but not yet injected into Homie's prompts (future wiring).
 
-**QUEUED (not yet built), in blueprint order:**
-- Blueprint 07 — Tool/Material/Supply Inventory (NEXT) (central chat front-door using room/asset/project/doc context; context selector; photo ID; conversation→approved records with user approval; history; hi_conversation_*).
+**Maintenance Reminders (DONE, tested iter52 — 12/12 backend + frontend):**
+- Backend `reminders_engine.py` (/api/hi/reminders): feed (overdue/due_today/this_week + counts + headline), badge, preferences (push_enabled, digest_frequency off/daily/weekly), test-push, and a daily push-digest scheduler loop (per-user last_push_date guard). Collection: hi_reminder_prefs.
+- Backend `push_engine.py`: Emergent managed push relay — POST /api/register-push + send_push() helper. EMERGENT_PUSH_KEY=placeholder in .env (deployer sets real key at build). Graceful degradation in preview.
+- Frontend: reminders.tsx (feed + push toggle + digest chips + test push), _layout.tsx push handlers (module-scope handler+channel, warm/cold tap listeners), src/utils/push.ts (registerForPush + silent reRegisterIfGranted), auth.tsx silent re-register on app open, 'Reminders' button + red badge on maintenance home. app.json: expo-notifications plugin + android.googleServicesFile + POST_NOTIFICATIONS.
+- PENDING FOR USER: push only works after Publish + native build with a google-services.json (Android) from Firebase; APNs key + Google service-account JSON prompted at build. In-app reminders work now.
+
+**QUEUED (not yet built), in order:**
+- Templates-in-Homie (wire published content templates from B10 into Homie chat/project guidance)
+- Blueprint 07 — Tool/Material/Supply Inventory
+- Blueprint 08 — Account/Property Onboarding & Preferences (central chat front-door using room/asset/project/doc context; context selector; photo ID; conversation→approved records with user approval; history; hi_conversation_*).
 - Blueprint 07 — Tool/Material/Supply Inventory (hi_inventory_*; add/identify(photo)/edit/archive; storage locations; project shopping-list matching 'Already Have/Need to Buy/Need Verification'; usage/leftovers). Integrates with B03 project materials.
 - Blueprint 08 — Account, Property Onboarding & Preferences (UserProfile prefs: guidance_detail_level/preferred_interaction/diy_experience; goals; multi-property + UserPropertyAccess; property switcher across all /home-intel screens; notification/privacy prefs; guest sessions). NOTE: app already has JWT auth/register — B08 should extend, not duplicate.
