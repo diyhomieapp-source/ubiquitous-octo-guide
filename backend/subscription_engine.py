@@ -18,7 +18,8 @@ Shared helpers (imported by other engines):
   check(user, feature)     -> (allowed: bool, info: dict)
   enforce(user, feature)   -> raises HTTPException(402) when over the limit
 """
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+import math
 from typing import Callable, Tuple
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -104,7 +105,34 @@ def _tier(user: dict) -> str:
         return "pro"
     if st in ("starter", "pro"):
         return st
+    if _trial_active(user):      # active free Pro trial → full Pro access
+        return "pro"
     return "free"
+
+
+def _trial_active(user: dict) -> bool:
+    ends = user.get("hi_pro_trial_ends_at")
+    if not ends or (user.get("subscription_tier") or "free").lower() not in ("free",):
+        return False
+    try:
+        return datetime.now(timezone.utc) < datetime.fromisoformat(ends)
+    except Exception:
+        return False
+
+
+def _trial_state(user: dict) -> dict:
+    ends = user.get("hi_pro_trial_ends_at")
+    active = _trial_active(user)
+    days_left = None
+    if active and ends:
+        try:
+            secs = (datetime.fromisoformat(ends) - datetime.now(timezone.utc)).total_seconds()
+            days_left = max(0, math.ceil(secs / 86400))
+        except Exception:
+            days_left = None
+    return {"active": active, "used": bool(user.get("hi_pro_trial_used")),
+            "ends_at": ends, "days_left": days_left,
+            "eligible": not user.get("hi_pro_trial_used") and (user.get("subscription_tier") or "free").lower() == "free"}
 
 
 async def _usage_count(user_id: str, feature: str) -> int:
@@ -151,8 +179,11 @@ def build_router(get_current_user: Callable) -> APIRouter:
         for f in ("home", "project", "chat", "inventory", "document"):
             _, info = await check(user, f)
             usage[f] = {"used": info["used"], "limit": info["limit"]}
+        trial = _trial_state(user)
         return {
             "tier": tier,
+            "is_trial": trial["active"],
+            "trial": trial,
             "plan": PLAN_META[tier],
             "limits": LIMITS[tier],
             "highlights": FEATURE_HIGHLIGHTS[tier],
@@ -161,6 +192,17 @@ def build_router(get_current_user: Callable) -> APIRouter:
             "status": user.get("subscription_status", "active" if tier != "free" else "none"),
             "has_customer": bool(user.get("stripe_customer_id")),
         }
+
+    @r.post("/trial/start")
+    async def start_trial(user: dict = Depends(get_current_user)):
+        if user.get("hi_pro_trial_used"):
+            raise HTTPException(status_code=409, detail="You've already used your free Pro trial.")
+        if (user.get("subscription_tier") or "free").lower() != "free":
+            raise HTTPException(status_code=400, detail="You already have a paid plan.")
+        ends = (datetime.now(timezone.utc) + timedelta(days=7)).isoformat()
+        await _db.users.update_one({"id": user["id"]},
+                                   {"$set": {"hi_pro_trial_ends_at": ends, "hi_pro_trial_used": True}})
+        return {"ok": True, "ends_at": ends, "days_left": 7}
 
     @r.get("/plans")
     async def plans(user: dict = Depends(get_current_user)):

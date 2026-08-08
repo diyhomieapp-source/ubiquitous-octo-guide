@@ -1,0 +1,27 @@
+{
+  "summary": "Full E2E frontend validation of the three subscription enhancements (Nudge In Context, Pro Trial, Perks Celebration) on Expo web for demo_home@diyhomie.com. All 15 assertions passed after logging in via /auth?mode=login (default mode is 'register', so calling submit without switching mode caused an initial 400 — this is a pre-existing UX oddity, not part of this feature set). NUDGE IN CONTEXT: hi-upgrade-nudge visible on /home-intel, /home-intel/projects, /home-intel/chat before trial; tapping projects & chat nudges routes to /home-intel/upgrade. PRO TRIAL: start-trial button visible pre-trial, POST /api/hi/subscription/trial/start returns 200, and after reload the header reads 'Pro (trial) plan', a 'Pro trial active · 7 days left' banner appears, start-trial button is gone, and all 5 usage rows read 'Unlimited'. Nudges correctly disappear on dashboard/projects/chat after trial. PERKS CELEBRATION: /home-intel/perks shows 'Pro (trial) plan' badge, full unlocked perks list with green checks (Unlimited homes/projects/chats/inventory/documents, Maintenance reminders, Data export, Local code checks, Priority AI responses), no 'Unlock with Pro' section, no perks-upgrade button; AsyncStorage flag 'hi_perks_confetti_shown' is set to true after first visit and ConfettiCannon renders without crashing (no page errors). Second visit no longer sets the flag again — flag-gated one-time behavior confirmed.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": ["/app/test_reports/iteration_59.json"],
+  "action_items": [
+    "None for the tested feature set — all three enhancements (Pro Trial, Perks Celebration, Nudge In Context) pass end-to-end on Expo web.",
+    "Optional/UX-only observation (out of scope): the /auth screen defaults to mode='register'. Deep-linking to /auth (without ?mode=login) and submitting existing credentials returns 400 from /api/auth/register. Consider defaulting to login for returning visitors or auto-detecting existing accounts. Not blocking."
+  ],
+  "critical_code_review_comments": [
+    "UpgradeNudge component correctly gates on tier==='pro' so trial users (tier=pro via backend logic) hide the banner as expected.",
+    "perks.tsx uses AsyncStorage via the storage util with key 'hi_perks_confetti_shown' — verified persistence works on web (stored as literal boolean true in localStorage).",
+    "ConfettiCannon is wrapped in pointerEvents='none' absoluteFill container so it never blocks perks list — good."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "seed_data_creation": "None. Used pre-existing demo_home@diyhomie.com. Trial state was consumed during this test (trial.used will now be true for that user). If re-running, main agent will need to reset trial fields on the user in Mongo (subscription_engine trial fields) or use a fresh trial-eligible account.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Login path: navigate to /auth?mode=login (NOT /auth — that defaults to register mode). Credentials in /app/memory/test_credentials.md. AsyncStorage token key on web is localStorage['diyhomie_token']. The confetti one-time flag is localStorage['hi_perks_confetti_shown'] (value=true). After this run, demo_home@diyhomie.com now has trial.used=true and is on Pro-via-trial with 7 days remaining, so a re-test of trial eligibility will need trial fields reset in Mongo first.",
+  "rca_of_issue": "No feature-side issue. Initial test failure trace was tester-side: the /auth screen defaults to mode='register', so submitting demo credentials tried /api/auth/register (400 email exists) instead of /api/auth/login. Fixed the test by navigating to /auth?mode=login. All feature assertions then passed on the very next run."
+}

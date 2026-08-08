@@ -6,6 +6,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors, spacing, radius, font, type } from "@/src/theme";
 import { api } from "@/src/api";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
+import { UpgradeNudge } from "@/src/components/UpgradeNudge";
 
 type Asset = { id: string; name: string; category: string; status: string };
 type Task = { id: string; user_description: string; status: string; risk_level: string; asset_name?: string; created_at: string };
@@ -23,7 +24,6 @@ export default function HomeIntelDashboard() {
   const [loading, setLoading] = useState(true);
   const [homes, setHomes] = useState<Home[]>([]);
   const [onboarding, setOnboarding] = useState<{ complete: boolean; progress: number } | null>(null);
-  const [sub, setSub] = useState<{ tier: string; usage: Record<string, { used: number | null; limit: number }> } | null>(null);
   const [switcherOpen, setSwitcherOpen] = useState(false);
 
   const load = useCallback(async () => {
@@ -35,23 +35,10 @@ export default function HomeIntelDashboard() {
       const o = await api<{ properties: Home[]; onboarding: { complete: boolean; progress: number } }>("/hi/account/overview");
       setHomes(o.properties); setOnboarding(o.onboarding);
     } catch {}
-    try { setSub(await api("/hi/subscription/me")); } catch {}
   }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   const activeHome = homes.find((h) => h.is_active);
-  const nudge = (() => {
-    if (!sub || sub.tier === "pro") return null;
-    const labels: Record<string, string> = { home: "homes", project: "saved projects", chat: "today's Homie chats", inventory: "inventory items", document: "vault documents" };
-    let best: { key: string; ratio: number; used: number; limit: number; label: string } | null = null;
-    for (const k of Object.keys(labels)) {
-      const u = sub.usage[k];
-      if (!u || u.limit === -1 || u.used == null) continue;
-      const ratio = u.used / u.limit;
-      if (ratio >= 0.8 && (!best || ratio > best.ratio)) best = { key: k, ratio, used: u.used, limit: u.limit, label: labels[k] };
-    }
-    return best;
-  })();
   const switchHome = async (id: string) => {
     setSwitcherOpen(false);
     if (id === activeHome?.id) return;
@@ -97,16 +84,7 @@ export default function HomeIntelDashboard() {
           </Pressable>
         )}
 
-        {nudge && (
-          <Pressable testID="hi-upgrade-nudge" style={styles.nudge} onPress={() => router.push("/home-intel/upgrade")}>
-            <MaterialCommunityIcons name="arrow-up-circle-outline" size={22} color={colors.warning} />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.nudgeTitle}>{nudge.used >= nudge.limit ? `You've reached your ${nudge.label} limit` : `You're almost out of ${nudge.label}`}</Text>
-              <Text style={styles.nudgeSub}>{nudge.used} of {nudge.limit} used · tap to see plans</Text>
-            </View>
-            <MaterialCommunityIcons name="chevron-right" size={20} color={colors.onSurfaceTertiary} />
-          </Pressable>
-        )}
+        <UpgradeNudge />
 
         <Text style={styles.hero}>What do you need help with?</Text>
 
@@ -198,9 +176,6 @@ const styles = StyleSheet.create({
   bannerTrack: { height: 6, borderRadius: 3, backgroundColor: colors.surface, marginVertical: 6, overflow: "hidden" },
   bannerFill: { height: 6, borderRadius: 3, backgroundColor: colors.brandPrimary },
   bannerSub: { color: colors.onSurfaceTertiary, fontFamily: font.regular, fontSize: type.sm },
-  nudge: { flexDirection: "row", alignItems: "center", gap: spacing.sm, backgroundColor: colors.warning + "18", borderColor: colors.warning + "55", borderWidth: 1, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.md },
-  nudgeTitle: { color: colors.onSurface, fontFamily: font.bold, fontSize: type.base },
-  nudgeSub: { color: colors.onSurfaceTertiary, fontFamily: font.regular, fontSize: type.sm, marginTop: 2 },
   hero: { color: colors.onSurface, fontFamily: font.display, fontSize: type["3xl"], marginBottom: spacing.lg },
   primary: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, backgroundColor: colors.brandPrimary, borderRadius: radius.md, paddingVertical: spacing.lg },
   primaryText: { color: colors.onBrandPrimary, fontFamily: font.bold, fontSize: type.lg },

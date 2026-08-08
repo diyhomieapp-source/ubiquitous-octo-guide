@@ -6,6 +6,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors, spacing, radius, font, type } from "@/src/theme";
 import { api } from "@/src/api";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
+import { UpgradeNudge } from "@/src/components/UpgradeNudge";
 
 type Conv = { id: string; title: string; last_preview?: string | null; message_count: number; updated_at: string };
 
@@ -38,6 +39,7 @@ export default function ChatList() {
     <View style={styles.root}>
       <ScreenHeader title="Ask Homie" />
       <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing["3xl"] }}>
+        <UpgradeNudge feature="chat" />
         <Pressable testID="chat-new" style={[styles.newBtn, creating && { opacity: 0.6 }]} disabled={creating} onPress={newChat}>
           {creating ? <ActivityIndicator color={colors.onBrandPrimary} /> : (
             <><MaterialCommunityIcons name="message-plus-outline" size={20} color={colors.onBrandPrimary} /><Text style={styles.newText}>New chat</Text></>

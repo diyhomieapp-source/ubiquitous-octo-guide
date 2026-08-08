@@ -2,30 +2,36 @@ import { useCallback, useState } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import ConfettiCannon from "react-native-confetti-cannon";
 
 import { colors, spacing, radius, font, type } from "@/src/theme";
 import { api } from "@/src/api";
+import { storage } from "@/src/utils/storage";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
 
 type Perk = { label: string; included: boolean };
-type Me = { tier: string; plan: { label: string; price_label: string }; perks: Perk[] };
+type Me = { tier: string; is_trial?: boolean; plan: { label: string; price_label: string }; perks: Perk[] };
 
 const TIER_LABEL: Record<string, string> = { free: "Free", starter: "Starter", pro: "Pro" };
+const CONFETTI_KEY = "hi_perks_confetti_shown";
 
 export default function Perks() {
   const router = useRouter();
   const [me, setMe] = useState<Me | null>(null);
   const [proPerks, setProPerks] = useState<Perk[]>([]);
   const [loading, setLoading] = useState(true);
+  const [confetti, setConfetti] = useState(false);
 
   const load = useCallback(async () => {
     try {
       const m = await api<Me>("/hi/subscription/me");
       setMe(m);
-      if (m.tier !== "pro") {
-        const p = await api<{ plans: { tier: string; perks?: Perk[]; highlights: string[] }[] }>("/hi/subscription/plans");
+      if (m.tier === "pro") {
+        const seen = await storage.getItem<boolean>(CONFETTI_KEY, false);
+        if (!seen) { setConfetti(true); storage.setItem(CONFETTI_KEY, true); }
+      } else {
+        const p = await api<{ plans: { tier: string; highlights: string[] }[] }>("/hi/subscription/plans");
         const pro = p.plans.find((x) => x.tier === "pro");
-        // /plans returns highlights (not perks); show pro highlights as the upsell list.
         setProPerks((pro?.highlights || []).map((h) => ({ label: h, included: false })));
       }
     } catch {} finally { setLoading(false); }
@@ -41,11 +47,16 @@ export default function Perks() {
   return (
     <View style={styles.root}>
       <ScreenHeader title="Your perks" />
+      {confetti && (
+        <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+          <ConfettiCannon count={140} origin={{ x: -10, y: 0 }} fadeOut autoStart explosionSpeed={360} fallSpeed={2800} />
+        </View>
+      )}
       <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing["3xl"] }} showsVerticalScrollIndicator={false}>
         <View style={styles.badge}>
           <MaterialCommunityIcons name="crown" size={22} color={colors.brandPrimary} />
           <View style={{ flex: 1 }}>
-            <Text style={styles.badgeTier}>{TIER_LABEL[tier]} plan</Text>
+            <Text style={styles.badgeTier}>{TIER_LABEL[tier]}{me?.is_trial ? " (trial)" : ""} plan</Text>
             <Text style={styles.badgeSub}>{me?.plan.price_label}{isPro ? " · everything unlocked" : ""}</Text>
           </View>
         </View>

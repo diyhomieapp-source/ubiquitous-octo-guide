@@ -6,6 +6,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors, spacing, radius, font, type } from "@/src/theme";
 import { api } from "@/src/api";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
+import { UpgradeNudge } from "@/src/components/UpgradeNudge";
 
 type Project = { id: string; title: string; project_category: string; status: string; risk_level?: string; created_at: string };
 const STATUS_COLOR: Record<string, string> = { draft: colors.onSurfaceTertiary, active: colors.info, paused: colors.warning, completed: colors.success, unresolved: colors.warning, escalated: colors.error };
@@ -24,6 +25,7 @@ export default function ProjectsList() {
     <View style={styles.root}>
       <ScreenHeader title="My Projects" />
       <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing["3xl"] }}>
+        <UpgradeNudge feature="project" />
         <Pressable testID="proj-new" style={styles.newBtn} onPress={() => router.push("/home-intel/projects/start")}>
           <MaterialCommunityIcons name="plus" size={20} color={colors.onBrandPrimary} />
           <Text style={styles.newText}>Start a Project</Text>

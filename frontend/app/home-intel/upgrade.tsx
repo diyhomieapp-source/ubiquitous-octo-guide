@@ -13,7 +13,8 @@ type Plan = {
   checkout_tier: string | null; tagline: string; highlights: string[]; current: boolean;
 };
 type Usage = Record<string, { used: number | null; limit: number }>;
-type Me = { tier: string; usage: Usage; has_customer: boolean; status: string };
+type Trial = { active: boolean; used: boolean; ends_at: string | null; days_left: number | null; eligible: boolean };
+type Me = { tier: string; is_trial?: boolean; trial?: Trial; usage: Usage; has_customer: boolean; status: string };
 
 const USAGE_LABELS: { key: string; label: string }[] = [
   { key: "home", label: "Homes" },
@@ -65,6 +66,17 @@ export default function Upgrade() {
     } finally { setBusy(null); }
   };
 
+  const startTrial = async () => {
+    setBusy("trial");
+    try {
+      await api("/hi/subscription/trial/start", { method: "POST" });
+      Alert.alert("Pro trial started 🎉", "You've unlocked everything for 7 days. Enjoy!");
+      load();
+    } catch (e: any) {
+      Alert.alert("Couldn't start trial", e?.message || "Please try again.");
+    } finally { setBusy(null); }
+  };
+
   if (loading) return <View style={styles.root}><ScreenHeader title="Plans & Upgrade" /><ActivityIndicator color={colors.brandPrimary} style={{ marginTop: spacing.xl }} /></View>;
 
   return (
@@ -72,7 +84,24 @@ export default function Upgrade() {
       <ScreenHeader title="Plans & Upgrade" />
       <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing["3xl"] }} showsVerticalScrollIndicator={false}>
         <Text style={styles.headline}>Unlock more of your home</Text>
-        {me && <Text style={styles.sub}>You&apos;re on the {me.tier === "free" ? "Free" : (me.tier === "starter" ? "Starter" : "Pro")} plan.</Text>}
+        {me && <Text style={styles.sub}>You&apos;re on the {me.tier === "free" ? "Free" : (me.tier === "starter" ? "Starter" : "Pro")}{me.is_trial ? " (trial)" : ""} plan.</Text>}
+
+        {me?.is_trial && me.trial?.days_left != null && (
+          <View style={styles.trialActive}>
+            <MaterialCommunityIcons name="star-four-points" size={18} color={colors.brandPrimary} />
+            <Text style={styles.trialActiveText}>Pro trial active · {me.trial.days_left} day{me.trial.days_left === 1 ? "" : "s"} left</Text>
+          </View>
+        )}
+        {me?.trial?.eligible && !me.is_trial && (
+          <Pressable testID="start-trial" style={styles.trialBtn} disabled={busy === "trial"} onPress={startTrial}>
+            {busy === "trial" ? <ActivityIndicator color={colors.onBrandPrimary} /> : (
+              <>
+                <MaterialCommunityIcons name="gift-outline" size={18} color={colors.onBrandPrimary} />
+                <Text style={styles.trialBtnText}>Try Pro free for 7 days</Text>
+              </>
+            )}
+          </Pressable>
+        )}
 
         {me && (
           <View style={styles.usageCard}>
@@ -143,6 +172,10 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.surface },
   headline: { color: colors.onSurface, fontFamily: font.bold, fontSize: type["2xl"] },
   sub: { color: colors.onSurfaceTertiary, fontFamily: font.regular, fontSize: type.base, marginTop: 4, marginBottom: spacing.md },
+  trialBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, backgroundColor: colors.brandPrimary, borderRadius: radius.md, paddingVertical: spacing.md, marginBottom: spacing.md, minHeight: 48 },
+  trialBtnText: { color: colors.onBrandPrimary, fontFamily: font.bold, fontSize: type.base },
+  trialActive: { flexDirection: "row", alignItems: "center", gap: spacing.sm, backgroundColor: colors.brandPrimary + "18", borderColor: colors.brandPrimary + "55", borderWidth: 1, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.md },
+  trialActiveText: { color: colors.onSurface, fontFamily: font.bold, fontSize: type.base },
   usageCard: { backgroundColor: colors.surfaceSecondary, borderColor: colors.border, borderWidth: 1, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.lg },
   usageTitle: { color: colors.onSurface, fontFamily: font.bold, fontSize: type.lg },
   usageRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
