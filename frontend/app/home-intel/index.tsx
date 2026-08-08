@@ -115,6 +115,10 @@ export default function HomeIntelDashboard() {
           <MaterialCommunityIcons name="robot-happy-outline" size={20} color={colors.brandPrimary} />
           <Text style={styles.secondaryText}>Ask Homie</Text>
         </Pressable>
+        <Pressable testID="hi-voice" style={styles.secondary} onPress={() => router.push("/home-intel/voice")}>
+          <MaterialCommunityIcons name="microphone-outline" size={20} color={colors.brandPrimary} />
+          <Text style={styles.secondaryText}>Homie Voice</Text>
+        </Pressable>
         <Pressable testID="hi-assets" style={styles.secondary} onPress={() => router.push("/home-intel/assets")}>
           <MaterialCommunityIcons name="home-search-outline" size={20} color={colors.brandPrimary} />
           <Text style={styles.secondaryText}>My Home Assets{count ? ` (${count})` : ""}</Text>
@@ -182,6 +186,10 @@ export default function HomeIntelDashboard() {
         <Pressable testID="hi-privacy" style={styles.secondary} onPress={() => router.push("/home-intel/privacy")}>
           <MaterialCommunityIcons name="shield-lock-outline" size={20} color={colors.brandPrimary} />
           <Text style={styles.secondaryText}>Privacy &amp; Data</Text>
+        </Pressable>
+        <Pressable testID="hi-sync" style={styles.secondary} onPress={() => router.push("/home-intel/sync")}>
+          <MaterialCommunityIcons name="cloud-sync-outline" size={20} color={colors.brandPrimary} />
+          <Text style={styles.secondaryText}>Connection &amp; Sync</Text>
         </Pressable>
 
         {loading ? <ActivityIndicator color={colors.brandPrimary} style={{ marginTop: spacing.xl }} /> : (

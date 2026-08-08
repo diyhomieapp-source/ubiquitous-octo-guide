@@ -254,7 +254,8 @@ def build_router(get_current_user: Callable) -> APIRouter:
         out = []
         for t in CONSENT_TYPES:
             cur = latest.get(t["type"])
-            out.append({**t, "status": cur["status"] if cur else "denied", "version": cur.get("version", 1) if cur else 0,
+            default_status = "granted" if t["required"] else "denied"
+            out.append({**t, "status": cur["status"] if cur else default_status, "version": cur.get("version", 1) if cur else 0,
                         "updated_at": cur.get("granted_at") or cur.get("withdrawn_at") if cur else None})
         return {"consents": out}
 

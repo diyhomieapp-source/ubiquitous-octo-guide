@@ -70,6 +70,8 @@ import compliance_engine
 import pro_workspace_engine
 import data_governance_engine
 import dashboard_engine
+import sync_engine
+import multimodal_engine
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -9018,6 +9020,15 @@ app.include_router(data_governance_engine.build_admin_router(require_admin))
 dashboard_engine.configure(db, logger, _llm_json)
 app.include_router(dashboard_engine.build_router(get_current_user))
 
+# Mobile Offline, Sync & Conflict Resolution (Build Blueprint 33).
+sync_engine.configure(db, logger)
+app.include_router(sync_engine.build_router(get_current_user))
+
+# Homie Avatar, Voice & Multimodal Conversation Runtime (Build Blueprint 34).
+multimodal_engine.configure(db, logger, _llm_json)
+app.include_router(multimodal_engine.build_router(get_current_user))
+app.include_router(multimodal_engine.build_admin_router(require_admin))
+
 
 
 
@@ -9129,6 +9140,8 @@ async def _startup_seed_community():
     await pro_workspace_engine.seed_pro()
     await data_governance_engine.seed_governance()
     await dashboard_engine.seed_dashboard()
+    await sync_engine.seed_sync()
+    await multimodal_engine.seed_voice()
 
 
 @app.on_event("startup")
