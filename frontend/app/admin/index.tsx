@@ -47,8 +47,9 @@ import { ComplianceModule } from "@/src/components/admin/ComplianceModule";
 import { ProWorkspaceModule } from "@/src/components/admin/ProWorkspaceModule";
 import { DataGovernanceModule } from "@/src/components/admin/DataGovernanceModule";
 import { VoiceModule } from "@/src/components/admin/VoiceModule";
+import { CommunityModule } from "@/src/components/admin/CommunityModule";
 
-type Mod = "overview" | "homiehq" | "assetexit" | "arguidance" | "notiforch" | "compliance" | "proworkspace" | "datagovernance" | "voice" | "analytics" | "homeops" | "integrations" | "twin" | "knowledge" | "recpartners" | "rewardsfunding" | "finance" | "roi" | "freemium" | "quizzes" | "experts" | "certs" | "education" | "campaigns" | "export" | "appstore" | "monitoring" | "investor" | "crm" | "vendors" | "suppliers" | "kits" | "proleads" | "proaccounts" | "credentials" | "partners" | "prompts" | "audit" | "notifications" | "automations" | "features" | "email" | "affiliate" | "feedback" | "tickets" | "blog";
+type Mod = "overview" | "homiehq" | "assetexit" | "arguidance" | "notiforch" | "compliance" | "proworkspace" | "datagovernance" | "voice" | "communityhub" | "analytics" | "homeops" | "integrations" | "twin" | "knowledge" | "recpartners" | "rewardsfunding" | "finance" | "roi" | "freemium" | "quizzes" | "experts" | "certs" | "education" | "campaigns" | "export" | "appstore" | "monitoring" | "investor" | "crm" | "vendors" | "suppliers" | "kits" | "proleads" | "proaccounts" | "credentials" | "partners" | "prompts" | "audit" | "notifications" | "automations" | "features" | "email" | "affiliate" | "feedback" | "tickets" | "blog";
 const MODULES: { key: Mod; label: string; icon: string }[] = [
   { key: "overview", label: "Overview", icon: "view-dashboard-outline" },
   { key: "homiehq", label: "Homie HQ", icon: "radar" },
@@ -171,6 +172,8 @@ export default function AdminWorkstation() {
         {mod === "compliance" && <ComplianceModule />}
         {mod === "proworkspace" && <ProWorkspaceModule />}
         {mod === "datagovernance" && <DataGovernanceModule />}
+        {mod === "voice" && <VoiceModule />}
+        {mod === "communityhub" && <CommunityModule />}
         {mod === "finance" && <FinanceModule />}
         {mod === "crm" && <CrmModule />}
         {mod === "email" && <EmailModule />}

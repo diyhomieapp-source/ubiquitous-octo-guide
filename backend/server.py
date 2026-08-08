@@ -72,6 +72,7 @@ import data_governance_engine
 import dashboard_engine
 import sync_engine
 import multimodal_engine
+import community_engine as community_b35
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -9029,6 +9030,11 @@ multimodal_engine.configure(db, logger, _llm_json)
 app.include_router(multimodal_engine.build_router(get_current_user))
 app.include_router(multimodal_engine.build_admin_router(require_admin))
 
+# Community Knowledge, Project Sharing & Moderation (Build Blueprint 35).
+community_b35.configure(db, logger, _llm_json)
+app.include_router(community_b35.build_router(get_current_user))
+app.include_router(community_b35.build_admin_router(require_admin))
+
 
 
 
@@ -9142,6 +9148,7 @@ async def _startup_seed_community():
     await dashboard_engine.seed_dashboard()
     await sync_engine.seed_sync()
     await multimodal_engine.seed_voice()
+    await community_b35.seed_community()
 
 
 @app.on_event("startup")

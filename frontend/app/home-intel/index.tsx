@@ -119,6 +119,10 @@ export default function HomeIntelDashboard() {
           <MaterialCommunityIcons name="microphone-outline" size={20} color={colors.brandPrimary} />
           <Text style={styles.secondaryText}>Homie Voice</Text>
         </Pressable>
+        <Pressable testID="hi-community-hub" style={styles.secondary} onPress={() => router.push("/home-intel/community-hub")}>
+          <MaterialCommunityIcons name="account-group-outline" size={20} color={colors.brandPrimary} />
+          <Text style={styles.secondaryText}>Community</Text>
+        </Pressable>
         <Pressable testID="hi-assets" style={styles.secondary} onPress={() => router.push("/home-intel/assets")}>
           <MaterialCommunityIcons name="home-search-outline" size={20} color={colors.brandPrimary} />
           <Text style={styles.secondaryText}>My Home Assets{count ? ` (${count})` : ""}</Text>
