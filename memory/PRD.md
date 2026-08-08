@@ -355,9 +355,15 @@ Test credentials: demo_home@diyhomie.com / Test1234 ; admin Diyhomieapp@gmail.co
 - Frontend: reminders.tsx (feed + push toggle + digest chips + test push), _layout.tsx push handlers (module-scope handler+channel, warm/cold tap listeners), src/utils/push.ts (registerForPush + silent reRegisterIfGranted), auth.tsx silent re-register on app open, 'Reminders' button + red badge on maintenance home. app.json: expo-notifications plugin + android.googleServicesFile + POST_NOTIFICATIONS.
 - PENDING FOR USER: push only works after Publish + native build with a google-services.json (Android) from Firebase; APNs key + Google service-account JSON prompted at build. In-app reminders work now.
 
-**QUEUED (not yet built), in order:**
-- Templates-in-Homie (wire published content templates from B10 into Homie chat/project guidance)
-- Blueprint 07 — Tool/Material/Supply Inventory
-- Blueprint 08 — Account/Property Onboarding & Preferences (central chat front-door using room/asset/project/doc context; context selector; photo ID; conversation→approved records with user approval; history; hi_conversation_*).
+**Templates-in-Homie (DONE, tested iter53):** admin_ops_engine.get_published_templates() (safety-first ordering, bounded) injected as APPROVED GUIDANCE into conversation_hub chat prompts AND project_planner generation. Drafts/archived excluded. Verified chat reflects published 'Ladder Safety' template.
+
+**Blueprint 07 — Tool/Material/Supply Inventory 'My Toolbox' (DONE, tested iter53 — 23/23 backend + 100% frontend):**
+- Backend `inventory_engine.py` (/api/hi/inventory): CRUD (+q/category/location filters), /locations distinct, gpt-4o photo identify, archive. Match /match/{project_id} groups Already Have / Need to Buy / Need Verification (token+substring name matching, consumable low→verification); /match/{project_id}/apply writes back project material user_status (have_it/need_it/unsure). Collection: hi_inventory_items.
+- Frontend: app/home-intel/inventory/{index,add,[id]}.tsx (add uses photo→identify autofill), 'Match against my toolbox' button on projects/materials.tsx, 'My Toolbox' entry (testID hi-inventory) on HI dashboard.
+- Reusable test: /app/backend/tests/test_inventory_b07.py.
+
+**QUEUED (not yet built):**
+- Blueprint 08 — Account/Property Onboarding & Preferences (NEXT): guest flow, multi-property setup, guidance preferences. NOTE: app already has JWT auth/register — B08 should EXTEND (properties, preferences), not duplicate auth.
+- Push: awaiting user's google-services.json to finish Android push before build. (central chat front-door using room/asset/project/doc context; context selector; photo ID; conversation→approved records with user approval; history; hi_conversation_*).
 - Blueprint 07 — Tool/Material/Supply Inventory (hi_inventory_*; add/identify(photo)/edit/archive; storage locations; project shopping-list matching 'Already Have/Need to Buy/Need Verification'; usage/leftovers). Integrates with B03 project materials.
 - Blueprint 08 — Account, Property Onboarding & Preferences (UserProfile prefs: guidance_detail_level/preferred_interaction/diy_experience; goals; multi-property + UserPropertyAccess; property switcher across all /home-intel screens; notification/privacy prefs; guest sessions). NOTE: app already has JWT auth/register — B08 should extend, not duplicate.
