@@ -489,3 +489,20 @@ Admin nav order now starts: Overview, Homie HQ, Asset Exit & Resale, Product Ana
 - NOTE for user: live camera AR overlays require Publish + a native iOS/Android build — not testable in Expo Go/web. The guided runtime + fallbacks work everywhere now.
 
 Admin nav order: Overview, Homie HQ, Asset Exit & Resale, AR Guidance, Product Analytics, ...
+
+---
+## Session update (fork) cont. — Blueprints 28 & 29 shipped
+
+**B28 Notification, Reminder & Communication Orchestration** — `notification_engine.py` (additive over existing reminders/push/email). In-app inbox (always-available fallback), per-category×channel preference matrix + marketing opt-in consent, priority model (emergency/high/normal/low/marketing), Eligibility Engine (consent, quiet hours, daily frequency caps, 24h dedupe, admin category gate, pause-nonessential, safety override), template composer (versioned, approval-gated for safety/billing/marketing), full delivery tracking + audit + suppression reasons. Public `notify()` helper wired into rewards_funding fulfillment (redemption_completed). Safety always reaches inbox & bypasses quiet hours; marketing needs opt-in; push lock-screen text truncated for non-safety.
+- User: `/api/hi/notifications/*` (inbox, unread-count, read/read-all/archive, open w/ entity-access validation, preferences, marketing-consent, test). Screens `app/home-intel/inbox.tsx` + `notification-settings.tsx`. Entry: bell w/ unread badge on HI dashboard header (hi-inbox).
+- Admin: `/api/hi/admin/notifications/*` (settings, categories, templates CRUD + approve/activate/archive w/ versioning, dashboard delivery-health + open rate + suppressions, delivery retry). Module `NotifOrchestrationModule.tsx` → /admin key `notiforch` (label "Notification Center"). NOTE: existing key `notifications`="Broadcast" is a SEPARATE marketing-broadcast module — do not confuse.
+- Curl-verified: test→inbox delivered, marketing suppressed w/o consent (user_opt_out), safety can't be disabled (400), admin dashboard + 10 seeded templates, demo→403.
+- Collections: notif_events, notif_templates, notif_preferences, notif_deliveries, notif_suppressions, notif_inbox, notif_settings.
+
+**B29 Permit, Code Awareness & Regulatory Guidance** — `compliance_engine.py` (additive). Classifies project scope (electrical/plumbing/structural/mechanical/roofing/demolition/exterior/accessory/cosmetic) → assessment level (general_guidance/verify_locally/permit_inquiry_recommended/professional_review_recommended). Retrieves APPROVED+ACTIVE versioned rules (source_reference + source_date + confidence; expired/undated never shown as current). Builds checklist + standard authority questions. Preliminary doc package (labeled NOT permit-ready/code-compliant/engineered). Professional escalation advisory link → B12 job summary. NO legal advice / no guaranteed "no permit required"; missing jurisdiction → "DIYhomie does not have verified local requirements for this location."
+- User: `/api/hi/compliance/*` (categories, jurisdiction get/put, assess, assessments/{project}, checklist status, mark verified, package create/get/status, report). Screen `app/home-intel/compliance.tsx`. Entry: project workspace "Permits & Code Check" (proj-compliance).
+- Admin: `/api/hi/admin/compliance/*` (settings, categories, rules CRUD + status w/ versioning + source-date gate, dashboard, flags resolve). Module `ComplianceModule.tsx` → /admin key `compliance` (label "Permit & Code"). 10 seeded rules.
+- Curl-verified: hazardous project (remove load-bearing wall + electrical) → professional_review_recommended, cats [electrical,structural], 3 rules + 7 checklist, escalation reasons, "no verified local data" summary; jurisdiction set (user_entered); package created w/ preliminary label & address excluded; admin dashboard; demo→403.
+- Collections: jurisdiction_profiles, compliance_rules(+versions), project_compliance_assessments, compliance_checklist_items, compliance_doc_packages, compliance_flags, compliance_settings.
+
+Admin nav order: Overview, Homie HQ, Asset Exit & Resale, AR Guidance, Notification Center, Permit & Code, Product Analytics, ...

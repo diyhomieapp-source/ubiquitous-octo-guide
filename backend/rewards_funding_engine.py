@@ -312,6 +312,15 @@ async def _finalize(redemption: dict, provider: dict, item: dict, user: dict) ->
                       f"Redeemed {item['name']}", rid)
         await _recompute_pool()
         await _cap(user, "redemption_completed", {"value": item["denomination"]})
+        try:
+            import notification_engine
+            await notification_engine.notify(
+                redemption["user_id"], "rewards", "redemption_completed",
+                "Your reward is on its way", f"Your {item['name']} redemption is complete.",
+                related_entity_type="redemption", related_entity_id=rid,
+                deep_link="/home-intel/rewards/redemption")
+        except Exception:
+            pass
         out = await _db.reward_redemptions.find_one({"id": rid}, {"_id": 0, "idempotency_key": 0})
         return {"redemption": out, "message": f"Success! Your {item['name']} is on its way."}
     else:

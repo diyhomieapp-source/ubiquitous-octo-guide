@@ -65,6 +65,8 @@ import rewards_funding_engine
 import homie_hq_engine
 import asset_exit_engine
 import ar_guidance_engine
+import notification_engine
+import compliance_engine
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -8989,6 +8991,18 @@ ar_guidance_engine.configure(db, logger)
 app.include_router(ar_guidance_engine.build_router(get_current_user))
 app.include_router(ar_guidance_engine.build_admin_router(require_admin))
 
+# Notification, Reminder & Communication Orchestration (Build Blueprint 28).
+notification_engine.configure(db, logger)
+app.include_router(notification_engine.build_router(get_current_user))
+app.include_router(notification_engine.build_admin_router(require_admin))
+
+# Permit, Code Awareness & Regulatory Guidance (Build Blueprint 29).
+compliance_engine.configure(db, logger)
+app.include_router(compliance_engine.build_router(get_current_user))
+app.include_router(compliance_engine.build_admin_router(require_admin))
+
+
+
 
 
 
@@ -9092,6 +9106,8 @@ async def _startup_seed_community():
     await homie_hq_engine.seed_hq()
     await asset_exit_engine.seed_exit()
     await ar_guidance_engine.seed_ar()
+    await notification_engine.seed_notifications()
+    await compliance_engine.seed_compliance()
 
 
 @app.on_event("startup")

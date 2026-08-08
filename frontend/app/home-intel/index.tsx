@@ -25,6 +25,7 @@ export default function HomeIntelDashboard() {
   const [homes, setHomes] = useState<Home[]>([]);
   const [onboarding, setOnboarding] = useState<{ complete: boolean; progress: number } | null>(null);
   const [switcherOpen, setSwitcherOpen] = useState(false);
+  const [unread, setUnread] = useState(0);
 
   const load = useCallback(async () => {
     try {
@@ -34,6 +35,10 @@ export default function HomeIntelDashboard() {
     try {
       const o = await api<{ properties: Home[]; onboarding: { complete: boolean; progress: number } }>("/hi/account/overview");
       setHomes(o.properties); setOnboarding(o.onboarding);
+    } catch {}
+    try {
+      const n = await api<{ unread_count: number }>("/hi/notifications/unread-count");
+      setUnread(n.unread_count || 0);
     } catch {}
   }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
@@ -47,7 +52,12 @@ export default function HomeIntelDashboard() {
 
   return (
     <View style={styles.root}>
-      <ScreenHeader title="Home Intelligence" />
+      <ScreenHeader title="Home Intelligence" right={
+        <Pressable testID="hi-inbox" onPress={() => router.push("/home-intel/inbox")}>
+          <MaterialCommunityIcons name="bell-outline" size={22} color={colors.onSurface} />
+          {unread > 0 ? <View style={styles.badge}><Text style={styles.badgeText}>{unread > 9 ? "9+" : unread}</Text></View> : null}
+        </Pressable>
+      } />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing["3xl"] }}>
 
         {homes.length > 0 && (
@@ -196,6 +206,9 @@ export default function HomeIntelDashboard() {
 }
 
 const styles = StyleSheet.create({
+  badge: { position: "absolute", top: -4, right: -6, minWidth: 16, height: 16, borderRadius: 8, backgroundColor: colors.error, alignItems: "center", justifyContent: "center", paddingHorizontal: 3 },
+  badgeText: { color: "#fff", fontFamily: font.bold, fontSize: 9 },
+
   root: { flex: 1, backgroundColor: colors.surface },
   switcherWrap: { marginBottom: spacing.md, zIndex: 10 },
   switcher: { flexDirection: "row", alignItems: "center", gap: spacing.sm, backgroundColor: colors.surfaceSecondary, borderColor: colors.border, borderWidth: 1, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },

@@ -140,6 +140,9 @@ export default function ProjectWorkspace() {
         <Pressable testID="proj-ar" style={styles.wideBtn} onPress={() => router.push(`/home-intel/ar?project_id=${id}`)}>
           <MaterialCommunityIcons name="cube-scan" size={18} color={colors.brandPrimary} /><Text style={styles.wideText}>  View Steps in AR</Text>
         </Pressable>
+        <Pressable testID="proj-compliance" style={styles.wideBtn} onPress={() => router.push(`/home-intel/compliance?project_id=${id}`)}>
+          <MaterialCommunityIcons name="clipboard-check-outline" size={18} color={colors.brandPrimary} /><Text style={styles.wideText}>  Permits &amp; Code Check</Text>
+        </Pressable>
         <Pressable testID="proj-recommend" style={styles.wideBtn} onPress={() => router.push(`/home-intel/rec?project_id=${id}`)}>
           <MaterialCommunityIcons name="tag-search-outline" size={18} color={colors.brandPrimary} /><Text style={styles.wideText}>  Recommended Products</Text>
         </Pressable>
