@@ -1,0 +1,32 @@
+{
+  "summary": "B36 Property Risk, Emergency Readiness & Protection Planning fully verified — 12/12 backend pytest cases and end-to-end UI flow all passing. B35 admin nav regression fix (admin-nav-communityhub) verified: sidebar entry renders CommunityModule with cm-tab-queue/reports/settings; cm-toggle-pause is present under Settings tab; admin-nav-voice still renders correctly. No expo/react native deprecated packages or safe-area issues detected on the new B36 screens.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_b36_emergency_iter76.py",
+    "/app/test_reports/pytest/b36_emergency_iter76.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "emergency_engine.py is well-scoped (~486 lines) — under 700-line limit, uses async/await for all mongo ops, excludes _id via projections, and consistently uses uuid strings for ids.",
+    "Safety-first language verified in code + responses: no 'risk score' field, disclaimers reference 'doesn't guarantee insurance coverage/valuation' and 'doesn't replace emergency services'.",
+    "GET /overview correctly hides itself for new users (is_new_user:true), otherwise returns info_completeness percentage + practical suggestions (no fear language).",
+    "POST /mode/start assembles safety steps + user's saved contacts + only previously-recorded shutoff/exit locations BEFORE creating the private incident — matches blueprint intent.",
+    "PUT /prep-items/{iid} does not scope by user_id when matching item (potential minor privacy concern — a user knowing another user's item id could toggle it). Consider joining via preparedness_plan_id → plan.user_id. Non-blocking since item ids are uuids and not enumerable."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (12/12)", "frontend": "100% (all B36 flows + B35 regression)"},
+  "seed_data_creation": "Created TEST_-prefixed contacts (TEST_UI_P1, TEST_ModePlumber, TEST_Plumber Bob), water_shutoff locations (TEST_UI_L1 basement, TEST mode shutoff), Water risk profile, Hurricane prep plan + custom item, and multiple incidents/timeline notes for demo_home@diyhomie.com.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "B36 (Property Risk / Emergency Readiness) backend routes live at /api/hi/emergency/*. Full pytest at /app/backend/tests/test_b36_emergency_iter76.py covers overview, categories, contacts CRUD, locations CRUD, risk profiles, mode/start with saved-contact+saved-location assembly + incident_id creation, incidents+timeline+media+status, and prep-plans with template seed items + toggle + custom item. B35 fix (admin-nav-communityhub) is stable and CommunityModule renders correctly.",
+  "rca_of_issue": "N/A — no bugs found. All flows working as designed. Note: initial UI test appeared to fail because the tester navigated directly to /home-intel/emergency without logging in first; logging in via /auth?mode=login with demo_home@diyhomie.com/Test1234 fixed the 403s and confirmed all flows."
+}

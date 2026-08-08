@@ -73,6 +73,7 @@ import dashboard_engine
 import sync_engine
 import multimodal_engine
 import community_engine as community_b35
+import emergency_engine
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -9035,6 +9036,10 @@ community_b35.configure(db, logger, _llm_json)
 app.include_router(community_b35.build_router(get_current_user))
 app.include_router(community_b35.build_admin_router(require_admin))
 
+# Property Risk, Emergency Readiness & Protection Planning (Build Blueprint 36).
+emergency_engine.configure(db, logger, _llm_json)
+app.include_router(emergency_engine.build_router(get_current_user))
+
 
 
 
@@ -9149,6 +9154,7 @@ async def _startup_seed_community():
     await sync_engine.seed_sync()
     await multimodal_engine.seed_voice()
     await community_b35.seed_community()
+    await emergency_engine.seed_emergency()
 
 
 @app.on_event("startup")

@@ -67,6 +67,7 @@ const MODULES: { key: Mod; label: string; icon: string }[] = [
   { key: "proworkspace", label: "Pro Workspace", icon: "briefcase-outline" },
   { key: "datagovernance", label: "Data Governance", icon: "shield-lock-outline" },
   { key: "voice", label: "Voice & Avatar", icon: "microphone-outline" },
+  { key: "communityhub", label: "Community", icon: "account-group-outline" },
   { key: "finance", label: "CFO Dashboard", icon: "finance" },
   { key: "crm", label: "CRM / Contacts", icon: "account-multiple-outline" },
   { key: "email", label: "Email Marketing", icon: "email-fast-outline" },
