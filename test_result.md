@@ -391,3 +391,9 @@ NOTE: generation is a single backend call, so stages are time-progressed (approx
 ## Iteration 57 — B09 paywall funnel WEB fix + First Run banner (retest, PASS)
 - FIX: Alert.alert is a no-op on react-native-web → added src/utils/paywall.ts showLimitReached() (window.confirm on web, Alert on native). Wired into account addHome, projects/start, chat send 402 handlers.
 - RETEST PASS (demo_home, web): Home limit 402 → confirm 'Home limit reached' → routes /home-intel/upgrade; Project limit 402 → confirm → routes to paywall; First Run banner (onboarding_complete flipped false for demo) renders '50%' on /home-intel and taps to /home-intel/welcome; upgrade screen re-confirmed (Free/Starter $9/Pro $12 + 5 usage bars). No critical/minor bugs. Report iteration_57.json.
+
+## Iteration 58 — B09 subscription experience: Perks + Upgrade Nudges + Guided Walkthrough (PASS)
+- Guided Walkthrough: NEW /home-intel/welcome.tsx (fixes previously-broken banner link to non-existent route). Reads /hi/account/overview onboarding.steps; celebratory stepper (progress bar, per-step CTA→setup screens, done=strikethrough+green check), welcome-finish POSTs /hi/account/onboarding/complete → /home-intel. testIDs welcome-step-*/welcome-cta-*/welcome-finish.
+- Upgrade Nudges: dashboard (/home-intel) fetches /hi/subscription/me; computes highest over/near-limit count feature (>=80%); renders warning banner hi-upgrade-nudge → /home-intel/upgrade. Hidden for pro.
+- Plan Perks: NEW /home-intel/perks.tsx. Backend /hi/subscription/me now returns perks[] (label+included per current tier). Free/starter also fetch /plans pro highlights as 'Unlock with Pro' locked list + perks-upgrade CTA. account-plan-card routes free→upgrade, paid→perks.
+- ALL PASS via testing agent (demo_home free tier). Lint clean. Report iteration_58.json. (Testing flipped demo onboarding_complete=true at finish — expected.)
