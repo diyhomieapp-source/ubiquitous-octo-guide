@@ -1,0 +1,28 @@
+{
+  "summary": "Blueprint 18 (Integration Gateway, Secrets Vault & Automation Control Plane) tested end-to-end. Backend: 16/16 pytest cases passed against public preview URL — dashboard (11 seeded connectors + summary), sanitized credential view (only vault:// references + configured booleans, never raw values), health check, test-workflow (decor8/weatherapi → succeeded; dormant pipedream → failed_retryable → dead_letter after retries), enable/disable, rotate (never accepts a secret and last_rotated_at set), browser-session create+approve (parked because Browserbase dormant), webhook feeds, Stripe webhook signature rejection (400) + idempotent dedupe on retry (200 duplicate=True), 401 no-token + 403 non-admin auth gating, and a global response-body scan confirming NO raw env-secret value leaks in any integrations endpoint. Frontend: logged in as admin, opened /admin, sidebar item testID=admin-nav-integrations rendered, connector list shows all 11 with health dots and 6 summary stat cards (Connectors/Active/Dormant/Pending/Approvals/Dead-letter), tapping ig-conn-decor8 opens detail with 'vault://DECOR8_API_KEY' reference (never a value), and buttons ig-test, ig-test-wf, ig-toggle, ig-rotate-* all work and refresh the view (rotation timestamp appears immediately). No leaked secret prefixes (sk_live_/sk_test_/AKIA) found in DOM. No red screen, no console errors specific to this module.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_integration_gateway_b18.py",
+    "/app/test_reports/pytest/integration_gateway_b18.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "integration_gateway_engine.py — Correct: rotate endpoint's Pydantic model RotateReq only exposes credential_reference_id/rotation_due_days/reason, so any 'secret_value' field passed by an attacker is silently discarded (verified in tests).",
+    "Webhook gateway records a receipt row for a rejected signature and returns 400 — this is what allows the dedupe assertion to work on the second identical POST. Behavior matches acceptance criteria."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_integration_gateway_b18.py (new)"
+  ],
+  "success_rate": { "backend": "100%", "frontend": "100%" },
+  "seed_data_creation": "Blueprint 18 seeds 11 connectors on startup (emergent_llm, stripe, posthog, sentry, firebase_push, decor8, perplexity, aws_ses, weatherapi, pipedream, browserbase). Also created a browser-session (approved+parked) and multiple diagnostic jobs during testing — no other test artifacts.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "IMPORTANT for frontend automation: /admin route is guarded by app/admin/_layout.tsx which redirects non-admin users to /(tabs). To reach it in Playwright, you MUST (1) fill auth-email-input + auth-password-input, (2) click auth-submit-button (form-submit via Enter key sometimes doesn't trigger auth store update), (3) wait >=4s for /auth/me to complete and localStorage['diyhomie_token'] to be populated, then (4) page.goto('/admin'). Direct pushState WITHOUT storing the token first will redirect to /. See test_integration_gateway_b18.py for backend URL/env-var patterns.",
+  "rca_of_issue": "N/A — no bugs found. All acceptance criteria met: (a) no raw secret returned anywhere (verified by scanning every dashboard+detail body for env-var VALUES of all 14 possible secrets), (b) sanitized credential view shows vault://VAR + configured boolean + status, (c) job state machine transitions correctly (succeeded / failed_retryable / dead_letter), (d) idempotent webhook dedupe works, (e) admin auth gates return 401 without token and 403 for non-admin."
+}

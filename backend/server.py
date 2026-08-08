@@ -55,6 +55,7 @@ import escalation_engine
 import rewards_engine
 import measurement_engine
 import cleanup_engine
+import integration_gateway_engine
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -8912,6 +8913,12 @@ app.include_router(measurement_engine.build_router(get_current_user))
 cleanup_engine.configure(db, logger)
 app.include_router(cleanup_engine.build_router(get_current_user))
 
+# Integration Gateway, Secrets Vault & Automation Control Plane (Build Blueprint 18).
+integration_gateway_engine.configure(db, logger)
+app.include_router(integration_gateway_engine.build_admin_router(require_admin))
+app.include_router(integration_gateway_engine.build_user_router(get_current_user))
+app.include_router(integration_gateway_engine.build_webhook_router())
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
@@ -9004,6 +9011,7 @@ async def _startup_seed_community():
     await appstore_engine.seed_appstore()
     await analytics_engine.seed()
     await rewards_engine.seed()
+    await integration_gateway_engine.seed_connectors()
 
 
 @app.on_event("startup")
