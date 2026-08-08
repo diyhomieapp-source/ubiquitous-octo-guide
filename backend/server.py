@@ -43,6 +43,7 @@ import room_intelligence_engine
 import project_planner_engine
 import document_vault_engine
 import maintenance_engine
+import conversation_hub_engine
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -8846,6 +8847,10 @@ app.include_router(document_vault_engine.build_router(get_current_user, _llm_jso
 # Maintenance Intelligence & Home Care Scheduler (Build Blueprint 04).
 maintenance_engine.configure(db, logger, _llm_json)
 app.include_router(maintenance_engine.build_router(get_current_user))
+
+# Homie AI Assistant & Conversation Hub (Build Blueprint 05).
+conversation_hub_engine.configure(db, logger, _llm_json, EMERGENT_LLM_KEY)
+app.include_router(conversation_hub_engine.build_router(get_current_user))
 
 app.add_middleware(
     CORSMiddleware,

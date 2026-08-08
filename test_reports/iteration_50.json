@@ -1,0 +1,41 @@
+{
+  "summary": "Home Intelligence Blueprint 05 (Homie AI Assistant & Conversation Hub) — full backend + frontend verification. Backend: 21/21 pytest passed (100%) against live public API using real gpt-4o-mini + gpt-4o vision (no mocks). Every endpoint listed in review request exercised: GET /api/hi/chat/context-options (rooms/assets/projects/documents), GET/POST/PUT/DELETE /conversations (+ list), GET /conversations/{id} (messages exclude image_base64, context_labels resolved), POST /conversations/{id}/message (grounded reply, may include up to 2 suggested_actions), emergency short-circuit ('I smell a gas leak…' -> assistant.emergency=true, empty suggested_actions, escalation copy), photo attach (image_base64 accepted, photo_identification key returned, image NOT leaked in history), POST /conversations/{id}/approve (creates real record via create_asset/create_maintenance_task/start_project; second approve returns 409; invalid action_index returns 400), and 8 auth-gating cases (all 403 without token). Frontend (Expo web preview, 390x844 mobile viewport, demo_home@diyhomie.com): logged in via /auth?mode=login, navigated to /home-intel which shows 'Ask Homie' entry (testID hi-chat). Clicking hi-chat routes to /home-intel/chat (Ask Homie list) — renders chat-new; tapping it POSTs a new conversation and opens /home-intel/chat/{id}. Thread screen renders chat-context-btn, chat-attach, chat-input, chat-send. Typed 'Tell me one quick tip to keep my kitchen clean.' -> user bubble appeared, then AI reply bubble rendered ('Wipe down kitchen surfaces daily with a disinfectant…') — full round-trip verified end-to-end. Context modal opens and renders Rooms / Assets / Projects / Documents chips (ctx-*) with chat-context-save (Use this context) button; existing seeded data visible (Water Heater asset, multiple rooms, projects, Fridge Warranty document). No red-screen errors. Console warnings only for global 'shadow*' / pointerEvents deprecations and useNativeDriver — pre-existing, not blueprint-05 specific.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "global", "issues": ["Console warns 'shadow* style props are deprecated. Use boxShadow.', 'props.pointerEvents is deprecated. Use style.pointerEvents', and 'Animated: useNativeDriver is not supported' — pre-existing global warnings, not blueprint-05 specific."]}
+    ],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_hi_chat_b05.py",
+    "/app/test_reports/pytest/hi_chat_b05_iter50.xml"
+  ],
+  "action_items": [
+    "None blocking. Optional (global, not b05): silence deprecation warnings by migrating shadow* -> boxShadow and pointerEvents prop -> style.pointerEvents."
+  ],
+  "critical_code_review_comments": [
+    "conversation_hub_engine.py is ~390 lines, well scoped: async IO everywhere, always excludes _id, uses parameterised routes with 404-owned checks, and shared emergency regex mirrors Blueprints 01 & 03.",
+    "Emergency short-circuit runs BEFORE calling the LLM — good defense; also persists the user message first so the audit trail exists.",
+    "conversation_detail() explicitly projects {'_id': 0, 'image_base64': 0} — image bytes never leak to history endpoint (verified via test_photo_attach_stored_but_not_returned).",
+    "approve_action() strictly validates action_index and action.approved flag; second approve returns 409 (verified). Payload defaults guard against missing/invalid enum values (frequency_type, priority, project_category).",
+    "server.py wiring at line 46/8852-8853 is correct: import conversation_hub_engine, configure(db, logger, _llm_json, EMERGENT_LLM_KEY), include_router(build_router(get_current_user)). Dependencies=[Depends(get_current_user)] on the router gates all 8 endpoints.",
+    "LLM prompt enforces STRICT JSON with a whitelist of ACTION_TYPES; raw_actions[:2] cap and per-action type/payload validation prevents junk actions being stored.",
+    "Photo identification calls gpt-4o vision in its own try/except that returns {} on failure — chat continues even if vision fails.",
+    "No mocked APIs — real gpt-4o-mini chat and gpt-4o vision confirmed via LiteLLM logs during test run."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_hi_chat_b05.py (new)"
+  ],
+  "success_rate": {"backend": "100% (21/21 passed)", "frontend": "100% of listed testIDs and navigation flows verified (hi-chat, chat-new, chat-input, chat-send, chat-attach, chat-context-btn, ctx-*, chat-context-save)"},
+  "seed_data_creation": "All test conversations prefixed 'TEST_b05_*' / 'TEST_actions_*' / 'TEST_emerg_*' / 'TEST_photo_*' / 'TEST_approve_*' — cleaned up by TestDeleteAndCleanup at the end of the run. Approve test intentionally creates one real record (asset/task/project) on the demo user to prove the write path; created_id is returned to the caller. If E1 wants a fully clean demo user, delete the small handful of TEST_-titled records afterwards.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Blueprint 05 endpoints live at /api/hi/chat/*. Suggested_actions are non-deterministic — tests retry up to 2 fresh conversations to elicit an action, and skip approve if the LLM never proposes one (did not happen in this run). Frontend routes: /home-intel/chat (list) and /home-intel/chat/[id] (thread + modal). testIDs of interest: hi-chat, chat-new, chat-<id> (row), chat-context-btn, chat-context-save, ctx-<bucket>-<id>, chat-attach, chat-input, chat-send, chat-action-<msgId>-<idx>. Long-press on a chat row triggers a delete confirm alert. Pytest XML: /app/test_reports/pytest/hi_chat_b05_iter50.xml.",
+  "rca_of_issue": "No functional defect found in Blueprint 05. All 21 backend cases (auth gating, CRUD, messaging, emergency, photo, approve, double-approve 409, bad-index 400) pass; all listed frontend testIDs and navigation flows verified on mobile viewport with a real end-to-end user message -> grounded AI reply round-trip."
+}

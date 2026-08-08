@@ -39,6 +39,10 @@ export default function HomeIntelDashboard() {
           <MaterialCommunityIcons name="wrench-outline" size={22} color={colors.onBrandPrimary} />
           <Text style={styles.primaryText}>Fix or maintain something</Text>
         </Pressable>
+        <Pressable testID="hi-chat" style={styles.secondary} onPress={() => router.push("/home-intel/chat")}>
+          <MaterialCommunityIcons name="robot-happy-outline" size={20} color={colors.brandPrimary} />
+          <Text style={styles.secondaryText}>Ask Homie</Text>
+        </Pressable>
         <Pressable testID="hi-assets" style={styles.secondary} onPress={() => router.push("/home-intel/assets")}>
           <MaterialCommunityIcons name="home-search-outline" size={20} color={colors.brandPrimary} />
           <Text style={styles.secondaryText}>My Home Assets{count ? ` (${count})` : ""}</Text>
