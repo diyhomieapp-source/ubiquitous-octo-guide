@@ -45,6 +45,8 @@ import document_vault_engine
 import maintenance_engine
 import conversation_hub_engine
 import admin_ops_engine
+import push_engine
+import reminders_engine
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -8858,6 +8860,12 @@ admin_ops_engine.configure(db, logger)
 app.include_router(admin_ops_engine.build_admin_router(get_current_user))
 app.include_router(admin_ops_engine.build_user_router(get_current_user))
 
+# Push notification relay + Maintenance Reminders (in-app feed + daily push digest).
+push_engine.configure(logger)
+app.include_router(push_engine.build_router(get_current_user))
+reminders_engine.configure(db, logger)
+app.include_router(reminders_engine.build_router(get_current_user))
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
@@ -8954,6 +8962,7 @@ async def _startup_seed_community():
 async def _startup_email_engine():
     await email_engine.seed_templates()
     asyncio.create_task(email_engine.scheduler_loop())
+    asyncio.create_task(reminders_engine.scheduler_loop())
 
 
 @app.on_event("startup")

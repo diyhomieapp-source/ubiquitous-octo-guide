@@ -82,6 +82,13 @@ export default function MaintenanceHome() {
               </Pressable>
             </View>
             <View style={styles.actions}>
+              <Pressable testID="maint-reminders" style={styles.actionBtnAlt} onPress={() => router.push("/home-intel/maintenance/reminders")}>
+                <MaterialCommunityIcons name="bell-ring-outline" size={18} color={colors.brandPrimary} />
+                <Text style={styles.actionTextAlt}>Reminders</Text>
+                {(data?.due_now.length ?? 0) > 0 && (
+                  <View style={styles.badge}><Text style={styles.badgeText}>{data!.due_now.length}</Text></View>
+                )}
+              </Pressable>
               <Pressable testID="maint-calendar" style={styles.actionBtnAlt} onPress={() => router.push("/home-intel/maintenance/calendar")}>
                 <MaterialCommunityIcons name="calendar-month-outline" size={18} color={colors.brandPrimary} />
                 <Text style={styles.actionTextAlt}>Calendar</Text>
@@ -140,6 +147,8 @@ const styles = StyleSheet.create({
   actionText: { color: colors.onBrandPrimary, fontFamily: font.bold, fontSize: type.base },
   actionBtnAlt: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, borderColor: colors.brandPrimary, borderWidth: 1, borderRadius: radius.md, paddingVertical: spacing.md },
   actionTextAlt: { color: colors.brandPrimary, fontFamily: font.bold, fontSize: type.sm },
+  badge: { minWidth: 18, height: 18, borderRadius: 9, backgroundColor: colors.error, alignItems: "center", justifyContent: "center", paddingHorizontal: 4 },
+  badgeText: { color: "#fff", fontFamily: font.bold, fontSize: 10 },
   section: { color: colors.onSurface, fontFamily: font.bold, fontSize: type.lg, marginTop: spacing.xl, marginBottom: spacing.sm },
   empty: { color: colors.onSurfaceTertiary, fontFamily: font.regular, fontSize: type.sm, lineHeight: 20 },
   taskRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, backgroundColor: colors.surfaceSecondary, borderColor: colors.border, borderWidth: 1, borderRadius: radius.sm, padding: spacing.md, marginBottom: spacing.sm },

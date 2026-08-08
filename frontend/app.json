@@ -28,9 +28,11 @@
         "ACCESS_FINE_LOCATION",
         "CAMERA",
         "READ_EXTERNAL_STORAGE",
-        "READ_MEDIA_IMAGES"
+        "READ_MEDIA_IMAGES",
+        "POST_NOTIFICATIONS"
       ],
-      "package": "com.emergent.stepbystepdiy.tk6h8s"
+      "package": "com.emergent.stepbystepdiy.tk6h8s",
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "bundler": "metro",
@@ -54,6 +56,13 @@
         {
           "photosPermission": "Choose a room photo to preview new paint colors",
           "cameraPermission": "Take a room photo to preview new paint colors"
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/adaptive-icon.png",
+          "color": "#F5A623"
         }
       ]
     ],

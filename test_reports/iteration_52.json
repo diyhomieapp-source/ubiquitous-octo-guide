@@ -1,0 +1,27 @@
+{
+  "summary": "Blueprint 11 (Maintenance Reminders) fully verified. Backend: 12/12 pytest tests pass covering feed shape + overdue>=1 + HVAC title, badge==counts.badge, prefs auto-create defaults (push_enabled=false, digest_frequency='weekly'), PUT persistence with invalid enum ignored (stays 'daily'), test-push graceful (200 ok:true sent:false with note under placeholder key — does NOT 500), /api/register-push registered and validates body (422 on missing fields), and auth-gating returns 403 without token on all /api/hi/reminders/* endpoints. Frontend: Maintenance home shows the 'Reminders' entry with a red '1' badge; tapping opens the Reminders screen with headline '1 task overdue — let's knock them out.', Overdue group listing 'Replace HVAC filter · HVAC · due 2026-08-01 · HIGH', toggling rem-push-toggle flips OFF→ON and reveals rem-freq-off/daily/weekly chips + rem-test-push button, tapping rem-<id> row navigates to /home-intel/maintenance/<id>. Note: default auth screen mode is 'register' — testing agents must navigate to /auth?mode=login (or tap auth-toggle-mode) to log in.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_reminders_b11_iter52.py",
+    "/app/test_reports/pytest/reminders_b11_iter52.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "reminders_engine.PUT /preferences silently ignores invalid digest_frequency values — behaviorally spec-conformant but consider returning 400 in future so clients get feedback instead of a silent no-op.",
+    "push_engine._client is a module-level httpx.AsyncClient created at import time with EMERGENT_PUSH_KEY captured once — if the key is rotated at deploy time after import, the header will be stale until process restart. Acceptable given supervisor restart on deploy.",
+    "reminders_engine.scheduler_loop() has a per-user daily guard but no jitter across the hourly retry; low priority."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "seed_data_creation": "None — used pre-existing demo_home@diyhomie.com overdue 'Replace HVAC filter' task. Preferences were restored to defaults (push_enabled=false, digest_frequency='weekly') after tests as cleanup.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Auth screen default mode is 'register' — use /auth?mode=login to sign in with existing credentials, otherwise the submit hits /api/auth/register (400 for existing user). Push relay uses placeholder EMERGENT_PUSH_KEY in preview so /api/hi/reminders/test-push returns {ok:true, sent:false, note:...} (200 — NOT 500) and /api/register-push may 500 with placeholder key — treat as expected. Scheduler loop startup log line: 'maintenance reminder scheduler loop started'.",
+  "rca_of_issue": "N/A — no failures."
+}

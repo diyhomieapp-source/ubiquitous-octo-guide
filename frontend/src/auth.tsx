@@ -4,6 +4,7 @@ import * as WebBrowser from "expo-web-browser";
 import * as Linking from "expo-linking";
 import { api, setToken, clearToken, getToken } from "@/src/api";
 import { storage } from "@/src/utils/storage";
+import { reRegisterIfGranted } from "@/src/utils/push";
 
 const REF_KEY = "diyhomie_ref";
 function extractRef(url: string | null | undefined): string | null {
@@ -73,6 +74,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUserState(null);
     }
   }, []);
+
+  // Silently refresh push token on app open once a user is present (never prompts).
+  useEffect(() => {
+    if (user?.id) reRegisterIfGranted(user.id);
+  }, [user?.id]);
 
   const processSessionId = useCallback(async (sessionId: string) => {
     const res = await api<{ access_token: string; user: User }>("/auth/google", {
