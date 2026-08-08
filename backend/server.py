@@ -44,6 +44,7 @@ import project_planner_engine
 import document_vault_engine
 import maintenance_engine
 import conversation_hub_engine
+import admin_ops_engine
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -8852,6 +8853,11 @@ app.include_router(maintenance_engine.build_router(get_current_user))
 conversation_hub_engine.configure(db, logger, _llm_json, EMERGENT_LLM_KEY)
 app.include_router(conversation_hub_engine.build_router(get_current_user))
 
+# Admin Control Center & Content Operations (Build Blueprint 10) — RBAC + templates + safety + support.
+admin_ops_engine.configure(db, logger)
+app.include_router(admin_ops_engine.build_admin_router(get_current_user))
+app.include_router(admin_ops_engine.build_user_router(get_current_user))
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
@@ -8975,6 +8981,11 @@ async def _seed_admin():
             logger.info(f"admin account seeded: {email}")
     except Exception as e:
         logger.error(f"admin seed failed: {e}")
+    # Blueprint 10 RBAC + flags seed (idempotent) — owner becomes Super Admin.
+    try:
+        await admin_ops_engine.seed(email or "Diyhomieapp@gmail.com")
+    except Exception as e:
+        logger.error(f"admin ops seed failed: {e}")
 
 
 @app.on_event("shutdown")

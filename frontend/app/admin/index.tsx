@@ -32,10 +32,12 @@ import { ExportModule } from "@/src/components/admin/ExportModule";
 import { AppStoreModule } from "@/src/components/admin/AppStoreModule";
 import { MonitoringModule } from "@/src/components/admin/MonitoringModule";
 import { InvestorModule } from "@/src/components/admin/InvestorModule";
+import { HomeOpsModule } from "@/src/components/admin/HomeOpsModule";
 
-type Mod = "overview" | "finance" | "roi" | "freemium" | "quizzes" | "experts" | "certs" | "education" | "campaigns" | "export" | "appstore" | "monitoring" | "investor" | "crm" | "vendors" | "suppliers" | "kits" | "proleads" | "proaccounts" | "credentials" | "partners" | "prompts" | "audit" | "notifications" | "automations" | "features" | "email" | "affiliate" | "feedback" | "tickets" | "blog";
+type Mod = "overview" | "homeops" | "finance" | "roi" | "freemium" | "quizzes" | "experts" | "certs" | "education" | "campaigns" | "export" | "appstore" | "monitoring" | "investor" | "crm" | "vendors" | "suppliers" | "kits" | "proleads" | "proaccounts" | "credentials" | "partners" | "prompts" | "audit" | "notifications" | "automations" | "features" | "email" | "affiliate" | "feedback" | "tickets" | "blog";
 const MODULES: { key: Mod; label: string; icon: string }[] = [
   { key: "overview", label: "Overview", icon: "view-dashboard-outline" },
+  { key: "homeops", label: "Home Intelligence Ops", icon: "shield-home-outline" },
   { key: "finance", label: "CFO Dashboard", icon: "finance" },
   { key: "crm", label: "CRM / Contacts", icon: "account-multiple-outline" },
   { key: "email", label: "Email Marketing", icon: "email-fast-outline" },
@@ -127,6 +129,7 @@ export default function AdminWorkstation() {
       {/* Content */}
       <View style={{ flex: 1 }}>
         {mod === "overview" && <Overview />}
+        {mod === "homeops" && <HomeOpsModule />}
         {mod === "finance" && <FinanceModule />}
         {mod === "crm" && <CrmModule />}
         {mod === "email" && <EmailModule />}

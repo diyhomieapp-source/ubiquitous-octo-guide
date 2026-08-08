@@ -288,6 +288,13 @@ def build_router(get_current_user: Callable) -> APIRouter:
             await _db.hi_conversation_messages.insert_one(dict(a))
             await _db.hi_conversations.update_one({"id": cid}, {"$set": {"last_preview": reply[:120], "updated_at": _now()}, "$inc": {"message_count": 2}})
             await _track(user["id"], "conversation_safety_flagged", {"conversation_id": cid})
+            try:
+                import admin_ops_engine
+                await admin_ops_engine.record_safety_escalation(
+                    user["id"], risk_level="emergency", trigger_type="conversation_emergency_keyword",
+                    ai_response_reference=reply[:300], conversation_id=cid)
+            except Exception:
+                pass
             a.pop("_id", None)
             return {"assistant": a, "photo_identification": photo_id or None}
 
