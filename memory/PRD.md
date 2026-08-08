@@ -381,3 +381,10 @@ Test credentials: demo_home@diyhomie.com / Test1234 ; admin Diyhomieapp@gmail.co
 - Push: awaiting user's google-services.json for Android push before build. (central chat front-door using room/asset/project/doc context; context selector; photo ID; conversation→approved records with user approval; history; hi_conversation_*).
 - Blueprint 07 — Tool/Material/Supply Inventory (hi_inventory_*; add/identify(photo)/edit/archive; storage locations; project shopping-list matching 'Already Have/Need to Buy/Need Verification'; usage/leftovers). Integrates with B03 project materials.
 - Blueprint 08 — Account, Property Onboarding & Preferences (UserProfile prefs: guidance_detail_level/preferred_interaction/diy_experience; goals; multi-property + UserPropertyAccess; property switcher across all /home-intel screens; notification/privacy prefs; guest sessions). NOTE: app already has JWT auth/register — B08 should extend, not duplicate.
+
+
+---
+## Session update (fork) cont. — Blueprint 15 & 16 FRONTEND UI shipped
+- **B15 Guided Measurement** (backend was already done): completed UI. `measure/index.tsx` (action list + recent), `measure/new.tsx` (manual/camera-estimate capture), NEW `measure/[id].tsx` (view/edit dims/unit/confidence/notes, "I verified this measurement" → Confirmed badge, edit-history/revisions, delete). Camera-estimate mode shows verify-before-purchase warning + ESTIMATE tag. Entry: HI dashboard "Measure Anything" (testID hi-measure).
+- **B16 Project Cleanup & Disposal** (backend was already done): NEW `cleanup/` dir — `index.tsx` (session hub: leftover materials with keep/reuse/donate/recycle/dispose + "Save to my Toolbox", waste list with risk color, Finish cleanup + completion summary), `add-leftover.tsx`, `add-waste.tsx`, `waste/[wid].tsx` (risk-colored safety note + guidance + local-verification note + mark-handled). Entry: project workspace "Cleanup & Disposal" (testID proj-cleanup).
+- Verified iteration_61 (9/10) + iteration_62 (fixed cleanup-complete summary vanishing — load() now GETs session by-project first instead of always POSTing a new one). Both green.
