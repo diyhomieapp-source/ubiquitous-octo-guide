@@ -120,6 +120,10 @@ export default function HomeIntelDashboard() {
           <MaterialCommunityIcons name="tape-measure" size={20} color={colors.brandPrimary} />
           <Text style={styles.secondaryText}>Measure Anything</Text>
         </Pressable>
+        <Pressable testID="hi-twin" style={styles.secondary} onPress={() => router.push("/home-intel/twin")}>
+          <MaterialCommunityIcons name="home-analytics" size={20} color={colors.brandPrimary} />
+          <Text style={styles.secondaryText}>Property Digital Twin</Text>
+        </Pressable>
         <Pressable testID="hi-inventory" style={styles.secondary} onPress={() => router.push("/home-intel/inventory")}>
           <MaterialCommunityIcons name="toolbox-outline" size={20} color={colors.brandPrimary} />
           <Text style={styles.secondaryText}>My Toolbox</Text>

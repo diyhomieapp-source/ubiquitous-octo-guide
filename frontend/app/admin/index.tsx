@@ -35,13 +35,15 @@ import { InvestorModule } from "@/src/components/admin/InvestorModule";
 import { HomeOpsModule } from "@/src/components/admin/HomeOpsModule";
 import { AnalyticsModule } from "@/src/components/admin/AnalyticsModule";
 import { IntegrationsModule } from "@/src/components/admin/IntegrationsModule";
+import { TwinModule } from "@/src/components/admin/TwinModule";
 
-type Mod = "overview" | "analytics" | "homeops" | "integrations" | "finance" | "roi" | "freemium" | "quizzes" | "experts" | "certs" | "education" | "campaigns" | "export" | "appstore" | "monitoring" | "investor" | "crm" | "vendors" | "suppliers" | "kits" | "proleads" | "proaccounts" | "credentials" | "partners" | "prompts" | "audit" | "notifications" | "automations" | "features" | "email" | "affiliate" | "feedback" | "tickets" | "blog";
+type Mod = "overview" | "analytics" | "homeops" | "integrations" | "twin" | "finance" | "roi" | "freemium" | "quizzes" | "experts" | "certs" | "education" | "campaigns" | "export" | "appstore" | "monitoring" | "investor" | "crm" | "vendors" | "suppliers" | "kits" | "proleads" | "proaccounts" | "credentials" | "partners" | "prompts" | "audit" | "notifications" | "automations" | "features" | "email" | "affiliate" | "feedback" | "tickets" | "blog";
 const MODULES: { key: Mod; label: string; icon: string }[] = [
   { key: "overview", label: "Overview", icon: "view-dashboard-outline" },
   { key: "analytics", label: "Product Analytics", icon: "chart-timeline-variant" },
   { key: "homeops", label: "Home Intelligence Ops", icon: "shield-home-outline" },
   { key: "integrations", label: "Integrations", icon: "transit-connection-variant" },
+  { key: "twin", label: "Digital Twin", icon: "home-analytics" },
   { key: "finance", label: "CFO Dashboard", icon: "finance" },
   { key: "crm", label: "CRM / Contacts", icon: "account-multiple-outline" },
   { key: "email", label: "Email Marketing", icon: "email-fast-outline" },
@@ -136,6 +138,7 @@ export default function AdminWorkstation() {
         {mod === "analytics" && <AnalyticsModule />}
         {mod === "homeops" && <HomeOpsModule />}
         {mod === "integrations" && <IntegrationsModule />}
+        {mod === "twin" && <TwinModule />}
         {mod === "finance" && <FinanceModule />}
         {mod === "crm" && <CrmModule />}
         {mod === "email" && <EmailModule />}

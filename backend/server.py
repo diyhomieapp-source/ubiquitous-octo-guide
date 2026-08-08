@@ -56,6 +56,7 @@ import rewards_engine
 import measurement_engine
 import cleanup_engine
 import integration_gateway_engine
+import digital_twin_engine
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -8918,6 +8919,11 @@ integration_gateway_engine.configure(db, logger)
 app.include_router(integration_gateway_engine.build_admin_router(require_admin))
 app.include_router(integration_gateway_engine.build_user_router(get_current_user))
 app.include_router(integration_gateway_engine.build_webhook_router())
+
+# Building Intelligence Capture Platform & Digital Twin Core (Build Blueprint 19).
+digital_twin_engine.configure(db, logger)
+app.include_router(digital_twin_engine.build_router(get_current_user))
+app.include_router(digital_twin_engine.build_admin_router(require_admin))
 
 app.add_middleware(
     CORSMiddleware,
