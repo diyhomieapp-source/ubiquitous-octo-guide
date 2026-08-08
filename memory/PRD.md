@@ -332,8 +332,12 @@ Test credentials: demo_home@diyhomie.com / Test1234 ; admin Diyhomieapp@gmail.co
 - Collections: hi_documents, hi_document_extractions, hi_document_relationships, hi_document_access.
 - Minor UX note (future): search collapses to category filter when a category word appears in the query — consider a fallback.
 
+**Blueprint 04 — Maintenance Intelligence & Home Care Scheduler (DONE, tested iter49 — 32/32 backend pytest + frontend E2E):**
+- Backend `maintenance_engine.py` (/api/hi/maintenance/*): tasks CRUD, recurrence creates separate occurrences (history never overwritten), complete/skip/reschedule/pause/archive, calendar counts, seasonal groups (Spring/Summer/Fall/Winter), Home Care Score (completed vs overdue), AI suggestions via gpt-4o grounded on user's hi_assets + season (generate/list/accept/dismiss). Collections: hi_maintenance_tasks/checklist/occurrences/suggestions.
+- Frontend: app/home-intel/maintenance/{index,add,[id],tasks,calendar,seasonal,suggestions}.tsx. Entry: dashboard "Home Care & Maintenance" (testID hi-maintenance).
+- Wired into server.py (import maintenance_engine + configure(db, logger, _llm_json) + include_router).
+
 **QUEUED (not yet built), in blueprint order:**
-- Blueprint 04 — Maintenance Intelligence & Home Care Scheduler (hi_maintenance_tasks/checklist/occurrences/suggestions/reminders; recurrence creates separate occurrences; AI suggestions from assets/manuals/projects/season; calendar; seasonal guide; Home Care Score).
 - Blueprint 05 — Homie AI Assistant & Conversation Hub (central chat front-door using room/asset/project/doc context; context selector; photo ID; conversation→approved records with user approval; history; hi_conversation_*).
 - Blueprint 07 — Tool/Material/Supply Inventory (hi_inventory_*; add/identify(photo)/edit/archive; storage locations; project shopping-list matching 'Already Have/Need to Buy/Need Verification'; usage/leftovers). Integrates with B03 project materials.
 - Blueprint 08 — Account, Property Onboarding & Preferences (UserProfile prefs: guidance_detail_level/preferred_interaction/diy_experience; goals; multi-property + UserPropertyAccess; property switcher across all /home-intel screens; notification/privacy prefs; guest sessions). NOTE: app already has JWT auth/register — B08 should extend, not duplicate.
