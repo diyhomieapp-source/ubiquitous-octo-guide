@@ -41,8 +41,9 @@ import { RecommendationsModule } from "@/src/components/admin/RecommendationsMod
 import { RewardsFundingModule } from "@/src/components/admin/RewardsFundingModule";
 import { HomieHqModule } from "@/src/components/admin/HomieHqModule";
 import { AssetExitModule } from "@/src/components/admin/AssetExitModule";
+import { ARModule } from "@/src/components/admin/ARModule";
 
-type Mod = "overview" | "homiehq" | "assetexit" | "analytics" | "homeops" | "integrations" | "twin" | "knowledge" | "recpartners" | "rewardsfunding" | "finance" | "roi" | "freemium" | "quizzes" | "experts" | "certs" | "education" | "campaigns" | "export" | "appstore" | "monitoring" | "investor" | "crm" | "vendors" | "suppliers" | "kits" | "proleads" | "proaccounts" | "credentials" | "partners" | "prompts" | "audit" | "notifications" | "automations" | "features" | "email" | "affiliate" | "feedback" | "tickets" | "blog";
+type Mod = "overview" | "homiehq" | "assetexit" | "arguidance" | "analytics" | "homeops" | "integrations" | "twin" | "knowledge" | "recpartners" | "rewardsfunding" | "finance" | "roi" | "freemium" | "quizzes" | "experts" | "certs" | "education" | "campaigns" | "export" | "appstore" | "monitoring" | "investor" | "crm" | "vendors" | "suppliers" | "kits" | "proleads" | "proaccounts" | "credentials" | "partners" | "prompts" | "audit" | "notifications" | "automations" | "features" | "email" | "affiliate" | "feedback" | "tickets" | "blog";
 const MODULES: { key: Mod; label: string; icon: string }[] = [
   { key: "overview", label: "Overview", icon: "view-dashboard-outline" },
   { key: "homiehq", label: "Homie HQ", icon: "radar" },
@@ -54,6 +55,7 @@ const MODULES: { key: Mod; label: string; icon: string }[] = [
   { key: "recpartners", label: "Product Partners", icon: "tag-multiple-outline" },
   { key: "rewardsfunding", label: "Rewards Funding", icon: "gift-outline" },
   { key: "assetexit", label: "Asset Exit & Resale", icon: "tag-arrow-right-outline" },
+  { key: "arguidance", label: "AR Guidance", icon: "cube-scan" },
   { key: "finance", label: "CFO Dashboard", icon: "finance" },
   { key: "crm", label: "CRM / Contacts", icon: "account-multiple-outline" },
   { key: "email", label: "Email Marketing", icon: "email-fast-outline" },
@@ -154,6 +156,7 @@ export default function AdminWorkstation() {
         {mod === "recpartners" && <RecommendationsModule />}
         {mod === "rewardsfunding" && <RewardsFundingModule />}
         {mod === "assetexit" && <AssetExitModule />}
+        {mod === "arguidance" && <ARModule />}
         {mod === "finance" && <FinanceModule />}
         {mod === "crm" && <CrmModule />}
         {mod === "email" && <EmailModule />}

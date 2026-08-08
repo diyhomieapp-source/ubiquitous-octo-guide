@@ -1,0 +1,31 @@
+{
+  "summary": "B27 — AR Step-by-Step Visual Guidance Runtime — comprehensive backend + frontend validation. All 18 backend pytest tests pass (100%). Frontend testing verified: (a) demo user project workspace shows 'View Steps in AR' banner (proj-ar) that navigates to /home-intel/ar?project_id=..., (b) normal low-risk project (Floating Oak Shelf) → LIMITED 2D guided view with ar-start → instruction runner shows progress '1/10', overlay chip ('Sequence Overlay'), Step 1 body with safety note, all 8 controls present (ar-confirm, ar-skip, ar-show-text, ar-recenter, ar-tracking, ar-pause, ar-safety, ar-exit), (c) hazard project (Replace Main Electrical Panel) → Professional Recommended card with ar-pro and ar-text-fallback; ar-start correctly absent. Admin (Diyhomieapp) side-nav shows 'AR Guidance' (admin-nav-arguidance); ARModule renders session stats (Sessions/Completed/Completion%/Failures), ar-feature-toggle, platform switches (iOS/Android/Web), 9 guidance-type template switches, and Insufficient Tracking failure count. Non-admin (demo_home) receives 403 on all 5 admin AR endpoints. Feature/platform settings restored to defaults (feature_enabled=true, web=false) after admin toggle tests. No deprecated Expo packages introduced in B27.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_ar_guidance_b27.py",
+    "/app/test_reports/pytest/ar_guidance_b27_iter71.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "ar_guidance_engine.py is well-scoped (~535 lines) and provider-agnostic as designed. Progress updates on hi_project_steps guarded by explicit work_item_confirmed + project_work_item_id — matches spec.",
+    "Eligibility PROFESSIONAL_KEYWORDS + HAZARD_HINT gating fires correctly on real seeded 'Replace Main Electrical Panel' project (risk_level=Professional Recommended, status=escalated) via all three conditions (status escalated OR safety_status 'professional' OR risk 'Professional Recommended').",
+    "POST /sessions returns 409 with {eligibility, message} in HTTPException detail for UNAVAILABLE/NOT_RECOMMENDED/PROFESSIONAL_REQUIRED — never creates a session. Verified.",
+    "report-tracking correctly sets session to paused + returns fallback:2d; calibrate anchor_confirmed:false correctly writes insufficient_tracking outcome.",
+    "complete with work_item_confirmed:false leaves project step unchanged (work_item_updated:false, note explains); ready for the confirmed variant when a project_work_item_id is passed at session start."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_ar_guidance_b27.py (new)"
+  ],
+  "success_rate": {"backend": "100% (18/18)", "frontend": "100% (all critical AR flows verified — user runner, hazard fallback, admin dashboard)"},
+  "seed_data_creation": "None. Reused existing demo_home projects: 'Install a Floating Oak Shelf' (low-risk, AVAILABLE/LIMITED) and 'Replace Main Electrical Panel' (Professional Recommended, escalated). AR settings singleton auto-seeded on first read. ar_sessions/ar_outcomes/ar_instructions/ar_anchors populated by test suite.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "B27 AR runtime is fully wired and passing. Endpoints under /api/hi/ar/* (user) and /api/hi/admin/ar/* (admin). Test suite at /app/backend/tests/test_ar_guidance_b27.py can be re-run standalone. Frontend testIDs verified on web preview: proj-ar (in projects/[id].tsx), ar-start, ar-confirm, ar-skip, ar-show-text, ar-recenter, ar-tracking, ar-pause, ar-safety, ar-exit, ar-finish-confirm, ar-finish-nochange, ar-pro, ar-text-fallback (in home-intel/ar/index.tsx), admin-nav-arguidance + ar-feature-toggle (in admin/index.tsx + ARModule.tsx). Frontend web-preview intentionally shows 2D fallback (LIMITED) since Platform.OS==='web' — NOT a bug.",
+  "rca_of_issue": "N/A — no defects observed."
+}

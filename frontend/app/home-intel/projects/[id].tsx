@@ -137,6 +137,9 @@ export default function ProjectWorkspace() {
         <Pressable testID="proj-intelligence" style={styles.wideBtn} onPress={() => router.push(`/home-intel/projects/intelligence?id=${id}`)}>
           <MaterialCommunityIcons name="lightbulb-on-outline" size={18} color={colors.brandPrimary} /><Text style={styles.wideText}>  Next Best Step &amp; Blockers</Text>
         </Pressable>
+        <Pressable testID="proj-ar" style={styles.wideBtn} onPress={() => router.push(`/home-intel/ar?project_id=${id}`)}>
+          <MaterialCommunityIcons name="cube-scan" size={18} color={colors.brandPrimary} /><Text style={styles.wideText}>  View Steps in AR</Text>
+        </Pressable>
         <Pressable testID="proj-recommend" style={styles.wideBtn} onPress={() => router.push(`/home-intel/rec?project_id=${id}`)}>
           <MaterialCommunityIcons name="tag-search-outline" size={18} color={colors.brandPrimary} /><Text style={styles.wideText}>  Recommended Products</Text>
         </Pressable>

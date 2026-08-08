@@ -476,3 +476,16 @@ Test credentials: demo_home@diyhomie.com / Test1234 ; admin Diyhomieapp@gmail.co
 - Curl-verified: full flow (start→assess→options w/ AI valuation $300-400 for iPhone→compare best=private_sale→complete sold), admin dashboard, demo→403 on admin. AI valuation/listing use _llm_json (feature_area tagged for B25 cost tracking).
 
 Admin nav order now starts: Overview, Homie HQ, Asset Exit & Resale, Product Analytics, ... + Rewards Funding.
+
+---
+## Session update (fork) cont. — Blueprint 27 shipped
+
+**B27 AR Step-by-Step Visual Guidance Runtime** — `ar_guidance_engine.py` (additive, provider-AGNOSTIC). True AR overlays (Unity/ARKit/ARCore) run ONLY in a native build; this engine owns everything provider-independent & always testable: eligibility + safety gateway, spatial-context resolver, guidance content builder (from APPROVED hi_project_steps), session state machine, per-instruction confirmation, outcome recording, strict fallback (AR→2D→text→professional). Hard rules honored: AR optional & never blocks text; session tied to room/asset/project/work-item; NO hidden stud/wire/pipe/structural claims (unverified→"ESTIMATED"); progress updates ONLY on explicit user confirmation; safety-critical/professional work gated out (PROFESSIONAL_REQUIRED / NOT_RECOMMENDED).
+- Eligibility statuses: AVAILABLE/LIMITED/UNAVAILABLE/NOT_RECOMMENDED/PROFESSIONAL_REQUIRED (device/platform/camera/risk/measurement-confidence/room-context aware). Web & non-AR devices → LIMITED (2D). Hazard keywords (electrical panel, gas, structural, roof, asbestos…) → PROFESSIONAL_REQUIRED.
+- User: `/api/hi/ar/*` (eligibility, sessions CRUD, calibrate, instructions confirm/skip, pause/resume/recenter, report-tracking, fallback, complete{work_item_confirmed}, cancel). Screen `app/home-intel/ar/index.tsx` (status card → start guided view → one-instruction runner w/ overlay chip, ESTIMATED tag, safety notes, controls Text/Recenter/Tracking/Pause/Safety/Exit, always-available text list, finish modal that never auto-completes task). Entry: project workspace "View Steps in AR" (proj-ar).
+- Admin: `/api/hi/admin/ar/*` (settings, categories, platforms, guidance-types disable, dashboard w/ completion rate + tracking-failure metrics). Module `ARModule.tsx` → /admin key `arguidance`.
+- Curl-verified: eligibility(web→LIMITED/estimated, ios→LIMITED for generic), session start→calibrate→confirm→complete (work_item_updated=false when not confirmed), admin dashboard, demo→403.
+- Collections: ar_sessions, ar_anchors, ar_instructions, ar_outcomes, ar_settings.
+- NOTE for user: live camera AR overlays require Publish + a native iOS/Android build — not testable in Expo Go/web. The guided runtime + fallbacks work everywhere now.
+
+Admin nav order: Overview, Homie HQ, Asset Exit & Resale, AR Guidance, Product Analytics, ...
