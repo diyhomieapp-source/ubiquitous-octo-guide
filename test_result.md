@@ -397,3 +397,9 @@ NOTE: generation is a single backend call, so stages are time-progressed (approx
 - Upgrade Nudges: dashboard (/home-intel) fetches /hi/subscription/me; computes highest over/near-limit count feature (>=80%); renders warning banner hi-upgrade-nudge → /home-intel/upgrade. Hidden for pro.
 - Plan Perks: NEW /home-intel/perks.tsx. Backend /hi/subscription/me now returns perks[] (label+included per current tier). Free/starter also fetch /plans pro highlights as 'Unlock with Pro' locked list + perks-upgrade CTA. account-plan-card routes free→upgrade, paid→perks.
 - ALL PASS via testing agent (demo_home free tier). Lint clean. Report iteration_58.json. (Testing flipped demo onboarding_complete=true at finish — expected.)
+
+## Iteration 59 — B09 enhancements: Pro Trial + Perks Confetti + In-Context Nudges (PASS)
+- Pro Trial (backend subscription_engine): _tier() now grants "pro" during an active 7-day trial; hi_pro_trial_ends_at/hi_pro_trial_used on user; POST /hi/subscription/trial/start (409 if used, 400 if paid); /me returns is_trial + trial{active,used,ends_at,days_left,eligible}. No cron — expiry computed per request. Upgrade screen: 'Try Pro free for 7 days' (start-trial) when eligible; 'Pro trial active · N days left' banner when active.
+- In-Context Nudges: NEW reusable src/components/UpgradeNudge.tsx (fetches /hi/subscription/me, shows warning banner testID hi-upgrade-nudge when a feature >=80% of limit; hidden for pro). Used feature='project' on projects list, feature='chat' on chat list; dashboard refactored to use the shared component (removed duplicated inline logic).
+- Perks Celebration: perks.tsx fires react-native-confetti-cannon once for Pro users (AsyncStorage flag hi_perks_confetti_shown), shows '(trial)' suffix.
+- ALL PASS via testing agent (iteration_59.json). Lint clean. Reset demo_home trial fields afterward so demo stays Free/eligible.
