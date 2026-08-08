@@ -39,7 +39,7 @@ import { TwinModule } from "@/src/components/admin/TwinModule";
 import { KnowledgeModule } from "@/src/components/admin/KnowledgeModule";
 import { RecommendationsModule } from "@/src/components/admin/RecommendationsModule";
 
-type Mod = "overview" | "analytics" | "homeops" | "integrations" | "twin" | "knowledge" | "partners" | "finance" | "roi" | "freemium" | "quizzes" | "experts" | "certs" | "education" | "campaigns" | "export" | "appstore" | "monitoring" | "investor" | "crm" | "vendors" | "suppliers" | "kits" | "proleads" | "proaccounts" | "credentials" | "partners" | "prompts" | "audit" | "notifications" | "automations" | "features" | "email" | "affiliate" | "feedback" | "tickets" | "blog";
+type Mod = "overview" | "analytics" | "homeops" | "integrations" | "twin" | "knowledge" | "recpartners" | "finance" | "roi" | "freemium" | "quizzes" | "experts" | "certs" | "education" | "campaigns" | "export" | "appstore" | "monitoring" | "investor" | "crm" | "vendors" | "suppliers" | "kits" | "proleads" | "proaccounts" | "credentials" | "partners" | "prompts" | "audit" | "notifications" | "automations" | "features" | "email" | "affiliate" | "feedback" | "tickets" | "blog";
 const MODULES: { key: Mod; label: string; icon: string }[] = [
   { key: "overview", label: "Overview", icon: "view-dashboard-outline" },
   { key: "analytics", label: "Product Analytics", icon: "chart-timeline-variant" },
@@ -47,7 +47,7 @@ const MODULES: { key: Mod; label: string; icon: string }[] = [
   { key: "integrations", label: "Integrations", icon: "transit-connection-variant" },
   { key: "twin", label: "Digital Twin", icon: "home-analytics" },
   { key: "knowledge", label: "Knowledge Graph", icon: "book-open-variant" },
-  { key: "partners", label: "Product Partners", icon: "tag-multiple-outline" },
+  { key: "recpartners", label: "Product Partners", icon: "tag-multiple-outline" },
   { key: "finance", label: "CFO Dashboard", icon: "finance" },
   { key: "crm", label: "CRM / Contacts", icon: "account-multiple-outline" },
   { key: "email", label: "Email Marketing", icon: "email-fast-outline" },
@@ -144,7 +144,7 @@ export default function AdminWorkstation() {
         {mod === "integrations" && <IntegrationsModule />}
         {mod === "twin" && <TwinModule />}
         {mod === "knowledge" && <KnowledgeModule />}
-        {mod === "partners" && <RecommendationsModule />}
+        {mod === "recpartners" && <RecommendationsModule />}
         {mod === "finance" && <FinanceModule />}
         {mod === "crm" && <CrmModule />}
         {mod === "email" && <EmailModule />}

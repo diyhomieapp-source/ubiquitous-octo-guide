@@ -449,3 +449,5 @@ Test credentials: demo_home@diyhomie.com / Test1234 ; admin Diyhomieapp@gmail.co
 - Backend curl-verified (compat gating, safety-first ranking, disclosure, click handoff, save action, partner-confirmed conversion, policy guard rejects affiliate>safety, 403 gating). Frontend E2E pending testing_agent.
 
 ### PENDING QUEUE: B14 Photo Room Design (Gemini Nano Banana); B17 AI Orchestration Gateway; Twin-from-photos; Connect Pipedream (needs key).
+
+- B23 fix: admin sidebar key collision resolved — renamed Product Partners key to "recpartners" (Partner Platform keeps "partners"). Verified iteration_68: 17/17 backend + full frontend.
