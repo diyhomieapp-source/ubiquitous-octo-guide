@@ -1,0 +1,44 @@
+{
+  "summary": "Home Intelligence Blueprint 04 (Maintenance Intelligence) — full backend suite + frontend testID audit + navigation smoke. Backend: 32/32 pytest passed (100%) against live public API including live gpt-4o AI suggestion flow (generate -> pending list -> accept -> task creation -> dismiss). Every endpoint listed in review request exercised: /home (score, due_now/due_soon/completed_recently/seasonal/season), /tasks CRUD (create with occurrence, list with tab=due/upcoming filters, detail with checklist+occurrences+computed_status, edit including frequency & custom_interval_days), /complete recurring rollover (returns recurring+next_due, opens a new upcoming occurrence, keeps history) and one_time termination (marks task completed), /skip advances next_due, /reschedule updates task+open occurrence, /pause?resume=true|false toggles paused/active, DELETE archives (hidden from list, still fetchable, keeps occurrences), /calendar counts_by_day + occurrences, /seasonal season_now + groups Spring/Summer/Fall/Winter, /suggestions/generate + /suggestions + /accept + /dismiss, and 16 auth-gating cases (all 401/403). Home Care Score verified: 1 completed + 1 overdue → 50 as expected. Frontend (Expo web preview, 390x844 mobile viewport, demo_home@diyhomie.com): logged in via /auth?mode=login, /home-intel dashboard shows 'Home Care & Maintenance' entry (testID hi-maintenance) and navigates to /home-intel/maintenance which renders the score ring (100) and every required action button — maint-add, maint-suggestions, maint-calendar, maint-seasonal, maint-all. Add screen renders maint-title, maint-cat-*, maint-pri-*, maint-freq-*, maint-due, maint-season-*, maint-save, maint-notes and (conditionally) maint-customdays. All Tasks screen renders maint-tab-all / maint-tab-due / maint-tab-upcoming. Calendar renders cal-prev / cal-next and 31 cal-day-* cells for the current month. Seasonal renders all four season groups with season_now highlighted. Suggestions renders sug-generate. Task detail testIDs verified in source: maint-complete-btn / maint-complete-save (+cost/notes fields), maint-skip-btn, maint-reschedule-btn / maint-resched-save (+date), maint-pause-btn, maint-archive-btn. No red-screen errors, no failed API calls after auth established. Console warnings only for global 'shadow*' deprecation and pointerEvents prop (pre-existing, not blueprint-04 specific).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "GET /api/hi/maintenance/tasks?tab=completed", "issue": "Handler filters completed by computed_status == 'completed', but _compute_status returns 'completed' only when task.status is 'completed' (one_time completed). For recurring tasks the completion history lives in hi_maintenance_occurrences and is not visible via this tab. Home dashboard already surfaces completed_recently correctly, so this is not critical but worth documenting."},
+      {"endpoint": "GET /api/hi/maintenance/home score_note", "issue": "score_note says score is 'completed vs overdue' but the code uses count_documents on completed occurrences vs COUNT of overdue tasks (not occurrences). Definitions are slightly mixed (occurrence-count vs task-count) — score is stable but the wording could confuse power users."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "global", "issues": ["Console warns 'shadow* style props are deprecated. Use boxShadow.' and 'props.pointerEvents is deprecated. Use style.pointerEvents' — pre-existing global styling, not blueprint-04 specific."]}
+    ],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_hi_maintenance_b04.py",
+    "/app/test_reports/pytest/hi_maintenance_b04_iter49.xml"
+  ],
+  "action_items": [
+    "Optional: extend GET /hi/maintenance/tasks?tab=completed to also union with tasks that have any completed occurrences, so a 'History' tab in All Tasks can render recurring completions (front-end already surfaces this via the detail history list — non-blocking).",
+    "Optional: tighten score_note wording so it clearly says 'completed occurrences vs overdue tasks' or align both sides to occurrences.",
+    "Optional (unrelated global): migrate remaining shadow* props to boxShadow and pointerEvents to style prop to silence deprecation warnings."
+  ],
+  "critical_code_review_comments": [
+    "maintenance_engine.py is ~430 lines, well-scoped, all IO async, always excludes _id, uses parameterised routes with 404-owned checks. Good.",
+    "History is preserved by never overwriting completed occurrences — a new upcoming occurrence is inserted on complete/skip. Verified by test_complete_recurring_rolls_forward and detail endpoint returning both completed + upcoming occurrences.",
+    "AI generate handler wraps LLM in try/except with warning log and returns {generated:0, suggestions:[]} on failure — good fail-safe. Deduplication against prior dismissed/accepted titles is case-insensitive.",
+    "accept_suggestion always assigns category 'General' and priority 'medium' — reasonable defaults but LLM-provided category is discarded (LLM doesn't produce one today; safe).",
+    "server.py wiring at 8847-8848 is correct: configure(db, logger, _llm_json) then include_router(build_router(get_current_user)). No conflicts with the older /api/maintenance/* router.",
+    "No mocked APIs — AI suggestions confirmed to hit real gpt-4o via Emergent LLM key."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_hi_maintenance_b04.py (new)"
+  ],
+  "success_rate": {"backend": "100% (32/32 passed)", "frontend": "100% of listed testIDs and navigation flows verified"},
+  "seed_data_creation": "Each test class registers its own TEST_hi_maint_* user (self-contained). No changes to demo_home@diyhomie.com. Note: on this environment demo_home@diyhomie.com currently shows 'No assets yet' and 'No tasks yet' on the Home Intelligence dashboard, so the agent context note about a pre-existing Water Heater asset / 'Replace HVAC filter' task did not match the current DB state — but this is not a blueprint-04 defect (blueprint tests all pass on fresh users).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Blueprint 04 endpoints live at /api/hi/maintenance/*. Suggestions generation is non-deterministic on count (LLM may return 0..6). Tests skip the accept/dismiss branch if LLM returns 0 suggestions but always assert the 200 + schema. To exercise UI end-to-end on demo user, log in via /auth?mode=login, then navigate /home-intel/maintenance. The demo user in this environment appears empty (no seeded assets/tasks). Frontend routes: /home-intel/maintenance (home), /add, /[id], /tasks, /calendar, /seasonal, /suggestions. Pytest XML: /app/test_reports/pytest/hi_maintenance_b04_iter49.xml.",
+  "rca_of_issue": "No functional defect found. Minor: (1) tab=completed only shows one_time-completed tasks (recurring completions surface only via detail history / completed_recently on home), (2) score_note wording mixes occurrence-count and task-count. Neither blocks Blueprint 04 delivery."
+}

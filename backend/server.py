@@ -42,6 +42,7 @@ import home_intelligence_engine
 import room_intelligence_engine
 import project_planner_engine
 import document_vault_engine
+import maintenance_engine
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -8841,6 +8842,10 @@ app.include_router(project_planner_engine.build_router(get_current_user))
 # Home Document Vault & Asset Knowledge Capture (Build Blueprint 06).
 document_vault_engine.configure(db, logger, EMERGENT_LLM_KEY)
 app.include_router(document_vault_engine.build_router(get_current_user, _llm_json))
+
+# Maintenance Intelligence & Home Care Scheduler (Build Blueprint 04).
+maintenance_engine.configure(db, logger, _llm_json)
+app.include_router(maintenance_engine.build_router(get_current_user))
 
 app.add_middleware(
     CORSMiddleware,
