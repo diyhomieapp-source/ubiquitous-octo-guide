@@ -73,6 +73,18 @@ async def _get_or_create_property(user_id):
     return prop
 
 
+async def _plain_chat(system: str, user_text: str, max_tokens: int = 700) -> str:
+    """Fallback plain-text reply when structured JSON parsing fails."""
+    try:
+        from emergentintegrations.llm.chat import LlmChat, UserMessage
+        chat = LlmChat(api_key=_llm_key, session_id=_new_id(), system_message=system).with_model("openai", "gpt-4o-mini")
+        return ((await chat.send_message(UserMessage(text=user_text))) or "").strip()
+    except Exception as e:
+        if _logger:
+            _logger.warning(f"homie plain-chat fallback failed: {e}")
+        return ""
+
+
 async def _identify_image(image_base64: str) -> dict:
     """gpt-4o vision — identify a home item / appliance / part from a photo."""
     try:
@@ -311,8 +323,15 @@ def build_router(get_current_user: Callable) -> APIRouter:
             if _logger:
                 _logger.warning(f"homie chat failed: {e}")
             data = {}
-        reply = (data.get("reply") if isinstance(data, dict) else None) or "I'm having trouble responding right now — please try again."
+        reply = (data.get("reply") if isinstance(data, dict) else None)
         raw_actions = data.get("suggested_actions", []) if isinstance(data, dict) else []
+        if not reply:
+            # structured JSON failed — still give the user a real answer (no actions)
+            reply = await _plain_chat(
+                "You are Homie, a concise, safety-first master-contractor assistant. If a task is "
+                "unsafe or needs a licensed pro, say so. Never claim code/permit/warranty compliance.",
+                ut, max_tokens=700) or "I'm having trouble responding right now — please try again."
+            raw_actions = []
         actions = []
         for act in raw_actions[:2]:
             if isinstance(act, dict) and act.get("type") in ACTION_TYPES and isinstance(act.get("payload"), dict):
