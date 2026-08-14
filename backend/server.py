@@ -79,6 +79,9 @@ import investor_intel_engine
 import platform_engine
 import design_engine
 import search_engine
+import support_engine
+import import_engine
+import orchestrator_engine
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -9067,6 +9070,20 @@ search_engine.configure(db, logger)
 app.include_router(search_engine.build_router(get_current_user))
 app.include_router(search_engine.build_admin_router(require_admin))
 
+# Customer Support Intelligence & Support Operations (Build Blueprint 42).
+support_engine.configure(db, logger)
+app.include_router(support_engine.build_router(get_current_user))
+app.include_router(support_engine.build_admin_router(require_admin))
+
+# Property Data Import, External Records & Evidence Reconciliation (Build Blueprint 43).
+import_engine.configure(db, logger)
+app.include_router(import_engine.build_router(get_current_user))
+app.include_router(import_engine.build_admin_router(require_admin))
+
+# Continuous Project Intelligence Orchestrator (Foundation Layer).
+orchestrator_engine.configure(db, logger)
+app.include_router(orchestrator_engine.build_router(get_current_user))
+
 
 
 
@@ -9187,6 +9204,9 @@ async def _startup_seed_community():
     await platform_engine.seed_platform()
     await design_engine.seed_design()
     await search_engine.seed_search()
+    await support_engine.seed_support()
+    await import_engine.seed_import()
+    await orchestrator_engine.seed_orchestrator()
 
 
 @app.on_event("startup")

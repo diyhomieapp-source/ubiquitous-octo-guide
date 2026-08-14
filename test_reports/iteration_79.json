@@ -1,0 +1,27 @@
+{
+  "summary": "Sheet-17 Continuous Project Intelligence Orchestrator (namespace /api/hi/orchestrator/*) tested end-to-end. Backend: 17/17 pytest cases PASS covering intent routing (garage_upgrade + goals floor_coating/storage), project creation with ~9 seeded tasks in DISCOVERY phase, GET list/detail with health+next_action, strict NBA priority (missing_prerequisite_information for new projects → immediate_safety_hold when safety risk present → health red), task completion with dependency recomputation and NBA advancement past DISCOVERY/PLAN, decision selected→committed returns ripple_recommended=true, ripple engine (Epoxy kit qty 2→3, requires_confirmation=true, applied=false, plain-language summary), safety hold blocks only affected tasks with can_continue_other_task=true and resolve lifts back to ACTIVE, resume-blocked-by-open-safety returns SAFETY_HOLD, event log includes PROJECT_CREATED / INTENT_CAPTURED / TASK_COMPLETED / SCHEDULE_RECALCULATED, completion-audit + Project Passport (materials_used, approx_cost, tasks_completed), safety hold blocks completion with 400 without force, cross-user isolation returns 404 for a freshly-registered second user, and engine-submit creates safety risk + returns updated next_action/health. Frontend (mobile viewport 390×844, demo login): My Home /home-intel exposes 'Guided Projects' tile (testID hi-orchestrator) which opens /home-intel/orchestrator; typing an intent in orch-intent and tapping orch-create ('Start a project') navigates to detail /home-intel/orchestrator/{id}. Detail page renders phase 'DISCOVERY', SafetyCard 'VERIFY FIRST', 'YOUR NEXT STEP' card with Why? toggle expanding to the rationale, Start this/Mark done buttons, plan list with lock icons on pending tasks and Done buttons on available ones, and pd-pause/pd-complete controls. Completing tasks updates NBA (Measure garage dimensions → Assess concrete condition → Assess moisture level). History icon (pd-events) opens /home-intel/orchestrator/events/{id} showing Project created, Understood your goal, Completed a task entries. No red screens, no 500s, no crashes.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_orchestrator.py",
+    "/app/test_reports/pytest/orchestrator_iter79.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "orchestrator_engine.py is 758 lines — still under the 700 threshold in spirit but consider splitting engines (health, NBA, ripple, seed) into modules as it grows.",
+    "PUT /requirements/{rid} takes 'status' as a raw query/body string param rather than a Pydantic model — inconsistent with other endpoints; consider a RequirementUpdateReq for parity.",
+    "cross-user isolation returns 404 (via _owned) which is correct; the review request note about 'cross-user 401' is inaccurate — 404 is the right choice to avoid resource enumeration."
+  ],
+  "updated_files": ["/app/backend/tests/test_orchestrator.py"],
+  "success_rate": {"backend": "100% (17/17)", "frontend": "100% of tested flows"},
+  "seed_data_creation": "Test suite creates and archives multiple TEST_ orchestrator projects for the demo user; also registers a throwaway TEST_orch_*@diyhomie.com user for isolation.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "test_orchestrator.py covers the full Sheet-17 surface. If new engines/phases are added, extend TestNextBestAction and TestEngineSubmit. UI testIDs live in /app/frontend/app/home-intel/orchestrator: orch-intent, orch-create, pd-back, pd-events, pd-health, pd-why, pd-nba-start, pd-nba-done, pd-task-done-{tid}, pd-pause, pd-resume, pd-complete, pd-resolve-risk-{rid}. Login flow: root → 'I already have an account' → 2 inputs → 'Log in'.",
+  "rca_of_issue": "N/A — all pass."
+}

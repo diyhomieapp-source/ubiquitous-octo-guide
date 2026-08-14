@@ -53,8 +53,10 @@ import { InvestorIntelModule } from "@/src/components/admin/InvestorIntelModule"
 import { PlatformModule } from "@/src/components/admin/PlatformModule";
 import { DesignModule } from "@/src/components/admin/DesignModule";
 import { SearchModule } from "@/src/components/admin/SearchModule";
+import { SupportModule } from "@/src/components/admin/SupportModule";
+import { ImportModule } from "@/src/components/admin/ImportModule";
 
-type Mod = "overview" | "homiehq" | "assetexit" | "arguidance" | "notiforch" | "compliance" | "proworkspace" | "datagovernance" | "voice" | "communityhub" | "release" | "invintel" | "platform" | "design" | "searchops" | "analytics" | "homeops" | "integrations" | "twin" | "knowledge" | "recpartners" | "rewardsfunding" | "finance" | "roi" | "freemium" | "quizzes" | "experts" | "certs" | "education" | "campaigns" | "export" | "appstore" | "monitoring" | "investor" | "crm" | "vendors" | "suppliers" | "kits" | "proleads" | "proaccounts" | "credentials" | "partners" | "prompts" | "audit" | "notifications" | "automations" | "features" | "email" | "affiliate" | "feedback" | "tickets" | "blog";
+type Mod = "overview" | "homiehq" | "assetexit" | "arguidance" | "notiforch" | "compliance" | "proworkspace" | "datagovernance" | "voice" | "communityhub" | "release" | "invintel" | "platform" | "design" | "searchops" | "supportops" | "importops" | "analytics" | "homeops" | "integrations" | "twin" | "knowledge" | "recpartners" | "rewardsfunding" | "finance" | "roi" | "freemium" | "quizzes" | "experts" | "certs" | "education" | "campaigns" | "export" | "appstore" | "monitoring" | "investor" | "crm" | "vendors" | "suppliers" | "kits" | "proleads" | "proaccounts" | "credentials" | "partners" | "prompts" | "audit" | "notifications" | "automations" | "features" | "email" | "affiliate" | "feedback" | "tickets" | "blog";
 const MODULES: { key: Mod; label: string; icon: string }[] = [
   { key: "overview", label: "Overview", icon: "view-dashboard-outline" },
   { key: "homiehq", label: "Homie HQ", icon: "radar" },
@@ -75,6 +77,8 @@ const MODULES: { key: Mod; label: string; icon: string }[] = [
   { key: "communityhub", label: "Community", icon: "account-group-outline" },
   { key: "design", label: "Design System", icon: "palette-outline" },
   { key: "searchops", label: "Universal Search", icon: "magnify-scan" },
+  { key: "supportops", label: "Support Desk", icon: "lifebuoy" },
+  { key: "importops", label: "Property Import", icon: "file-import-outline" },
   { key: "release", label: "Release & QA", icon: "rocket-launch-outline" },
   { key: "invintel", label: "Investor Intel", icon: "chart-box-plus-outline" },
   { key: "platform", label: "Platform Architecture", icon: "sitemap-outline" },
@@ -187,6 +191,8 @@ export default function AdminWorkstation() {
         {mod === "communityhub" && <CommunityModule />}
         {mod === "design" && <DesignModule />}
         {mod === "searchops" && <SearchModule />}
+        {mod === "supportops" && <SupportModule />}
+        {mod === "importops" && <ImportModule />}
         {mod === "release" && <ReleaseModule />}
         {mod === "invintel" && <InvestorIntelModule />}
         {mod === "platform" && <PlatformModule />}

@@ -198,6 +198,8 @@ export default function Profile() {
             testID="profile-projects" onPress={() => router.push("/")} />
           <MenuRow icon="lifebuoy" label="My Support" sub="Tickets & help"
             testID="profile-support" onPress={() => router.push("/support/tickets")} />
+          <MenuRow icon="headset" label="Support Center" sub="Get help & contact support"
+            testID="profile-help-center" onPress={() => router.push("/help")} />
           <MenuRow icon="gift-outline" label="Share & Earn $5" sub="Invite friends — you both get credit"
             testID="profile-referrals" onPress={() => router.push("/referrals")} />
           <MenuRow icon="translate" label="Language" sub="App & guide language"

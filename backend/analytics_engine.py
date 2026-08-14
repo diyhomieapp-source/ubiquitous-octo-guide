@@ -129,6 +129,18 @@ EVENT_CATALOG = [
     ("search_no_results", "search", "Search returned no results", ["context_type"]),
     ("homie_search_used", "search", "Homie conversational search used", ["result_count"]),
     ("search_filter_applied", "search", "Search filter applied", ["filter"]),
+    ("support_opened", "support", "Support opened", ["surface"]),
+    ("support_category_selected", "support", "Support category selected", ["category"]),
+    ("support_ai_response_shown", "support", "Support AI response shown", ["matched"]),
+    ("ticket_created", "support", "Support ticket created", ["category", "priority"]),
+    ("ticket_resolved", "support", "Support ticket resolved", ["resolution_type"]),
+    ("support_feedback_submitted", "support", "Support feedback submitted", ["rating"]),
+    ("property_import_started", "import", "Property import started", ["import_type"]),
+    ("property_import_completed", "import", "Property import completed", ["import_type", "evidence_count"]),
+    ("property_import_reviewed", "import", "Property import reviewed", []),
+    ("reconciliation_issue_shown", "import", "Reconciliation issue shown", ["issue_type"]),
+    ("reconciliation_issue_resolved", "import", "Reconciliation issue resolved", ["status"]),
+    ("external_property_source_connected", "import", "External property source connected", ["source_type"]),
 ]
 _APPROVED = {name: set(props) for name, _fa, _d, props in EVENT_CATALOG}
 _FEATURE_AREA = {name: fa for name, fa, _d, _p in EVENT_CATALOG}

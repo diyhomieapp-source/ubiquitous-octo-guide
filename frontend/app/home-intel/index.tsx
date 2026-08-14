@@ -110,6 +110,15 @@ export default function HomeIntelDashboard() {
           <MaterialCommunityIcons name="chevron-right" size={22} color={colors.brandPrimary} />
         </Pressable>
 
+        <Pressable testID="hi-orchestrator" style={styles.dashCard} onPress={() => router.push("/home-intel/orchestrator")}>
+          <MaterialCommunityIcons name="head-cog-outline" size={22} color={colors.brandPrimary} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.dashTitle}>Guided Projects</Text>
+            <Text style={styles.dashSub}>Tell Homie a goal — it plans every step & tells you what's next</Text>
+          </View>
+          <MaterialCommunityIcons name="chevron-right" size={22} color={colors.brandPrimary} />
+        </Pressable>
+
         <Text style={styles.hero}>What do you need help with?</Text>
 
         <Pressable testID="hi-fix" style={styles.primary} onPress={() => router.push("/home-intel/help")}>
@@ -139,6 +148,10 @@ export default function HomeIntelDashboard() {
         <Pressable testID="hi-map-home" style={styles.secondary} onPress={() => router.push("/home-intel/rooms")}>
           <MaterialCommunityIcons name="floor-plan" size={20} color={colors.brandPrimary} />
           <Text style={styles.secondaryText}>Map my home</Text>
+        </Pressable>
+        <Pressable testID="hi-import" style={styles.secondary} onPress={() => router.push("/home-intel/import")}>
+          <MaterialCommunityIcons name="file-import-outline" size={20} color={colors.brandPrimary} />
+          <Text style={styles.secondaryText}>Add Property Information</Text>
         </Pressable>
         <Pressable testID="hi-projects" style={styles.secondary} onPress={() => router.push("/home-intel/projects")}>
           <MaterialCommunityIcons name="hammer-wrench" size={20} color={colors.brandPrimary} />
