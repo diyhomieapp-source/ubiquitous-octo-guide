@@ -92,6 +92,8 @@ import readiness_engine
 import pro_handoff_engine
 import property_brain_engine
 import command_center_engine
+import tool_intelligence_engine
+import marketplace_engine
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -9144,6 +9146,16 @@ app.include_router(property_brain_engine.build_admin_router(require_admin))
 # Home Command Center & Project Portfolio Engine (Build Document 12).
 command_center_engine.configure(db, logger)
 app.include_router(command_center_engine.build_router(get_current_user))
+
+# Tool Inventory, Capability & Project Readiness Engine (Build Document 20).
+tool_intelligence_engine.configure(db, logger, _llm_json)
+app.include_router(tool_intelligence_engine.build_router(get_current_user))
+app.include_router(tool_intelligence_engine.build_admin_router(require_admin))
+
+# Project-First Marketplace & Smart Procurement Engine (Build Document 13).
+marketplace_engine.configure(db, logger, _llm_json)
+app.include_router(marketplace_engine.build_router(get_current_user))
+app.include_router(marketplace_engine.build_admin_router(require_admin))
 
 
 

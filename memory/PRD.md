@@ -657,3 +657,25 @@ The user is delivering a sequential program of build docs. Status:
 - Older backlog unchanged: Homie Talks Money (P1), Kard (needs keys), Blueprint 14 photo room design (needs image-gen), BenefitHub, Twin-from-photos, server.py refactor into routers.
 
 **Testing:** iteration_85 — 24/24 backend pytest (`/app/test_reports/pytest/docs_7_12_iter85.xml`) + full frontend E2E pass. No regressions.
+
+## Session update 2 — Build Docs 20 + 13 SHIPPED (18/18 backend pytest + frontend 100%, iteration_86)
+
+### ✅ Build Doc 20 — Tool Inventory, Capability & Project Readiness (DONE, tested)
+- Module: `/app/backend/tool_intelligence_engine.py`, namespace `/api/hi/tools/*` (+ admin signals). Reuses Toolbox (hi_inventory_items) + readiness matching.
+- AI capability tags w/ limits + safety_notes + power_source per Tool item (`POST /items/{id}/capabilities`, stored on hi_inventory_items). Today's Tool Pack per issue (`GET /pack/{iid}`): tools vs SAFETY GEAR separated; statuses ready / ready_with_alternatives / missing_required / unsafe_tool_gap (safety gaps outrank everything); baseline safety glasses auto-added; checklist state in `tp_packs`. Tool Q&A (`/ask`) capability-grounded verdict (yes/yes_with_care/no/verify_first) → gr_decisions. Buy/rent/borrow advisor (`/procure-advice`) w/ battery-platform detection (regex over brand+name) + honest ranges + disclaimer.
+- Frontend: `app/home-intel/repair/toolpack/[id].tsx` (entry `rw-toolpack` in workspace); capabilities section + `invd-caps` button on `inventory/[id].tsx`.
+
+### ✅ Build Doc 13 — Project-First Marketplace & Smart Procurement (DONE, tested)
+- Module: `/app/backend/marketplace_engine.py`, namespace `/api/hi/market/*` (+ admin signals/flag). Reuses affiliate_engine retailer config, `_build_link`, DISCLOSURE.
+- PROJECT-GATED entry (no BOM → gated:true, no product push). Options per BOM item (cached `mk_options`): compatibility labels confirmed_fit/verify_fit/alternative (not_recommended filtered out), basis + needs_verification, honest ranges, 4 retailer links, budget-pref aware. Fulfillment paths buy/use_owned/borrow/rent/professional_supply → `mk_cart` + syncs rd_boms status; purchased/obtained → have_it (readiness stays truthful). Cart export text. Consent-aware outbound attribution (`mk_attribution`; opt-out keeps links, drops tracking) + visible disclosure before click. Admin: pause category → options 423, resume; signals incl. fulfillment breakdown.
+- Frontend: `app/home-intel/repair/market/[id].tsx` (entry `rd-market` banner on readiness screen). Consent checkbox `mk-consent`.
+
+### 🟡 QUEUE additions from this session (user pasted, NOT built)
+- **Doc 21 — Local Requirements, Permits & Escalation**: extend pro_handoff + property brain (jurisdiction profile, requirement classification, permit prep pack, utility-locate gate, HOA records, confidence labels).
+- **Doc 22 — Professional Network & Collaboration**: heavy overlap w/ Doc 8 (done) + collaboration_engine. New: structured estimate comparison, hybrid DIY/pro work packages, pro workspace, provider status labels.
+- **Doc 23 — Community, Sharing & Trust**: extend existing community hub (structured post types, project→post share flow, trust labels, moderation states, reputation).
+- **Doc 24 — Subscription, Entitlements & Billing**: extend existing Stripe paywall/upgrade. New: centralized entitlement service (plan_values), grace periods, one-time purchases, refund workflow, admin billing console.
+- **Doc 25 — Rewards, Achievements & Impact**: extend existing rewards/achievements. New: verification rules (evidence/review tiers), rewards wallet + transactions, referrals, impact campaigns, fraud controls.
+- (Earlier queue Docs 14-19 unchanged — see Session update 1.)
+
+**Testing:** iteration_86 — 18/18 backend (`/app/test_reports/pytest/docs_20_13_iter86.xml`), full frontend E2E pass, regressions clean.

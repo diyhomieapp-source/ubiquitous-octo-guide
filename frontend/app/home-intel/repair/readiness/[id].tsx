@@ -158,6 +158,11 @@ export default function ReadinessScreen() {
               {(bom.items || []).map((it: any) => <ItemRow key={it.id} item={it} />)}
 
               {/* Procurement lists */}
+              <Pressable testID="rd-market" onPress={() => router.push(`/home-intel/repair/market/${id}` as any)} style={styles.staleBanner}>
+                <MaterialCommunityIcons name="storefront-outline" size={18} color={colors.brandPrimary} />
+                <Text style={[styles.staleText, { color: colors.brandPrimary }]}>Get what you need — compatible options, honest labels, buy/borrow/rent</Text>
+                <MaterialCommunityIcons name="chevron-right" size={18} color={colors.brandPrimary} />
+              </Pressable>
               {proc && (proc.buy.length || proc.borrow.length || proc.rent.length || proc.verify.length) ? (
                 <View style={styles.section}>
                   <Text style={styles.sectionTitle}>Your prep lists</Text>

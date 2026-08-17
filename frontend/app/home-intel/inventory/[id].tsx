@@ -23,6 +23,16 @@ export default function InventoryDetail() {
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   const patch = (k: string, v: any) => setItem((it: any) => ({ ...it, [k]: v }));
+  const [capsBusy, setCapsBusy] = useState(false);
+
+  const genCaps = async () => {
+    setCapsBusy(true);
+    try {
+      const r = await api<any>(`/hi/tools/items/${id}/capabilities`, { method: "POST" });
+      setItem((it: any) => ({ ...it, ...r }));
+    } catch (e: any) { Alert.alert("Couldn't analyze", e?.message || "Try again in a moment."); }
+    finally { setCapsBusy(false); }
+  };
 
   const save = async () => {
     setSaving(true);
@@ -64,6 +74,31 @@ export default function InventoryDetail() {
         <Text style={styles.label}>Notes</Text>
         <TextInput style={[styles.input, { minHeight: 70 }]} value={item.notes || ""} onChangeText={(v) => patch("notes", v)} multiline textAlignVertical="top" placeholder="—" placeholderTextColor={colors.onSurfaceTertiary} />
 
+        {item.category === "Tool" ? (
+          <View style={styles.capsSection}>
+            <Pressable testID="invd-caps" onPress={genCaps} style={styles.capsBtn}>
+              {capsBusy ? <ActivityIndicator size="small" color={colors.brandPrimary} /> : (
+                <>
+                  <MaterialCommunityIcons name="lightning-bolt-outline" size={16} color={colors.brandPrimary} />
+                  <Text style={styles.capsBtnText}>{item.capability_tags?.length ? "Refresh what this tool can do" : "What can this tool do?"}</Text>
+                </>
+              )}
+            </Pressable>
+            {(item.capability_tags || []).map((c: any, i: number) => (
+              <View key={i} style={styles.capRow}>
+                <MaterialCommunityIcons name="check" size={14} color={colors.success} />
+                <Text style={styles.capText}>{c.capability}{c.limits ? <Text style={styles.capLimit}> — {c.limits}</Text> : null}</Text>
+              </View>
+            ))}
+            {(item.safety_notes || []).map((s: string, i: number) => (
+              <View key={`s${i}`} style={styles.capRow}>
+                <MaterialCommunityIcons name="shield-alert-outline" size={14} color={colors.warning} />
+                <Text style={[styles.capText, { color: colors.warning }]}>{s}</Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
+
         <Pressable testID="invd-save" style={[styles.saveBtn, saving && { opacity: 0.6 }]} disabled={saving} onPress={save}>
           {saving ? <ActivityIndicator color={colors.onBrandPrimary} /> : <Text style={styles.saveText}>Save changes</Text>}
         </Pressable>
@@ -89,4 +124,10 @@ const styles = StyleSheet.create({
   saveText: { color: colors.onBrandPrimary, fontFamily: font.bold, fontSize: type.lg },
   archive: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, marginTop: spacing.lg },
   archiveText: { color: colors.error, fontFamily: font.bold, fontSize: type.base },
+  capsSection: { gap: spacing.sm, marginTop: spacing.md },
+  capsBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, borderWidth: 1, borderColor: colors.brandPrimary, borderRadius: radius.md, paddingVertical: spacing.md },
+  capsBtnText: { fontFamily: font.bold, fontSize: type.sm, color: colors.brandPrimary },
+  capRow: { flexDirection: "row", alignItems: "flex-start", gap: 6 },
+  capText: { flex: 1, fontFamily: font.regular, fontSize: type.sm, color: colors.onSurfaceSecondary, lineHeight: 18 },
+  capLimit: { color: colors.onSurfaceTertiary, fontStyle: "italic" },
 });

@@ -272,6 +272,11 @@ export default function RepairWorkspace() {
                     <Text style={styles.readinessText}>Materials & Budget — full list, cost range and what you already own</Text>
                     <MaterialCommunityIcons name="chevron-right" size={18} color={colors.brandPrimary} />
                   </Pressable>
+                  <Pressable testID="rw-toolpack" onPress={() => router.push(`/home-intel/repair/toolpack/${id}` as any)} style={styles.readinessBanner}>
+                    <MaterialCommunityIcons name="toolbox-outline" size={18} color={colors.brandPrimary} />
+                    <Text style={styles.readinessText}>{"Today's Tool Pack — what to grab & what's missing"}</Text>
+                    <MaterialCommunityIcons name="chevron-right" size={18} color={colors.brandPrimary} />
+                  </Pressable>
                 </View>
               ) : null}
               {plan.tasks.map((t: any, idx: number) => {
