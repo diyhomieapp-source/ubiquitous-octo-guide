@@ -94,6 +94,7 @@ import property_brain_engine
 import command_center_engine
 import tool_intelligence_engine
 import marketplace_engine
+import quality_feedback_engine
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -9156,6 +9157,11 @@ app.include_router(tool_intelligence_engine.build_admin_router(require_admin))
 marketplace_engine.configure(db, logger, _llm_json)
 app.include_router(marketplace_engine.build_router(get_current_user))
 app.include_router(marketplace_engine.build_admin_router(require_admin))
+
+# Quality feedback + project funnel (Build Document 26 delta).
+quality_feedback_engine.configure(db, logger)
+app.include_router(quality_feedback_engine.build_router(get_current_user))
+app.include_router(quality_feedback_engine.build_admin_router(require_admin))
 
 
 

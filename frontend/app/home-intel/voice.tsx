@@ -7,6 +7,7 @@ import { useAudioRecorder, RecordingPresets, setAudioModeAsync, createAudioPlaye
 import { colors, spacing, radius, font, type } from "@/src/theme";
 import { api, getToken } from "@/src/api";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
+import { FeedbackChips } from "@/src/components/FeedbackChips";
 
 const BASE = process.env.EXPO_PUBLIC_BACKEND_URL;
 const player = createAudioPlayer();
@@ -190,6 +191,7 @@ export default function VoiceRuntime() {
                 <Text style={styles.simplifyText}>{speaking ? "Speaking…" : "Replay"}</Text>
               </Pressable>
             </View>
+            <FeedbackChips contextType="homie_answer" contextId={session?.id} />
           </View>
         ) : (
           <Text style={styles.empty}>Ask Homie anything about your home or project.</Text>

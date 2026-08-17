@@ -679,3 +679,10 @@ The user is delivering a sequential program of build docs. Status:
 - (Earlier queue Docs 14-19 unchanged — see Session update 1.)
 
 **Testing:** iteration_86 — 18/18 backend (`/app/test_reports/pytest/docs_20_13_iter86.xml`), full frontend E2E pass, regressions clean.
+
+## Session update 3 — Build Doc 26 delta SHIPPED (self-tested: curl + screenshot)
+- Doc 26 was ~90% pre-existing (analytics_engine events/consent + homie_hq_engine B25 admin center w/ alerts/insights/experiments/AI costs). Built the missing deltas per user choices (feedback=yes, scorecard=skipped, funnel=agent's recommendation):
+- `/app/backend/quality_feedback_engine.py`: `POST /api/hi/feedback/submit` (yes/somewhat/no, context-linked → `qf_feedback` + HOMIE_RESPONSE_RATED event; 400 on invalid rating) + admin `GET /api/hi/admin/quality/funnel` (created→assessed→planned→in_progress→completed by category, completion %, abandonment_stage heuristic, feedback breakdown; 403 non-admin).
+- `src/components/FeedbackChips.tsx` wired into voice.tsx ("Did this help?" per answer, context homie_answer/session id) and repair workspace plan section ("Does this plan match what you needed?", context project_plan/plan id).
+- Verified: curl (submit ok, invalid 400, funnel totals 29→13→13→6→2, non-admin 403) + screenshot of workspace showing chips.
+- Doc 27 (Integration Control Center) QUEUED — mostly governance over existing connector/fallback patterns.

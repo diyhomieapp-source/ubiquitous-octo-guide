@@ -9,6 +9,7 @@ import { api } from "@/src/api";
 import { Button, LoadingState, SafetyCard, AIResponseCard } from "@/src/components/ui";
 import { pickFromLibrary, takePhoto } from "@/src/utils/pickImage";
 import { ContextRequestCard } from "@/src/components/ContextRequestCard";
+import { FeedbackChips } from "@/src/components/FeedbackChips";
 import { CATEGORY_LABELS, PHASE_LABELS } from "./index";
 
 const RISK_TO_SAFETY: Record<string, "safe" | "verify" | "stop" | "emergency"> = {
@@ -277,6 +278,7 @@ export default function RepairWorkspace() {
                     <Text style={styles.readinessText}>{"Today's Tool Pack — what to grab & what's missing"}</Text>
                     <MaterialCommunityIcons name="chevron-right" size={18} color={colors.brandPrimary} />
                   </Pressable>
+                  <FeedbackChips contextType="project_plan" contextId={plan.id} issueId={String(id)} prompt="Does this plan match what you needed?" />
                 </View>
               ) : null}
               {plan.tasks.map((t: any, idx: number) => {
