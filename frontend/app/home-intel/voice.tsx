@@ -1,11 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert, TextInput, Switch } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert, TextInput, Switch, Linking, Platform } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useAudioRecorder, RecordingPresets, setAudioModeAsync, createAudioPlayer, getRecordingPermissionsAsync, requestRecordingPermissionsAsync } from "expo-audio";
 
 import { colors, spacing, radius, font, type } from "@/src/theme";
-import { api } from "@/src/api";
+import { api, getToken } from "@/src/api";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
+
+const BASE = process.env.EXPO_PUBLIC_BACKEND_URL;
+const player = createAudioPlayer();
 
 const EMOTION_COLOR: Record<string, string> = { neutral: colors.brandPrimary, encouraging: "#27AE60", cautionary: "#F2994A", urgent: "#EB5757", celebratory: "#9B51E0" };
 const COMMANDS: { key: string; label: string; icon: string }[] = [
@@ -26,7 +30,93 @@ export default function VoiceRuntime() {
   const [busy, setBusy] = useState(false);
   const [large, setLarge] = useState(false);
   const [muted, setMuted] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
+  const [simplifying, setSimplifying] = useState(false);
+  const [speaking, setSpeaking] = useState(false);
   const confirmNext = useRef(false);
+  const mutedRef = useRef(false);
+  mutedRef.current = muted;
+  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+
+  useEffect(() => () => { try { player.pause(); } catch {} }, []);
+
+  const speak = useCallback(async (spokenText: string) => {
+    if (mutedRef.current || !spokenText?.trim()) return;
+    try {
+      const r = await api<any>("/hi/voice/tts", { method: "POST", body: { text: spokenText } });
+      await setAudioModeAsync({ playsInSilentMode: true, allowsRecording: false });
+      player.replace(`${BASE}${r.url}`);
+      player.seekTo(0);
+      player.play();
+      setSpeaking(true);
+      setTimeout(() => setSpeaking(false), Math.min(30000, spokenText.length * 90));
+    } catch { /* captions always remain */ }
+  }, []);
+
+  const startRecording = async () => {
+    try {
+      let perm = await getRecordingPermissionsAsync();
+      if (!perm.granted) {
+        if (perm.canAskAgain) {
+          perm = await requestRecordingPermissionsAsync();
+        }
+        if (!perm.granted) {
+          Alert.alert("Microphone needed", "Talking to Homie hands-free needs the microphone. You can enable it in Settings — typing always works too.",
+            Platform.OS === "web" ? undefined : [{ text: "Not now", style: "cancel" }, { text: "Open Settings", onPress: () => Linking.openSettings() }]);
+          return;
+        }
+      }
+      await setAudioModeAsync({ playsInSilentMode: true, allowsRecording: true });
+      await recorder.prepareToRecordAsync();
+      recorder.record();
+      setRecording(true);
+    } catch (e: any) {
+      Alert.alert("Couldn't start the mic", "Voice input needs a device build or mic-enabled browser. You can type instead.");
+    }
+  };
+
+  const stopAndTranscribe = async () => {
+    setRecording(false);
+    setTranscribing(true);
+    try {
+      await recorder.stop();
+      await setAudioModeAsync({ playsInSilentMode: true, allowsRecording: false });
+      const uri = recorder.uri;
+      if (!uri) throw new Error("No recording");
+      const form = new FormData();
+      if (Platform.OS === "web") {
+        const blob = await (await fetch(uri)).blob();
+        form.append("file", new (globalThis as any).File([blob], "speech.webm", { type: blob.type || "audio/webm" }));
+      } else {
+        form.append("file", { uri, name: "speech.m4a", type: "audio/m4a" } as any);
+      }
+      const token = await getToken();
+      const res = await fetch(`${BASE}/api/hi/transcribe`, { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: form });
+      if (!res.ok) throw new Error("Transcription failed");
+      const data = await res.json();
+      const transcript = (data.text || data.transcript || "").trim();
+      if (!transcript) { Alert.alert("I didn't catch that", "Mind trying again, or type it?"); return; }
+      if (session) {
+        try { await api(`/hi/voice/sessions/${session.id}/speech`, { method: "POST", body: { transcript, transcript_confidence: 0.9 } }); } catch {}
+      }
+      setText(transcript);
+      await ask(transcript);
+    } catch (e: any) {
+      Alert.alert("Couldn't transcribe", "Voice capture works best on a real device build — you can type your question instead.");
+    } finally { setTranscribing(false); }
+  };
+
+  const simplify = async () => {
+    if (!session || !resp) return;
+    setSimplifying(true);
+    try {
+      const r = await api<any>(`/hi/voice/sessions/${session.id}/simplify`, { method: "POST", body: { text: resp.full_text || resp.spoken } });
+      setResp({ ...resp, spoken: r.spoken || resp.spoken, full_text: r.full_text, simplified: true });
+      speak(r.spoken || r.full_text);
+    } catch (e: any) { Alert.alert("Couldn't simplify", e?.message || "Try again."); }
+    finally { setSimplifying(false); }
+  };
 
   const load = useCallback(async () => {
     try {
@@ -43,6 +133,7 @@ export default function VoiceRuntime() {
     try {
       const r = await api<any>(`/hi/voice/sessions/${session.id}/ask`, { method: "POST", body: { text: question } });
       setResp(r.response); setText("");
+      if (!r.response?.emergency) speak(r.response?.spoken);
     } catch (e: any) { Alert.alert("Couldn't answer", e?.message || "Try again."); } finally { setBusy(false); }
   };
 
@@ -72,7 +163,7 @@ export default function VoiceRuntime() {
     <View style={styles.root}>
       <ScreenHeader title="Homie Voice" />
       <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing["3xl"] }}>
-        <Text style={[styles.hint, { fontSize: type.sm + fs }]}>Type or speak. Voice recording & spoken playback work on a real device build — text works everywhere.</Text>
+        <Text style={[styles.hint, { fontSize: type.sm + fs }]}>Hold your phone or set it down — tap the mic, speak, tap stop. Captions always shown. (Full voice quality needs a real device build.)</Text>
 
         {resp?.emergency ? (
           <View style={styles.emergencyCard}>
@@ -90,6 +181,15 @@ export default function VoiceRuntime() {
             {resp.clarifying_question ? <Text style={[styles.clar, { fontSize: type.sm + fs }]}>❓ {resp.clarifying_question}</Text> : null}
             {resp.stop_condition ? <Text style={[styles.stop, { fontSize: type.sm + fs }]}>🛑 {resp.stop_condition}</Text> : null}
             {(resp.action_cards || []).map((c: any, i: number) => <View key={i} style={styles.actionCard}><Text style={styles.actionText}>{c.label}</Text></View>)}
+            <View style={styles.respActions}>
+              <Pressable testID="voice-simplify" disabled={simplifying || resp.simplified} onPress={simplify} style={[styles.simplifyBtn, resp.simplified && { opacity: 0.5 }]}>
+                {simplifying ? <ActivityIndicator size="small" color={colors.brandPrimary} /> : <><MaterialCommunityIcons name="lightbulb-outline" size={15} color={colors.brandPrimary} /><Text style={styles.simplifyText}>{resp.simplified ? "Simplified" : "Say it simpler"}</Text></>}
+              </Pressable>
+              <Pressable testID="voice-replay" onPress={() => speak(resp.spoken)} style={styles.simplifyBtn}>
+                <MaterialCommunityIcons name={speaking ? "volume-high" : "volume-medium"} size={15} color={colors.brandPrimary} />
+                <Text style={styles.simplifyText}>{speaking ? "Speaking…" : "Replay"}</Text>
+              </Pressable>
+            </View>
           </View>
         ) : (
           <Text style={styles.empty}>Ask Homie anything about your home or project.</Text>
@@ -121,8 +221,14 @@ export default function VoiceRuntime() {
       {/* Ask bar */}
       <View style={styles.askBar}>
         <TextInput testID="voice-input" value={text} onChangeText={setText} placeholder="Ask Homie…" placeholderTextColor={colors.onSurfaceTertiary} style={[styles.input, { fontSize: type.base + fs }]} onSubmitEditing={() => ask()} returnKeyType="send" />
-        <Pressable testID="voice-mic" style={styles.micBtn} onPress={() => Alert.alert("Voice input", "Speaking to Homie works on a real device build. For now, type your question.")}>
-          <MaterialCommunityIcons name="microphone-outline" size={22} color={colors.onSurfaceTertiary} />
+        <Pressable
+          testID="voice-mic"
+          style={[styles.micBtn, recording && styles.micActive]}
+          onPress={() => (recording ? stopAndTranscribe() : startRecording())}
+        >
+          {transcribing ? <ActivityIndicator size="small" color={colors.brandPrimary} /> : (
+            <MaterialCommunityIcons name={recording ? "stop-circle" : "microphone-outline"} size={22} color={recording ? "#fff" : colors.onSurfaceTertiary} />
+          )}
         </Pressable>
         <Pressable testID="voice-send" disabled={busy || !text.trim()} style={[styles.sendBtn, (busy || !text.trim()) && { opacity: 0.5 }]} onPress={() => ask()}>{busy ? <ActivityIndicator color="#fff" size="small" /> : <MaterialCommunityIcons name="send" size={20} color="#fff" />}</Pressable>
       </View>
@@ -154,6 +260,10 @@ const styles = StyleSheet.create({
   accLabel: { color: colors.onSurface, fontFamily: font.medium, fontSize: type.base },
   askBar: { flexDirection: "row", alignItems: "center", gap: spacing.sm, padding: spacing.md, borderTopColor: colors.border, borderTopWidth: 1, backgroundColor: colors.surface },
   input: { flex: 1, borderColor: colors.border, borderWidth: 1, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, color: colors.onSurface, fontFamily: font.regular },
-  micBtn: { padding: spacing.sm },
+  micBtn: { padding: spacing.sm, borderRadius: 20 },
+  micActive: { backgroundColor: "#EB5757" },
+  respActions: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.md },
+  simplifyBtn: { flexDirection: "row", alignItems: "center", gap: 4, borderColor: colors.brandPrimary, borderWidth: 1, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 6 },
+  simplifyText: { color: colors.brandPrimary, fontFamily: font.bold, fontSize: type.sm },
   sendBtn: { backgroundColor: colors.brandPrimary, width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
 });

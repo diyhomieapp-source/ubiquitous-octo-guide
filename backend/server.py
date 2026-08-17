@@ -88,6 +88,10 @@ import guided_repair_engine
 import property_record_engine
 import home_care_engine
 import visual_engine
+import readiness_engine
+import pro_handoff_engine
+import property_brain_engine
+import command_center_engine
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -9043,6 +9047,7 @@ app.include_router(sync_engine.build_router(get_current_user))
 # Homie Avatar, Voice & Multimodal Conversation Runtime (Build Blueprint 34).
 multimodal_engine.configure(db, logger, _llm_json)
 app.include_router(multimodal_engine.build_router(get_current_user))
+app.include_router(multimodal_engine.build_tts_router())
 app.include_router(multimodal_engine.build_admin_router(require_admin))
 
 # Community Knowledge, Project Sharing & Moderation (Build Blueprint 35).
@@ -9119,6 +9124,26 @@ app.include_router(visual_engine.build_admin_router(require_admin))
 home_care_engine.configure(db, logger)
 app.include_router(home_care_engine.build_router(get_current_user))
 app.include_router(home_care_engine.build_admin_router(require_admin))
+
+# Project Materials, Tools & Cost Intelligence Engine (Build Document 7).
+readiness_engine.configure(db, logger, _llm_json)
+app.include_router(readiness_engine.build_router(get_current_user))
+app.include_router(readiness_engine.build_admin_router(require_admin))
+
+# Professional Handoff, Scope & Service Coordination Engine (Build Document 8).
+pro_handoff_engine.configure(db, logger, _llm_json)
+app.include_router(pro_handoff_engine.build_router(get_current_user))
+app.include_router(pro_handoff_engine.build_public_router())
+app.include_router(pro_handoff_engine.build_admin_router(require_admin))
+
+# Property Onboarding, Room Mapping & Asset Discovery — "Property Brain" (Build Document 11).
+property_brain_engine.configure(db, logger)
+app.include_router(property_brain_engine.build_router(get_current_user))
+app.include_router(property_brain_engine.build_admin_router(require_admin))
+
+# Home Command Center & Project Portfolio Engine (Build Document 12).
+command_center_engine.configure(db, logger)
+app.include_router(command_center_engine.build_router(get_current_user))
 
 
 

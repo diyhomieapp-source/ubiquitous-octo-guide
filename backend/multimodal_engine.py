@@ -14,11 +14,15 @@ Financial/reward actions are never completed by voice.
 
 Collections: mm_sessions, mm_speech, mm_voice, mm_avatar, mm_settings.
 """
+import hashlib
+import os
+import re
 import uuid
 from datetime import datetime, timezone
 from typing import Callable, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from bson.binary import Binary
+from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel
 
 _db = None
@@ -182,9 +186,83 @@ class PlaybackReq(BaseModel):
     status: str
 
 
+class TTSReq(BaseModel):
+    text: str
+    speed: float = 1.0
+
+
+class SimplifyReq(BaseModel):
+    text: str
+
+
+TTS_VOICE = "coral"  # warm, friendly — Homie's voice
+
+
+def _clean_for_tts(text: str) -> str:
+    text = re.sub(r"[\U0001F000-\U0001FAFF\u2600-\u27BF\u2B00-\u2BFF]", "", text)  # emoji
+    text = re.sub(r"https?://\S+", "", text)
+    text = re.sub(r"`{1,3}[^`]*`{1,3}", "", text)
+    text = re.sub(r"[*_#>~|]", "", text)
+    return re.sub(r"\s+", " ", text).strip()
+
+
+async def _tts_generate(text: str, speed: float) -> str:
+    """Generate (or reuse cached) speech; returns cache key."""
+    clean = _clean_for_tts(text)[:4000]
+    if not clean:
+        raise HTTPException(status_code=400, detail="Nothing to speak.")
+    speed = max(0.5, min(2.0, speed))
+    key = hashlib.sha256(f"{clean}|{TTS_VOICE}|{speed}|tts-1|mp3".encode()).hexdigest()
+    cached = await _db.tts_cache.find_one({"key": key}, {"_id": 1})
+    if cached:
+        return key
+    from emergentintegrations.llm.openai import OpenAITextToSpeech
+    tts = OpenAITextToSpeech(api_key=os.environ.get("EMERGENT_LLM_KEY", ""))
+    audio_bytes = await tts.generate_speech(text=clean, model="tts-1", voice=TTS_VOICE, speed=speed)
+    await _db.tts_cache.update_one({"key": key}, {"$set": {"key": key, "audio": Binary(audio_bytes),
+                                                           "voice": TTS_VOICE, "created_at": _now()}}, upsert=True)
+    return key
+
+
 # ============================================================= router
 def build_router(get_current_user: Callable) -> APIRouter:
     r = APIRouter(prefix="/api/hi/voice", dependencies=[Depends(get_current_user)])
+
+    @r.post("/tts")
+    async def tts(req: TTSReq, user: dict = Depends(get_current_user)):
+        s = await _settings()
+        if not s["voice_output_enabled"]:
+            raise HTTPException(status_code=403, detail="Spoken replies are turned off right now.")
+        try:
+            key = await _tts_generate(req.text, req.speed)
+        except HTTPException:
+            raise
+        except Exception as e:
+            if _logger:
+                _logger.warning(f"TTS generation failed: {e}")
+            raise HTTPException(status_code=502, detail="Couldn't generate speech right now — captions are still available.")
+        await _cap(user["id"], "voice_tts_generated", {"chars": len(req.text)})
+        return {"url": f"/api/hi/voice/tts/{key}.mp3"}
+
+    @r.post("/sessions/{sid}/simplify")
+    async def simplify(sid: str, req: SimplifyReq, user: dict = Depends(get_current_user)):
+        await _session(sid, user["id"])
+        text = (req.text or "").strip()
+        if not text:
+            raise HTTPException(status_code=400, detail="Nothing to simplify.")
+        system = ("You are Homie. Rewrite the following answer in SIMPLER language: short sentences, everyday words, "
+                  "no jargon, keep every safety warning. Return STRICT JSON {spoken: string (one simple sentence, "
+                  "max 25 words), full_text: string (the simpler version, max 120 words)}")
+        try:
+            data = await _llm_json(system, text[:2000], max_tokens=400, feature_area="multimodal_simplify")
+            spoken = str(data.get("spoken") or "")[:220]
+            full = str(data.get("full_text") or "")[:1200]
+            if not full:
+                raise ValueError("empty")
+        except Exception:
+            raise HTTPException(status_code=502, detail="Couldn't simplify right now — try again in a moment.")
+        await _cap(user["id"], "voice_simplified", {})
+        return {"spoken": spoken, "full_text": full}
 
     @r.get("/config")
     async def config(user: dict = Depends(get_current_user)):
@@ -329,6 +407,21 @@ class SettingsReq(BaseModel):
     avatar_enabled: Optional[bool] = None
     high_risk_avatar_disabled: Optional[bool] = None
     free_voice_daily_limit: Optional[int] = None
+
+
+def build_tts_router() -> APIRouter:
+    """Public audio serving — keys are unguessable SHA-256 hashes."""
+    r = APIRouter(prefix="/api/hi/voice", tags=["voice-tts"])
+
+    @r.get("/tts/{key}.mp3")
+    async def get_tts(key: str):
+        doc = await _db.tts_cache.find_one({"key": key}, {"_id": 0, "audio": 1})
+        if not doc:
+            raise HTTPException(status_code=404, detail="Audio not found.")
+        return Response(content=bytes(doc["audio"]), media_type="audio/mpeg",
+                        headers={"Cache-Control": "public, max-age=31536000"})
+
+    return r
 
 
 def build_admin_router(require_admin: Callable) -> APIRouter:

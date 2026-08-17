@@ -110,6 +110,15 @@ export default function HomeIntelDashboard() {
           <MaterialCommunityIcons name="chevron-right" size={22} color={colors.brandPrimary} />
         </Pressable>
 
+        <Pressable testID="hi-command" style={styles.dashCard} onPress={() => router.push("/home-intel/command")}>
+          <MaterialCommunityIcons name="view-dashboard-outline" size={22} color={colors.brandPrimary} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.dashTitle}>Command Center</Text>
+            <Text style={styles.dashSub}>{"One calm view: what needs attention now & what to do next"}</Text>
+          </View>
+          <MaterialCommunityIcons name="chevron-right" size={22} color={colors.brandPrimary} />
+        </Pressable>
+
         <Pressable testID="hi-orchestrator" style={styles.dashCard} onPress={() => router.push("/home-intel/orchestrator")}>
           <MaterialCommunityIcons name="head-cog-outline" size={22} color={colors.brandPrimary} />
           <View style={{ flex: 1 }}>
@@ -159,6 +168,10 @@ export default function HomeIntelDashboard() {
         <Pressable testID="hi-voice" style={styles.secondary} onPress={() => router.push("/home-intel/voice")}>
           <MaterialCommunityIcons name="microphone-outline" size={20} color={colors.brandPrimary} />
           <Text style={styles.secondaryText}>Homie Voice</Text>
+        </Pressable>
+        <Pressable testID="hi-brain" style={styles.secondary} onPress={() => router.push("/home-intel/brain")}>
+          <MaterialCommunityIcons name="brain" size={20} color={colors.brandPrimary} />
+          <Text style={styles.secondaryText}>What Homie Knows</Text>
         </Pressable>
         <Pressable testID="hi-community-hub" style={styles.secondary} onPress={() => router.push("/home-intel/community-hub")}>
           <MaterialCommunityIcons name="account-group-outline" size={20} color={colors.brandPrimary} />

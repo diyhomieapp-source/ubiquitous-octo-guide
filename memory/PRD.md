@@ -616,3 +616,44 @@ The user is delivering a sequential program of build docs. Status:
 
 **Testing note:** Docs 2–6 all validated by testing_agent (iterations 82, 83, 84). Backend pytest for Doc 5/6 at `/app/test_reports/pytest/b5_b6_iter84.xml`.
 
+
+## Session update (fork) — Build Docs 7, 8, 9, 11, 12 + Doc 5 polish SHIPPED (tested 24/24 backend + frontend 100%, iteration_85)
+
+### ✅ Build Doc 7 — Project Materials, Tools & Cost Intelligence (DONE, tested)
+- Module: `/app/backend/readiness_engine.py`, namespace `/api/hi/readiness/*` (+ admin `/api/hi/admin/readiness/signals`).
+- Versioned BOM (`rd_boms`) grounded in latest gr_plan (AI + deterministic fallback): requirement (required/optional/unknown), honest cost_low/high + cost_assumptions + disclaimer, confidence, rent_candidate, substitute_hint, deterministic toolbox match vs `hi_inventory_items`. Item statuses: have_it/will_buy/will_borrow/will_rent/need_verification/skipped (syncs back to plan material chips). readiness_pct + to-spend range + procurement lists (buy/borrow/rent/verify). Compatibility Q&A (`/ask`) → verdict + what_to_verify + logs `gr_decisions`. Stale-BOM detection on plan version change (rebuild keeps user statuses).
+- Frontend: `app/home-intel/repair/readiness/[id].tsx`; entry banner `rw-readiness` in repair workspace.
+
+### ✅ Build Doc 8 — Professional Handoff, Scope & Service Coordination (DONE, tested)
+- Module: `/app/backend/pro_handoff_engine.py`, namespace `/api/hi/handoff-pro/*` (+ public `/shared/{token}`, admin signals).
+- Deterministic 4-state escalation framework (diy_appropriate/diy_with_caution/professional_recommended/professional_required) from triage/assessment/plan/blockers + trade-category map (categories, never providers). Versioned handoff brief (`ph_briefs`): AI summary + provenance-tagged sections (evidence/what-was-tried/safety flags), questions_to_ask, visit-prep checklist. Share token 30-day expiry + revoke (`ph_shares`). Professional findings capture (`ph_findings`, followup_needed → gr_followups + timeline). Scope comparison (respectful; → gr_decisions). Post-handoff continuation: professionally_completed (→gr_outcomes) / reopen_diy / monitoring (→followup); all → gr_timeline.
+- Frontend: `app/home-intel/repair/pro/[id].tsx`; `rw-pro` button in workspace now routes here.
+
+### ✅ Build Doc 9 — Talk to Homie: voice upgrades (DONE, tested; full audio needs native build)
+- Extended `/app/backend/multimodal_engine.py`: `POST /api/hi/voice/tts` (OpenAI tts-1 "coral" via Emergent key, sanitized, Mongo-cached `tts_cache`, hashed keys) + public `GET /api/hi/voice/tts/{key}.mp3` (audio/mpeg, cacheable); `POST /sessions/{sid}/simplify` ("say it simpler").
+- Frontend `voice.tsx`: push-to-talk via expo-audio (permission contract: check → contextual ask → Open Settings on denial) → upload to `/api/hi/transcribe` (Whisper) → ask; spoken playback via createAudioPlayer (auto after answers, Replay button); "Say it simpler" button. Captions always on. ⚠️ Recording/playback fully testable only on a native device build.
+- New dep: `expo-audio@~1.1.1` (yarn expo install).
+
+### ✅ Build Doc 11 — Property Brain / "What Homie Knows" (DONE, tested)
+- Module: `/app/backend/property_brain_engine.py`, namespace `/api/hi/brain/*` (+ admin signals). NEW layers only (rooms/assets/docs engines reused, not duplicated).
+- Occupancy role (owner/renter/household_member) on hi_properties + renter mode boundary + exportable renter maintenance report (`/renter-report`). Context facts w/ provenance (`pb_facts`: user_entered/user_confirmed/inferred/document; statuses active/outdated/removed; "correct" preserves history). `/summary`: confirmed records (derived counts), known details, unknowns w/ why (Unknown = valid state), completeness % (useful-not-numerous), single next_best_detail. Contextual context-requests during projects (`pb_context_requests`, deterministic category→question map, once per issue, optional, answer also files gr_evidence).
+- Frontend: `app/home-intel/brain/index.tsx` (HI card `hi-brain`); `src/components/ContextRequestCard.tsx` embedded in repair workspace.
+
+### ✅ Build Doc 12 — Home Command Center & Project Portfolio (DONE, tested)
+- Module: `/app/backend/command_center_engine.py`, namespace `/api/hi/command/*`. 100% deterministic priority engine w/ reason traces (safety rank 1 always; overdue followups/maintenance rank 2; blocked/info-needed projects rank 3; open followups 4; upcoming maintenance 5). One Do-next + max-3 top priorities; multiple urgent items all shown. 7-state portfolio (needs_attention/in_progress/waiting_verification/paused/professional_review/monitoring/completed) w/ current-task resume cards. `/resume/{iid}` context briefing (long-pause refresher w/ safety boundary). defer(7d)/dismiss/restore (`cc_item_actions`; safety → 409). Preferences (`cc_prefs`): focus (never overrides safety), hide_completed, pins. Recent activity from gr_timeline. Calm empty state (no manufactured urgency).
+- Frontend: `app/home-intel/command/index.tsx` (HI card `hi-command`, top of dashboard).
+
+### ✅ Doc 5 polish — Guided Capture screen (DONE, tested)
+- Frontend: `app/home-intel/repair/capture/[id].tsx`: capture-template picker (visual_engine templates), framing/distance/privacy guidance + will/won't-infer transparency, camera/upload (permission contract via pickImage), annotation note, save→evidence + capture-request, "Analyze with Homie" (visual infer, safety-gated), manual measurement recorder (type/value/unit cycle). Entry `rw-guided-capture` in workspace evidence row.
+
+### 🟡 QUEUED (user pasted docs mid-session — NOT yet built; most extend existing engines)
+- **Doc 13 — Project-First Marketplace & Smart Procurement**: builds directly on readiness_engine BOM + product_recommendation/affiliate engines (B23). Project-gated recs, compatibility labels (Confirmed fit/Verify fit/Alternative/Not recommended), project cart synced to readiness, consent-aware attribution + disclosures, admin quality controls.
+- **Doc 14 — Household Identity, Permissions, Consent & Collaboration**: EXTEND `collaboration_engine.py` (B22 already has roles/invites/expiring guest access/audit). Add: role templates (co-owner/tenant/property-manager/contractor/designer), granular permission grants, consent center, privacy levels per object, shared links w/ password/expiry, step-up auth, My Access page. KEEP MongoDB (ignore Supabase RLS references — enforce in API layer).
+- **Doc 15 — Event, Automation & Notification Engine**: EXTEND `notification_engine.py` (B28) + automation rules (#13). Add: immutable event stream, quiet hours, priority levels (critical bypass), digests, rate limits, household-aware routing, admin automation center.
+- **Doc 16 — Knowledge/RAG & Answer Quality**: EXTEND `knowledge_graph_engine.py` (B20). Add: authority tiers, confidence classes (verified/high/conditional/needs_verification/professional_required), "Why?" evidence view, knowledge gaps queue, eval suite.
+- **Doc 17 — Mobile Field Companion & AR Evidence**: mostly covered (visual_engine, guided capture screen, ar_guidance_engine, sync_engine offline). Add: guided video capture, wall-scan confidence states (default Unknown), vision observation objects, capture quality coaching.
+- **Doc 18 — Home Record, Asset Lifecycle & Maintenance**: mostly covered (assets/maintenance/timeline/doc vault). Add: lifecycle statuses, replacement planning, warranty expiration surfacing, record completeness (reuse brain completeness), Home Transfer Package (future).
+- **Doc 19 — Project Planning, Scope, Estimation & Decision Engine**: EXTEND guided_repair + readiness. Add: scope object (included/excluded/unknown/assumptions), multi-option decision engine (A/B/C w/ tradeoffs), estimate categories + contingency %, change orders w/ approval, readiness checklist gate for READY_TO_BUILD.
+- Older backlog unchanged: Homie Talks Money (P1), Kard (needs keys), Blueprint 14 photo room design (needs image-gen), BenefitHub, Twin-from-photos, server.py refactor into routers.
+
+**Testing:** iteration_85 — 24/24 backend pytest (`/app/test_reports/pytest/docs_7_12_iter85.xml`) + full frontend E2E pass. No regressions.

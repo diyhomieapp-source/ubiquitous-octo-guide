@@ -8,6 +8,7 @@ import { colors, spacing, radius, font, type } from "@/src/theme";
 import { api } from "@/src/api";
 import { Button, LoadingState, SafetyCard, AIResponseCard } from "@/src/components/ui";
 import { pickFromLibrary, takePhoto } from "@/src/utils/pickImage";
+import { ContextRequestCard } from "@/src/components/ContextRequestCard";
 import { CATEGORY_LABELS, PHASE_LABELS } from "./index";
 
 const RISK_TO_SAFETY: Record<string, "safe" | "verify" | "stop" | "emergency"> = {
@@ -210,7 +211,9 @@ export default function RepairWorkspace() {
           <View style={styles.rowBtns}>
             <Pressable testID="rw-photo-cam" onPress={() => addPhoto(true)} style={styles.evBtn}><MaterialCommunityIcons name="camera-outline" size={18} color={colors.onSurface} /><Text style={styles.evBtnText}>Take photo</Text></Pressable>
             <Pressable testID="rw-photo-lib" onPress={() => addPhoto(false)} style={styles.evBtn}><MaterialCommunityIcons name="image-outline" size={18} color={colors.onSurface} /><Text style={styles.evBtnText}>Upload</Text></Pressable>
+            <Pressable testID="rw-guided-capture" onPress={() => router.push(`/home-intel/repair/capture/${id}` as any)} style={styles.evBtn}><MaterialCommunityIcons name="camera-plus-outline" size={18} color={colors.brandPrimary} /><Text style={[styles.evBtnText, { color: colors.brandPrimary }]}>Guided capture</Text></Pressable>
           </View>
+          <ContextRequestCard issueId={String(id)} />
           <View style={styles.qRow}>
             <TextInput testID="rw-note" value={note} onChangeText={setNote} placeholder="Add an observation…" placeholderTextColor={colors.onSurfaceTertiary} style={styles.qInput} />
             <Pressable testID="rw-note-send" onPress={addNote} style={styles.qSend}>
@@ -239,7 +242,7 @@ export default function RepairWorkspace() {
                 <Text style={styles.sectionTitle}>Repair plan · {plan.difficulty?.replace("_", " ")} · {plan.time_estimate}</Text>
                 <View style={styles.sessBtns}>
                   <Pressable testID="rw-pause" onPress={() => sessionAction("pause", "Pause project")} style={styles.sessBtn}><MaterialCommunityIcons name="pause" size={16} color={colors.onSurfaceSecondary} /></Pressable>
-                  <Pressable testID="rw-pro" onPress={() => sessionAction("professional_handoff", "Hand off to a pro")} style={styles.sessBtn}><MaterialCommunityIcons name="account-hard-hat" size={16} color={colors.onSurfaceSecondary} /></Pressable>
+                  <Pressable testID="rw-pro" onPress={() => router.push(`/home-intel/repair/pro/${id}` as any)} style={styles.sessBtn}><MaterialCommunityIcons name="account-hard-hat" size={16} color={colors.onSurfaceSecondary} /></Pressable>
                 </View>
               </View>
               {(() => {
@@ -264,6 +267,11 @@ export default function RepairWorkspace() {
                       </Pressable>
                     ))}
                   </View>
+                  <Pressable testID="rw-readiness" onPress={() => router.push(`/home-intel/repair/readiness/${id}` as any)} style={styles.readinessBanner}>
+                    <MaterialCommunityIcons name="clipboard-check-outline" size={18} color={colors.brandPrimary} />
+                    <Text style={styles.readinessText}>Materials & Budget — full list, cost range and what you already own</Text>
+                    <MaterialCommunityIcons name="chevron-right" size={18} color={colors.brandPrimary} />
+                  </Pressable>
                 </View>
               ) : null}
               {plan.tasks.map((t: any, idx: number) => {

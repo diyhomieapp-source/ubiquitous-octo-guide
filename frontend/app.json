@@ -64,7 +64,8 @@
           "icon": "./assets/images/adaptive-icon.png",
           "color": "#F5A623"
         }
-      ]
+      ],
+      "expo-audio"
     ],
     "experiments": {
       "typedRoutes": true
