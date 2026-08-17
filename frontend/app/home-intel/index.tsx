@@ -119,6 +119,33 @@ export default function HomeIntelDashboard() {
           <MaterialCommunityIcons name="chevron-right" size={22} color={colors.brandPrimary} />
         </Pressable>
 
+        <Pressable testID="hi-repair" style={styles.dashCard} onPress={() => router.push("/home-intel/repair")}>
+          <MaterialCommunityIcons name="clipboard-pulse-outline" size={22} color={colors.brandPrimary} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.dashTitle}>Something's wrong</Text>
+            <Text style={styles.dashSub}>Describe a problem — Homie assesses it safely & builds a repair plan</Text>
+          </View>
+          <MaterialCommunityIcons name="chevron-right" size={22} color={colors.brandPrimary} />
+        </Pressable>
+
+        <Pressable testID="hi-record" style={styles.dashCard} onPress={() => router.push("/home-intel/record")}>
+          <MaterialCommunityIcons name="history" size={22} color={colors.brandPrimary} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.dashTitle}>Home Record</Text>
+            <Text style={styles.dashSub}>Your timeline of repairs, outcomes & follow-ups to monitor</Text>
+          </View>
+          <MaterialCommunityIcons name="chevron-right" size={22} color={colors.brandPrimary} />
+        </Pressable>
+
+        <Pressable testID="hi-care" style={styles.dashCard} onPress={() => router.push("/home-intel/care")}>
+          <MaterialCommunityIcons name="home-heart" size={22} color={colors.brandPrimary} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.dashTitle}>Home Care</Text>
+            <Text style={styles.dashSub}>The few maintenance tasks that matter now — with reasons, not a checklist</Text>
+          </View>
+          <MaterialCommunityIcons name="chevron-right" size={22} color={colors.brandPrimary} />
+        </Pressable>
+
         <Text style={styles.hero}>What do you need help with?</Text>
 
         <Pressable testID="hi-fix" style={styles.primary} onPress={() => router.push("/home-intel/help")}>

@@ -1,0 +1,26 @@
+{
+  "summary": "Guided Repair & Evidence-to-Plan Engine (Build Doc 2) tested end-to-end. Backend: 27/27 pytest passed covering static triage (hard-stop / soft / benign / caution), intake CRUD + re-triage on description change, evidence workspace (no base64 leak), assessment engine contract + versioning + auto-questions, progressive question answering (becomes observation evidence), plan generation (409 emergency block; 400 no-assessment; task contract w/ first task available), reality-check/replan (done unlocks next; found_different -> revised assessment + superseded decision; need_help; pause), decision ledger, project position, chat (emergency short-circuit), completion + harmful feedback -> quality queue, cross-user 404 isolation, and admin dashboard/quality/resolve (401/403 for normal user). Frontend: end-to-end user flow via web preview PASSED — auth login (200), hi-repair -> repair home -> 'Something's wrong' CTA -> new intake -> workspace; benign issue workspace shows rw-assess/rw-note/rw-note-send/rw-chat and 'Verify First' caution panel; emergency (gas leak) workspace correctly shows rw-safety with EMERGENCY banner + 'For your safety, I won't create a DIY plan for this.' and does NOT render rw-assess or rw-plan buttons.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_guided_repair_engine.py",
+    "/app/test_reports/pytest/guided_repair_engine_iter82.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "guided_repair_engine.py is 971 lines — approaching size threshold; consider splitting router/model/service in a future refactor (non-blocking).",
+    "task_action found_different/did_not_work re-generates an assessment then immediately queues quality; if AI is degraded, the queued item may reference a fallback assessment (acceptable per spec)."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (27/27)", "frontend": "100% of critical flows tested"},
+  "seed_data_creation": "Created test-owned repair issues (benign faucet, gas emergency, breaker soft escalation, draft->emergency retriage, loose cabinet knob w/ completion+harmful feedback) under demo_home@diyhomie.com. Registered a fresh TEST_repair_* user for isolation checks. Admin quality items generated organically by the tests were resolved by the resolve-queue test.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Auth flow: /auth defaults to REGISTER mode — must click [data-testid=\"auth-toggle-mode\"] first, then fill auth-email-input/auth-password-input and submit auth-submit-button. Backend fully covered by /app/backend/tests/test_guided_repair_engine.py. Frontend testIDs verified: hi-repair, rp-back, rp-something-wrong, rp-issue-{id}, rpn-back, rpn-description, rpn-cat-*, rpn-urg-*, rpn-submit, rpn-draft, rw-safety, rw-assess, rw-note, rw-note-send, rw-chat (rw-plan / rw-complete surface only after assessment/plan exist; hidden for emergency issues by design).",
+  "rca_of_issue": "N/A — no bugs found. Build Document 2 acceptance criteria fully satisfied."
+}

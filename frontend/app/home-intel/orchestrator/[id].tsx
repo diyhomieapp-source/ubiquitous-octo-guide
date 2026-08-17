@@ -135,6 +135,24 @@ export default function ProjectDetail() {
           <MaterialCommunityIcons name="chevron-right" size={22} color={colors.brandPrimary} />
         </Pressable>
 
+        <Pressable testID="pd-shopping" style={styles.fundCard} onPress={() => router.push(`/home-intel/orchestrator/shopping/${id}` as any)}>
+          <MaterialCommunityIcons name="cart-outline" size={22} color={colors.brandPrimary} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.fundTitle}>Shopping List</Text>
+            <Text style={styles.fundSub}>Ready-to-buy list with running totals</Text>
+          </View>
+          <MaterialCommunityIcons name="chevron-right" size={22} color={colors.brandPrimary} />
+        </Pressable>
+
+        <Pressable testID="pd-report" style={styles.fundCard} onPress={() => router.push(`/home-intel/orchestrator/report/${id}` as any)}>
+          <MaterialCommunityIcons name="certificate-outline" size={22} color={colors.brandPrimary} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.fundTitle}>Home Report</Text>
+            <Text style={styles.fundSub}>{completed ? "Share this project for insurance or resale" : "Available now — full passport at completion"}</Text>
+          </View>
+          <MaterialCommunityIcons name="chevron-right" size={22} color={colors.brandPrimary} />
+        </Pressable>
+
         <View style={styles.controls}>
           {!completed && (paused
             ? <Button testID="pd-resume" label="Resume" icon="play" variant="secondary" onPress={resume} loading={busy} style={{ flex: 1 }} />

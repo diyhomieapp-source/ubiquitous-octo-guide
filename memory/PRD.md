@@ -568,3 +568,51 @@ Additive coordination layer making DIYhomie behave as one system. Runs on protec
 - Frontend: `/home-intel/funding/[id]` (goal, plan w/ 4 separate classifications + 2 gaps, cost-reduction scan/apply, log savings), `/home-intel/savings-wallet`. Entries: orchestrator detail 'Fund This Project' (pd-fund), My Home 'My Savings' (hi-wallet). Admin FundingModule key `fundingops`.
 - Verified iteration 80 (16/16 backend + frontend). Non-blocking: ledger status marks expected/potential/opportunistic as 'pending' internally (user-facing plan is correct/separated).
 ### FUTURE (gated on user): Funding Phases 2-5 (provider adapters, unified offer catalog, merchant identity graph, Kard card-linked, BenefitHub member discounts, forecasting) — need Kard/BenefitHub agreements + keys.
+
+---
+## Project Handoffs: Shopping List & Home Report (additive) — SHIPPED
+Decision: user said "stop asking, give best recommendation" + build "all" 4 items. Chose to EXTEND existing MongoDB platform (Supabase parked/no keys) — no re-platform, nothing broken. Built the two highest-value, self-contained items first.
+NEW `handoff_engine.py` @ `/api/hi/handoff/*` (reads orchestrator + funding data, user-scoped).
+- **Shopping Handoff**: GET /shopping/{pid} -> items from orch_requirements with running to_buy/owned/grand totals; POST /shopping/{pid}/items/{id}/purchased toggles owned<->need_to_buy (emits PROCUREMENT_UPDATED). Honest: uses project estimates, no fake live pricing (retailer integration = future).
+- **Home Report**: GET /report/{pid} -> shareable summary from Project Passport + property/materials/tools/decisions/tasks/confirmed-savings + plain-language share_text (insurance/resale). Excludes resolved risks. completed flag true only when project COMPLETED.
+- Frontend: `/home-intel/orchestrator/shopping/[id]` (totals + tap-to-toggle purchased) & `/orchestrator/report/[id]` (sections + native Share). Entry cards on project detail: pd-shopping, pd-report.
+- Verified iteration 81 (8/8 backend + frontend). Non-blocking notes addressed (resolved-risk filter applied).
+### STILL QUEUED (user wants all): Homie Talks Money (chat "I need $X" -> open funding plan — needs chat-screen wiring); Kard Rewards (needs Kard provider agreement + server-side keys — inert adapter flag exists). Foundation Sprint households/multi-member sharing + roles + dedicated Issue-Intake flow remain (much already exists via hi_* + orchestrator + emergency safety). Supabase re-platform deferred (no keys).
+
+---
+
+## DIYhomie "Build Documents" Program (Guided Repair → Home OS) — added this session
+
+The user is delivering a sequential program of build docs. Status:
+
+### ✅ Build Doc 2 — Guided Repair & Evidence-to-Plan Engine (DONE, tested 27/27)
+- Module: `/app/backend/guided_repair_engine.py`, namespace `/api/hi/repair/*` (+ admin `/api/hi/admin/repair/*`).
+- Intake + deterministic static safety triage (hard-stop blocks plan; soft-escalation observation-only), Evidence Workspace, versioned Assessment (ranked causes, confidence, missing info, DIY boundary), progressive questions, repair conversation, repair plan, reality-check/replan, Decision Ledger, Project Position, admin quality queue.
+- Frontend: `app/home-intel/repair/{index,new,[id]}.tsx`, `repair/chat/[id].tsx`. HI dashboard card `hi-repair`.
+
+### ✅ Build Doc 3 — Guided Project Execution & Adaptive Coaching (DONE, tested)
+- Extended `guided_repair_engine.py`: execution session + briefing (`/start`), progress summary, session-action (pause/resume/archive/professional_handoff), richer task states + **checkpoint gating** (required/stop → awaiting_verification → `/checkpoint`), task audit events (`gr_task_events`), adaptive `/coach`, tools/materials on plan + `/materials`, prerequisite guard, `/verify-start`.
+- Frontend: enhanced `repair/[id].tsx` (progress bar, tools chips, coach chips, checkpoint form, pause/pro buttons), `repair/closeout/[id].tsx`.
+
+### ✅ Build Doc 4 — Project Memory, Outcome Intelligence & Property Record (DONE, tested 30/30)
+- Module: `/app/backend/property_record_engine.py`, namespace `/api/hi/record/*` (+ public `/shared/{token}`, admin `/api/hi/admin/record/*`).
+- Closeout outcome records (5 outcome states; "completed" ≠ "resolved"), property timeline (provenance-tagged, aggregated), follow-ups/monitoring (complete/snooze/dismiss/convert→new issue), room/asset history + link correction, prior-project **context retrieval** during intake, reopen/continuation (history preserved), share/export with disclaimer, admin outcome signals.
+- Frontend: `app/home-intel/record/index.tsx` (dashboard/timeline/follow-ups), context banner in `repair/new.tsx`, reopen button in workspace. HI card `hi-record`.
+
+### ✅ Build Doc 5 — Visual Evidence, Measurement & AR Guidance (DONE, tested 34/34 combined w/ Doc 6)
+- Module: `/app/backend/visual_engine.py`, namespace `/api/hi/visual/*` (+ admin). Uses gpt-4o vision via EMERGENT_LLM_KEY.
+- Purpose-driven capture templates (6), structured measurements w/ **deterministic unit conversion**, versioned annotations w/ author attribution, visual inference with **hard safety rule** (high-risk targets → professional_verification_required + high_risk_blocked, never authorizes action; quality warnings), AR sessions with 2D fallback + native-build flag. Admin visual quality queue.
+- Frontend: measurement/AR are largely native-camera; exposed via API. (No dedicated visual UI screen yet — candidate for follow-up.)
+
+### ✅ Build Doc 6 — Proactive Home Maintenance & Priority Intelligence (DONE, tested)
+- Module: `/app/backend/home_care_engine.py`, namespace `/api/hi/care/*` (+ admin). Complements pre-existing `/api/hi/maintenance`.
+- Deterministic, explainable recommendation engine (reason_trace + priority_category, max 3 primary), seasonal rules, asset maintenance profiles, transparent priority scoring, defer/dismiss/schedule feedback, guided maintenance task execution reusing Doc 3 shape, **abnormal finding → converts to Guided Repair issue**, calendar, notification prefs, admin signals.
+- Frontend: `app/home-intel/care/{index,task/[id]}.tsx`. HI card `hi-care`.
+
+### 🟡 QUEUED (documented, NOT yet built) — next session
+- **Build Doc 7 — Project Materials, Tools & Cost Intelligence**: readiness checklist, structured BOM (required/optional/unknown + source/confidence), user inventory, transparent budget ranges w/ assumptions, compatibility/substitute guidance → Decision Ledger, procurement prep lists (buy/borrow/rent/verify), cost/readiness replan. Namespace suggestion `/api/hi/readiness/*`. Reuses plan.tools_materials from Doc 3 + measurements from Doc 5.
+- **Build Doc 8 — Professional Handoff, Scope & Service Coordination**: escalation decision framework (4 states), handoff brief (user-selected evidence, provenance-tagged), trade/service-type guidance (categories not providers), visit prep, professional findings capture + document uploads, scope comparison, post-handoff continuation (professionally_completed / reopen), revocable sharing, future service-request drafts. Namespace suggestion `/api/hi/handoff-pro/*` (avoid existing `/api/hi/handoff`). Builds on existing escalation/queue signals.
+- **Build Doc 9 — Homie Voice, Avatar & Adaptive Communication**: unified conversation context, text/push-to-talk voice/spoken+captions/avatar modes, task-aware voice coaching commands, adaptive explanation levels, avatar demo layer (P1), safety-interrupt rules, conversation→structured outcome events + Decision Ledger, accessibility/communication prefs, comm quality queue. Voice STT/TTS = Emergent OpenAI Whisper/TTS integration (needs integration_expert). Note: mic/voice features require native build to fully validate.
+
+**Testing note:** Docs 2–6 all validated by testing_agent (iterations 82, 83, 84). Backend pytest for Doc 5/6 at `/app/test_reports/pytest/b5_b6_iter84.xml`.
+

@@ -1,0 +1,28 @@
+{
+  "summary": "Build Doc 3 (Guided Project Execution & Adaptive Coaching) and Build Doc 4 (Project Memory, Outcome Intelligence & Property Record) validated end-to-end. Backend: 30/30 pytest passed (test_execution_property_record_b3_b4.py) covering Doc 3 start briefing (400 no-plan, 409 emergency, briefing keys + first_task + progress), session actions (pause/resume/archive/professional_handoff -> BLOCKED_ESCALATED + quality queue), progress endpoint, plan contract (per-task preconditions/tools/expected_result/checkpoint/checkpoint_satisfied and plan-level tools_materials), checkpoint gating (done -> awaiting_verification with needs_checkpoint, missing[] on incomplete submit, satisfied=true completes task and unlocks next), prerequisite guard (409), adaptive coaching (normal reply + emergency short-circuit on 'I smell gas'), materials status update, verify-start blocking list, and Doc 4 complete/outcome (improved/unresolved/abandoned semantics + follow_ups + timeline), record dashboard (counts + open_issues + followups_due + recent_activity + empty), timeline with provenance-tagged events, closeout, follow-ups (list/create/snooze/convert -> continuation_of), context retrieval (has_context false/true + homie_note), reopen (phase ASSESSMENT + reopen_count), share (public + invalid 404), export, room/asset history + link correction sync, cross-user isolation (7 endpoints -> 404), admin signals (401/403 normal, 200 admin w/ full schema), Doc 2 admin repair dashboard/quality still working. Frontend: HI dashboard shows testID hi-record -> /home-intel/record which renders counts (Open/Active/Done/Due), follow-ups with Done/Snooze/Dismiss actions, and open projects list. Repair workspace [id].tsx renders all new Doc 3 testIDs including rw-pause, rw-pro, rw-mat-*, rw-coach-tool-*, rw-coach-diff-*, per-task rw-task-done/diff/fail/help, and rw-complete.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_execution_property_record_b3_b4.py",
+    "/app/test_reports/pytest/b3_b4_iter83.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "guided_repair_engine.py has grown to 1360 lines with the Doc 3 additions — consider splitting router/execution/coach/checkpoint into sub-modules in a future refactor (non-blocking, purely maintainability).",
+    "property_record_engine.py cleanly separates user/public/admin routers; no _id leaks (all queries project {_id:0}); base64 stripped from public share and evidence lists."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_execution_property_record_b3_b4.py"
+  ],
+  "success_rate": {"backend": "100% (30/30)", "frontend": "100% of critical flows checked (auth, hi-record navigation, record dashboard render with live seeded data, repair workspace testIDs)"},
+  "seed_data_creation": "Created many test-owned issues under demo_home@diyhomie.com covering all Doc 3/4 flows (start, checkpoint, pause, professional_handoff, complete with improved/unresolved/abandoned, share/reopen/convert). Registered a fresh TEST_b3b4_* user for cross-user isolation. Admin quality items generated organically by the tests.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Backend covered by /app/backend/tests/test_execution_property_record_b3_b4.py (Doc 3+4) and /app/backend/tests/test_guided_repair_engine.py (Doc 2). Both hit real LLM path — allow ~2 min per full suite. Auth flow: /auth defaults to REGISTER — must click auth-toggle-mode first. Verified frontend testIDs (all present): hi-record, rec-back, rec-fu-{done,snooze,dismiss}-{id}, rec-issue-{id}, rw-pause, rw-pro, rw-mat-*, rw-coach-tool-*, rw-coach-diff-*, rw-task-{done,diff,fail,help}-{id}, rw-complete. Note the router file uses env EXPO_PUBLIC_BACKEND_URL (frontend) but tests accept EXPO_BACKEND_URL or fallback to EXPO_PUBLIC_BACKEND_URL.",
+  "rca_of_issue": "N/A — no bugs found. Build Docs 3 & 4 acceptance criteria fully satisfied."
+}

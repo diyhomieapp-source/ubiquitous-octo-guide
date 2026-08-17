@@ -83,6 +83,11 @@ import support_engine
 import import_engine
 import orchestrator_engine
 import funding_engine
+import handoff_engine
+import guided_repair_engine
+import property_record_engine
+import home_care_engine
+import visual_engine
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -9090,6 +9095,31 @@ funding_engine.configure(db, logger)
 app.include_router(funding_engine.build_router(get_current_user))
 app.include_router(funding_engine.build_admin_router(require_admin))
 
+# Project Handoffs: Shopping List & Home Report (additive).
+handoff_engine.configure(db, logger)
+app.include_router(handoff_engine.build_router(get_current_user))
+
+# Guided Repair & Evidence-to-Plan Engine (Build Document 2).
+guided_repair_engine.configure(db, logger, _llm_json)
+app.include_router(guided_repair_engine.build_router(get_current_user))
+app.include_router(guided_repair_engine.build_admin_router(require_admin))
+
+# Project Memory, Outcome Intelligence & Property Record Engine (Build Document 4).
+property_record_engine.configure(db, logger)
+app.include_router(property_record_engine.build_router(get_current_user))
+app.include_router(property_record_engine.build_public_router())
+app.include_router(property_record_engine.build_admin_router(require_admin))
+
+# Visual Evidence, Measurement & AR Guidance Engine (Build Document 5).
+visual_engine.configure(db, logger, EMERGENT_LLM_KEY)
+app.include_router(visual_engine.build_router(get_current_user))
+app.include_router(visual_engine.build_admin_router(require_admin))
+
+# Proactive Home Maintenance & Priority Intelligence Engine (Build Document 6).
+home_care_engine.configure(db, logger)
+app.include_router(home_care_engine.build_router(get_current_user))
+app.include_router(home_care_engine.build_admin_router(require_admin))
+
 
 
 
@@ -9214,6 +9244,10 @@ async def _startup_seed_community():
     await import_engine.seed_import()
     await orchestrator_engine.seed_orchestrator()
     await funding_engine.seed_funding()
+    await guided_repair_engine.seed_repair()
+    await property_record_engine.seed_records()
+    await visual_engine.seed_visual()
+    await home_care_engine.seed_care()
 
 
 @app.on_event("startup")
