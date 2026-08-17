@@ -555,3 +555,16 @@ Additive coordination layer making DIYhomie behave as one system. Runs on protec
 - **Engine contract** `POST /projects/{id}/engine-submit`: engines submit structured recs (risks/requirements) — never mutate state directly.
 - Frontend: My Home 'Guided Projects' (hi-orchestrator) -> `/home-intel/orchestrator` (intent create + list w/ health dot + next action), `/orchestrator/[id]` (phase, health SafetyCard, YOUR NEXT STEP w/ Why? + Start/Done, plan list, pause/resume/complete), `/orchestrator/events/[id]` (activity log).
 - Verified iteration 79 (17/17 backend + frontend). Non-blocking: requirements PUT uses raw query param; engine file ~758 lines.
+
+---
+## Savings Intelligence & Project Funding Engine — Phase 1 (Project Affordability MVP) SHIPPED
+"Fund This Project" — a Project Savings Planner (NOT coupon/financial advice), tied into the Orchestrator. NEW `funding_engine.py` @ `/api/hi/funding/*` + `/api/hi/admin/funding/*`. Collections: fund_goals, fund_events, fund_ledger(immutable), fund_config. NO card/provider dependency — Kard(Phase3)/BenefitHub(Phase4) are inert feature flags in admin config; affiliates(Phase2) flag only. Gated on real provider agreements + server-side keys (none stored).
+- **Two-sided affordability**: Reduce Project Cost (owned/ToolShare, best-value alternative, community/used, phase scope — derived from orch_requirements; applying lowers the linked requirement cost) + Log Savings.
+- **Strict classifications NEVER conflated**: confirmed (reduces confirmed gap) / pending / expected (reduces likely gap only) / potential (info only, no gap reduction) / opportunistic (never counts toward goal). Two gaps: remaining_confirmed_gap & remaining_likely_gap.
+- **Savings Wallet** (month/lifetime confirmed, pending, active goals) — never shows internal revenue.
+- **Orchestrator events**: PROJECT_FUNDING_TARGET_SET, SAVINGS_REWARD_CONFIRMED, PROJECT_COST_ALTERNATIVE_FOUND appended to project activity.
+- **Admin**: dashboard (confirmed savings, cost-reduction vs offer savings, completion rate, internal_revenue tracked separately=0), config toggles (enabled, conservative_forecast, provider flags, categories, thresholds), ledger view.
+- Analytics events registered (fund_this_project_opened, funding_goal_created, savings_scan_*, project_cost_reduced, reward_confirmed, project_funding_goal_reached).
+- Frontend: `/home-intel/funding/[id]` (goal, plan w/ 4 separate classifications + 2 gaps, cost-reduction scan/apply, log savings), `/home-intel/savings-wallet`. Entries: orchestrator detail 'Fund This Project' (pd-fund), My Home 'My Savings' (hi-wallet). Admin FundingModule key `fundingops`.
+- Verified iteration 80 (16/16 backend + frontend). Non-blocking: ledger status marks expected/potential/opportunistic as 'pending' internally (user-facing plan is correct/separated).
+### FUTURE (gated on user): Funding Phases 2-5 (provider adapters, unified offer catalog, merchant identity graph, Kard card-linked, BenefitHub member discounts, forecasting) — need Kard/BenefitHub agreements + keys.

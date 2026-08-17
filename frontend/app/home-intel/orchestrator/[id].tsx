@@ -126,6 +126,15 @@ export default function ProjectDetail() {
         ))}
 
         {/* Controls */}
+        <Pressable testID="pd-fund" style={styles.fundCard} onPress={() => router.push(`/home-intel/funding/${id}` as any)}>
+          <MaterialCommunityIcons name="piggy-bank-outline" size={22} color={colors.brandPrimary} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.fundTitle}>Fund This Project</Text>
+            <Text style={styles.fundSub}>Lower the cost & find legitimate savings</Text>
+          </View>
+          <MaterialCommunityIcons name="chevron-right" size={22} color={colors.brandPrimary} />
+        </Pressable>
+
         <View style={styles.controls}>
           {!completed && (paused
             ? <Button testID="pd-resume" label="Resume" icon="play" variant="secondary" onPress={resume} loading={busy} style={{ flex: 1 }} />
@@ -173,4 +182,7 @@ const styles = StyleSheet.create({
   taskBtn: { borderColor: colors.brandPrimary, borderWidth: 1, borderRadius: radius.sm, paddingHorizontal: spacing.md, paddingVertical: 6 },
   taskBtnText: { color: colors.brandPrimary, fontFamily: font.bold, fontSize: type.xs },
   controls: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.md },
+  fundCard: { flexDirection: "row", alignItems: "center", gap: spacing.sm, backgroundColor: colors.surfaceSecondary, borderColor: colors.brandPrimary + "44", borderWidth: 1, borderRadius: radius.md, padding: spacing.md, marginTop: spacing.md },
+  fundTitle: { color: colors.onSurface, fontFamily: font.bold, fontSize: type.base },
+  fundSub: { color: colors.onSurfaceTertiary, fontFamily: font.regular, fontSize: type.xs, marginTop: 1 },
 });

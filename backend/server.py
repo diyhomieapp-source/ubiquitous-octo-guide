@@ -82,6 +82,7 @@ import search_engine
 import support_engine
 import import_engine
 import orchestrator_engine
+import funding_engine
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -9084,6 +9085,11 @@ app.include_router(import_engine.build_admin_router(require_admin))
 orchestrator_engine.configure(db, logger)
 app.include_router(orchestrator_engine.build_router(get_current_user))
 
+# Savings Intelligence & Project Funding Engine (Phase 1: Project Affordability MVP).
+funding_engine.configure(db, logger)
+app.include_router(funding_engine.build_router(get_current_user))
+app.include_router(funding_engine.build_admin_router(require_admin))
+
 
 
 
@@ -9207,6 +9213,7 @@ async def _startup_seed_community():
     await support_engine.seed_support()
     await import_engine.seed_import()
     await orchestrator_engine.seed_orchestrator()
+    await funding_engine.seed_funding()
 
 
 @app.on_event("startup")

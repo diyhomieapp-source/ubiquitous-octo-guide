@@ -141,6 +141,13 @@ EVENT_CATALOG = [
     ("reconciliation_issue_shown", "import", "Reconciliation issue shown", ["issue_type"]),
     ("reconciliation_issue_resolved", "import", "Reconciliation issue resolved", ["status"]),
     ("external_property_source_connected", "import", "External property source connected", ["source_type"]),
+    ("fund_this_project_opened", "funding", "Fund This Project opened", []),
+    ("funding_goal_created", "funding", "Funding goal created", ["target"]),
+    ("savings_scan_started", "funding", "Savings scan started", []),
+    ("savings_scan_completed", "funding", "Savings scan completed", ["options"]),
+    ("project_cost_reduced", "funding", "Project cost reduced", ["saving"]),
+    ("reward_confirmed", "funding", "Savings reward confirmed", ["amount"]),
+    ("project_funding_goal_reached", "funding", "Project funding goal reached", []),
 ]
 _APPROVED = {name: set(props) for name, _fa, _d, props in EVENT_CATALOG}
 _FEATURE_AREA = {name: fa for name, fa, _d, _p in EVENT_CATALOG}

@@ -153,6 +153,10 @@ export default function HomeIntelDashboard() {
           <MaterialCommunityIcons name="file-import-outline" size={20} color={colors.brandPrimary} />
           <Text style={styles.secondaryText}>Add Property Information</Text>
         </Pressable>
+        <Pressable testID="hi-wallet" style={styles.secondary} onPress={() => router.push("/home-intel/savings-wallet")}>
+          <MaterialCommunityIcons name="piggy-bank-outline" size={20} color={colors.brandPrimary} />
+          <Text style={styles.secondaryText}>My Savings</Text>
+        </Pressable>
         <Pressable testID="hi-projects" style={styles.secondary} onPress={() => router.push("/home-intel/projects")}>
           <MaterialCommunityIcons name="hammer-wrench" size={20} color={colors.brandPrimary} />
           <Text style={styles.secondaryText}>Plan a Project</Text>
