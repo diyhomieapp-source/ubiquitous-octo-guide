@@ -38,6 +38,11 @@ EVENT_CATALOG = [
     ("property_created", "onboarding", "Property added", ["property_type", "has_year_built"]),
     ("onboarding_completed", "onboarding", "Onboarding finished", ["progress"]),
     ("property_switched", "onboarding", "Active home switched", []),
+    ("project_intent_captured", "onboarding", "Ask-Homie intent captured", ["need_type", "is_emergency"]),
+    ("first_project_created", "onboarding", "First project created from intent", ["project_category", "source", "need_type"]),
+    ("activation_completed", "onboarding", "User activated (first value action)", ["signals"]),
+    ("new_homeowner_pathway_started", "onboarding", "New homeowner pathway started", []),
+    ("accessibility_settings_updated", "onboarding", "Accessibility settings changed", ["language", "reading_level", "simplified_mode", "text_size", "voice_guidance", "high_contrast", "reduce_motion"]),
     # Homie AI
     ("homie_opened", "homie", "Homie chat opened", ["source"]),
     ("conversation_started", "homie", "New conversation", ["has_context"]),

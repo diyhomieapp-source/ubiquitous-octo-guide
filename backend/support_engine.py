@@ -28,13 +28,14 @@ _logger = None
 
 CATEGORIES = [
     "account_access", "subscription_billing", "project_maintenance", "document_upload",
-    "ai_response", "technical_bug", "rewards", "collaboration", "privacy_data", "other",
+    "ai_response", "technical_bug", "rewards", "collaboration", "privacy_data", "safety_concern", "other",
 ]
 CATEGORY_LABELS = {
     "account_access": "Account access", "subscription_billing": "Subscription & billing",
     "project_maintenance": "Project or maintenance issue", "document_upload": "Document upload issue",
     "ai_response": "AI response issue", "technical_bug": "Technical bug", "rewards": "Rewards issue",
-    "collaboration": "Collaboration access", "privacy_data": "Privacy or data request", "other": "Other",
+    "collaboration": "Collaboration access", "privacy_data": "Privacy or data request",
+    "safety_concern": "Safety concern", "other": "Other",
 }
 PRIORITIES = ["critical", "high", "normal", "low"]
 STATUSES = ["open", "in_progress", "waiting_user", "resolved", "closed"]
@@ -44,7 +45,7 @@ RESOLUTION_TYPES = ["self_service", "ai_resolved", "human_resolved", "refund_fut
 CATEGORY_PRIORITY = {
     "account_access": "high", "subscription_billing": "high", "rewards": "high",
     "project_maintenance": "normal", "document_upload": "normal", "ai_response": "normal",
-    "collaboration": "normal", "privacy_data": "critical", "technical_bug": "normal", "other": "low",
+    "collaboration": "normal", "privacy_data": "critical", "safety_concern": "critical", "technical_bug": "normal", "other": "low",
 }
 CRITICAL_KEYWORDS = ["hacked", "compromis", "breach", "unauthorized", "fraud", "data loss", "lost my data",
                      "privacy", "leak", "safety", "can't pay", "double charged", "charged twice"]
@@ -223,6 +224,20 @@ def build_router(get_current_user: Callable) -> APIRouter:
         ctx = {k: v for k, v in (req.context or {}).items()
                if k in ("screen", "feature_area", "app_version", "device_type", "error_code",
                         "correlation_id", "recent_action", "related_entity_type", "related_entity_id")}
+        # Doc 33 context-first support: auto-attach a Homie handoff summary for project tickets
+        # so the homeowner never has to repeat their whole story.
+        if ctx.get("related_entity_type") == "gr_issue" and ctx.get("related_entity_id"):
+            issue = await _db.gr_issues.find_one({"id": ctx["related_entity_id"], "user_id": user["id"]}, {"_id": 0})
+            if issue:
+                ev_n = await _db.gr_evidence.count_documents({"issue_id": issue["id"]})
+                plan = await _db.gr_plans.find_one({"issue_id": issue["id"]}, {"_id": 0, "version": 1})
+                ctx["homie_summary"] = {
+                    "project": (issue.get("description") or "")[:180],
+                    "category": issue.get("category"), "phase": issue.get("phase"),
+                    "urgency": issue.get("urgency"), "evidence_items": ev_n,
+                    "plan_version": (plan or {}).get("version", 0),
+                    "risk_flags": (issue.get("risk_flags") or [])[:5],
+                }
         tid = _nid()
         doc = {"id": tid, "user_id": user["id"], "category": category, "priority": priority,
                "subject": req.subject.strip()[:160], "description": req.description.strip()[:4000],
@@ -235,6 +250,18 @@ def build_router(get_current_user: Callable) -> APIRouter:
                                            "sender_id": user["id"], "body": req.description.strip()[:4000],
                                            "attachment_reference": req.attachment_reference, "created_at": _now()})
         await _cap(user, "ticket_created", {"category": category, "priority": priority})
+        # Doc 33 safety incident handling: elevated path, never automated reassurance.
+        if category == "safety_concern" or (priority == "critical" and "safety" in f"{req.subject} {req.description}".lower()):
+            try:
+                import admin_ops_engine
+                await admin_ops_engine.record_safety_escalation(
+                    user["id"], risk_level="high", trigger_type="support_safety_ticket",
+                    ai_response_reference=f"ticket:{tid} {req.subject.strip()[:120]}")
+            except Exception:
+                pass
+            doc["safety_note"] = ("If anyone is in danger or you smell gas or see fire, leave the area and call "
+                                  "emergency services now. A team member will review this report with priority.")
+            await _db.sup_tickets.update_one({"id": tid}, {"$set": {"safety_note": doc["safety_note"]}})
         return {"ticket": doc}
 
     @r.get("/tickets")

@@ -686,3 +686,42 @@ The user is delivering a sequential program of build docs. Status:
 - `src/components/FeedbackChips.tsx` wired into voice.tsx ("Did this help?" per answer, context homie_answer/session id) and repair workspace plan section ("Does this plan match what you needed?", context project_plan/plan id).
 - Verified: curl (submit ok, invalid 400, funnel totals 29→13→13→6→2, non-admin 403) + screenshot of workspace showing chips.
 - Doc 27 (Integration Control Center) QUEUED — mostly governance over existing connector/fallback patterns.
+
+## Session update 4 — Build Doc 28 SHIPPED (12/12 backend pytest + frontend E2E, iteration_87) + edge fix
+### ✅ Build Doc 28 — Design Studio, Visualization & Design-to-Build (MVP)
+- Module: `/app/backend/design_studio_engine.py`, namespace `/api/hi/design-studio/*`. Collections ds_projects/ds_versions/ds_inspirations.
+- Design projects (room_refresh/remodel_concept/exterior/build_to_fit) w/ plain-words goal + feel chips + budget + optional room photo. Inspiration notes → "You seem drawn to…" style summary. Concept generation: written direction (_llm_json) + REAL image via **Gemini Nano Banana** (`gemini-3.1-flash-image-preview` via emergentintegrations LlmChat, EMERGENT_LLM_KEY) — room-photo-aware edits when a photo exists; refine creates new version editing the previous image. Honest disclaimer on every concept. Buildability review separates taste/buildability/safety/budget/permit + measure_first. Approve → convert creates gr_issue (source design_studio) flowing into the existing assessment→plan→readiness (Doc 7) pipeline; idempotent (already:true).
+- Frontend: `app/home-intel/design/index.tsx` (create form + list) & `[id].tsx` (concept image, version chips, refine, buildability card, approve/convert). Dashboard card `hi-design-studio`.
+- Edge fix post-testing: refine on a converted design now 409s; FE gates "Open the build project" on linked_issue_id; stale demo project status repaired.
+- Testing: iteration_87 — 12/12 backend (`/app/test_reports/pytest/design_studio_b28_iter87.xml`) + frontend E2E w/ real image gen.
+### 🟡 QUEUE additions: Doc 29 (QA/Safety governance & release mgmt — flags/alerts exist, kill-switches/benchmarks pending), Doc 30 (Accessibility & Localization — voice captions/large-text/simpler-mode exist; localization framework pending).
+
+## Session update 5 — Build Doc 31 + Doc 30 SHIPPED (18/18 backend pytest + full frontend E2E, iteration_88)
+### ✅ Build Doc 31 — Onboarding, Activation & First-Project Success (MVP: Phases 1-3)
+- Module: `/app/backend/activation_engine.py`, namespaces `/api/hi/start/*`. Collections ob_intents/ob_new_home/ob_activation.
+- PUBLIC "Ask Homie" intent capture (POST /intent, no auth): safety triage FIRST (reuses guided_repair _triage; gas/fire → emergency safety panel, NO conversion prompt), else LLM classify → need_type/category + immediate value (likely_diagnosis, safe_immediate_action, ONE next_step, outline, first_questions) + deferred save_prompt. Guest token support; pending intent auto-claimed after login (frontend stores diyhomie_pending_intent).
+- AUTH: /claim → creates gr_issue (source=onboarding_intent, feeds existing repair pipeline) + first_project_created event; /checklist → 7-step First Project Success Checklist (derived from gr_evidence/gr_plans/rd_boms/phase); /activation → 6 meaningful-action signals, one-time activation_completed; /new-homeowner (+/toggle) → 8-item first-home pathway (address/shutoff/panel/alarms/HVAC/appliances/inspection/maintenance) w/ auto-derived + manual completion.
+- Analytics EVENT_CATALOG += project_intent_captured, first_project_created, activation_completed, new_homeowner_pathway_started, accessibility_settings_updated.
+- Frontend: `app/home-intel/start.tsx` (intent input + chips + emergency panel + result card + save CTA + first-project checklist), `app/home-intel/new-home.tsx` (new homeowner checklist), dashboard card hi-ask-homie-start.
+### ✅ Build Doc 30 — Accessibility, Localization & Inclusive Guidance (MVP)
+- Module: `/app/backend/accessibility_engine.py`, namespace `/api/hi/access/*`. Collection hi_access_settings.
+- Per-user settings: language (en/es/fr/de/pt/zh), reading_level (simple/standard/detailed), simplified_mode, text_size, voice_guidance, high_contrast, reduce_motion. get_access_context() prompt block WIRED into conversation_hub_engine + project_planner_engine — verified Homie replies in Spanish/simple when set.
+- Frontend: `app/home-intel/account/accessibility.tsx` (chips + switches, optimistic PUT), entry row in account settings.
+- Testing: iteration_88 — 18/18 backend (`/app/test_reports/pytest/b30_b31_activation_access_iter88.xml`) + all 6 frontend flows pass, regression clean. NOTE: conversation hub endpoint is /api/hi/chat/conversations.
+### 🟡 QUEUE additions from this session (user pasted, NOT built)
+- **Doc 32 — Data Governance, Privacy, Backup & Portability**: privacy center, data export (project/home record/account), deletion workflow, document versioning, audit log. Partial overlap w/ existing export_engine + audit_engine + privacy screens — build as extension.
+- **Doc 33 — Customer Support, Human Escalation & Trust Recovery**: ticket model w/ context-first attachment, Homie handoff summaries, safety incident workflow, support workspace. Heavy overlap w/ existing support_engine.py (507 lines) — extend, don't rebuild.
+- **Doc 34 — Platform Reliability, Performance & Scalability**: async job framework, graceful degradation, offline-first, rate limits/AI cost protection, monitoring. Partial overlap w/ monitoring_engine.py, sync_engine.py, offlineQueue.ts — extend.
+
+## Session update 6 — Doc 34 + Docs 33/35/36 deltas SHIPPED (iterations 89 & 90, ALL GREEN)
+### ✅ Build Doc 34 — Platform Reliability MVP
+- `/app/backend/reliability_engine.py`: async job framework (rl_jobs: queued/running/waiting_provider/completed/failed/retrying/canceled, progress + friendly messages, run_job() bg task w/ 1 retry); AI cost protection (rl_settings ai_daily_per_user=300 + ai_kill_switch, enforce_ai_budget wired into Homie chat + design studio, 429/503 friendly copy); user GET /api/hi/jobs(+/{id},/cancel), GET /api/hi/system/status (6 tiered services, only 5xx degrade); admin /api/hi/admin/reliability (jobs overview, limits, costs by feature/provider).
+- Design Studio concept/refine converted to async jobs (returns job_id, frontend polls w/ progress card testID dsd-job-progress). New `app/home-intel/activity.tsx` (Background Activity, account row account-activity), `SystemStatusBanner` on dashboard (hidden when ok).
+### ✅ Docs 33/35/36 deltas (existing engines already covered ~80%: data_governance=Doc32, audit+collaboration=Doc35 core, release_engine=Doc36 core, support_engine=Doc33 core)
+- Doc 35 §15 sessions: JWT carries token_version ("tv"); POST /api/auth/logout-all bumps it (old tokens 401) + returns fresh token; privacy screen "Sign out of other devices" (testID privacy-logout-all).
+- Doc 35 §8 AI privacy: dg_ai_prefs extended (allow_home_context, allow_project_photos, allow_documents, ai_personalization) + get_ai_privacy() helper; ENFORCED in conversation_hub (home context withheld / personalization stripped); 4 new toggles on /home-intel/privacy.
+- Doc 33: support ticket category safety_concern → critical + persisted safety_note + hi_safety_escalations record; project tickets (related_entity_type=gr_issue) auto-attach homie_summary (project/category/phase/evidence_items/plan_version/risk_flags). Namespace reminder: /api/hi/help/*.
+- Doc 36 §5: 9-case AI benchmark library seeded (rel_ai_cases source=doc36_benchmark).
+- Testing: iteration_89 (Doc 34, 11/11 + frontend) & iteration_90 (7/7 + frontend E2E). Auth regression clean.
+### 🟡 QUEUE: Doc 37 — Universal Design System & Experience Standards (pasted 3x — NEXT)
+- Largely satisfied (semantic tokens in src/theme.ts, ScreenHeader pattern, status badges, safety states, empty/error states). Planned gap pass: universal "Ask Homie about this" contextual launcher on major screens; consistent status label audit; next-best-action check (command_center already does this).

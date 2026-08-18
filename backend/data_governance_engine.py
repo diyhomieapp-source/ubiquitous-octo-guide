@@ -189,9 +189,24 @@ class ExportReq(BaseModel):
     categories: list[str]
 
 
+# Doc 35 §8 — effective AI privacy prefs, callable by other engines (Homie chat, planner).
+async def get_ai_privacy(user_id: str) -> dict:
+    ai = (await _db.dg_ai_prefs.find_one({"user_id": user_id}, {"_id": 0})) or {}
+    return {"ai_training_opt_in": ai.get("ai_training_opt_in", False),
+            "analytics_opt_in": ai.get("analytics_opt_in", True),
+            "allow_home_context": ai.get("allow_home_context", True),
+            "allow_project_photos": ai.get("allow_project_photos", True),
+            "allow_documents": ai.get("allow_documents", True),
+            "ai_personalization": ai.get("ai_personalization", True)}
+
+
 class AiPrefsReq(BaseModel):
     ai_training_opt_in: Optional[bool] = None
     analytics_opt_in: Optional[bool] = None
+    allow_home_context: Optional[bool] = None
+    allow_project_photos: Optional[bool] = None
+    allow_documents: Optional[bool] = None
+    ai_personalization: Optional[bool] = None
 
 
 class DeletionReq(BaseModel):
@@ -232,11 +247,11 @@ def build_router(get_current_user: Callable) -> APIRouter:
             latest.setdefault(c["consent_type"], c)
         shares = await _active_shares(user["id"])
         exports = await _db.dg_exports.find({"user_id": user["id"]}, {"_id": 0, "secure_token": 0}).sort("created_at", -1).to_list(20)
-        ai = await _db.dg_ai_prefs.find_one({"user_id": user["id"]}, {"_id": 0}) or {"ai_training_opt_in": False, "analytics_opt_in": True}
+        ai = await get_ai_privacy(user["id"])
         return {"account_state": st["state"], "deletion": {k: st.get(k) for k in ("deletion_requested_at", "deletion_effective_at") if st.get(k)},
                 "consents": [{"consent_type": c["consent_type"], "status": v["status"], "purpose": next((t["purpose"] for t in CONSENT_TYPES if t["type"] == c["consent_type"]), c["consent_type"])} for c, v in [(x, x) for x in latest.values()]],
                 "consent_types": CONSENT_TYPES, "active_shares": len(shares), "exports": exports,
-                "ai_prefs": {"ai_training_opt_in": ai.get("ai_training_opt_in", False), "analytics_opt_in": ai.get("analytics_opt_in", True)},
+                "ai_prefs": ai,
                 "recovery_days": DELETION_RECOVERY_DAYS}
 
     @r.get("/data-map")
@@ -279,8 +294,8 @@ def build_router(get_current_user: Callable) -> APIRouter:
 
     @r.get("/ai-controls")
     async def get_ai(user: dict = Depends(get_current_user)):
-        ai = await _db.dg_ai_prefs.find_one({"user_id": user["id"]}, {"_id": 0}) or {"ai_training_opt_in": False, "analytics_opt_in": True}
-        return {"ai_training_opt_in": ai.get("ai_training_opt_in", False), "analytics_opt_in": ai.get("analytics_opt_in", True),
+        ai = await get_ai_privacy(user["id"])
+        return {**ai,
                 "note": "Safety and essential service processing always run and are never affected by these optional toggles."}
 
     @r.put("/ai-controls")

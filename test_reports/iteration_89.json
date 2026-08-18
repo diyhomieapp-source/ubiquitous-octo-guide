@@ -1,0 +1,33 @@
+{
+  "summary": "Doc 34 (Platform Reliability, Performance & Scalability MVP) fully tested — backend 11/11 pytest pass and frontend E2E pass. Backend: GET /api/hi/jobs returns {jobs, active}; bogus job → 404. Async design concept E2E on new project (TEST_reading_nook, room_refresh): POST /concept returns {job_id, status:queued, message} → polling shows job progresses through running + waiting_provider with progress > 0 → ends completed with progress=100 → version 1 with image_available=true persisted. Refine {instruction:'warmer colors'} same async flow → version 2 completed. Cancel on completed job → 409. AI cost protection: set ai_daily_per_user=1 → 1st Homie chat message via /api/hi/chat/conversations/{cid}/message passes, 2nd returns 429 with 'limit ... reset tomorrow' message. Kill switch on → 503 with 'briefly paused for maintenance'. Limits reset to 300/kill_switch=false + rl_ai_calls cleared for demo today (verified). System status returns overall='ok' + 6 tiered services each with key/label/tier/status. Admin reliability: /admin/reliability/jobs (queue_depth, by_status, by_type, recent_failures), /costs (total, by_feature, by_provider), /limits GET+PUT roundtrip persists; all three 403 for demo user. Frontend on 390x844: logged in as demo_home, opened a fresh design project via API → tapped dsd-generate → dsd-job-progress card appeared with 'Homie is designing your concept…' + progress bar advancing 5%→sketching→rendering → concept image (Cozy Reading Nook, sofa+bookshelves) renders and progress card disappears. /home-intel/account → account-activity row navigates to /home-intel/activity which lists prior test jobs with 'Done' status chips (Design concept + Design refinement). /home-intel dashboard renders (banner hidden), /home-intel/start Ask Homie input & first-project card render. CLEANUP verified: no TEST_ ds_projects remain, rl_ai_calls demo/today=0, limits back to 300/false.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_reliability_b34_iter89.py",
+    "/app/test_reports/pytest/b34_reliability_iter89.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "reliability_engine.enforce_ai_budget uses find_one_and_update with $inc + $setOnInsert and post-increment check (count > cap) — correct: with cap=1 first call sets count=1 (not >1 so passes), second call sets count=2 (raises 429). Behavior matches spec.",
+    "run_job() runs work in asyncio.create_task with ONE automatic retry (attempt 0 then attempt 1); on retry sets status='retrying' with friendly 'Taking longer than usual' message. Cancellation is checked at top of each attempt (job.status=='canceled' → return).",
+    "design_studio_engine.generate_concept + refine correctly call enforce_ai_budget BEFORE creating the job, so a rate-limited user gets 429 immediately without leaving orphan queued jobs.",
+    "System status _system_status() aggregates 5xx error_events from the last 15 min ONLY (4xx like the intentional 429/403 do NOT degrade overall) — matches spec; overall remained 'ok' throughout tests even after 429 + 503 responses.",
+    "reliability_engine.build_admin_router uses require_admin dependency which returns 403 for demo user — confirmed via test_admin_endpoints_forbidden_for_demo.",
+    "activity.tsx correctly polls /hi/jobs every 4s while there are active jobs and stops the timer when active=0 (prevents infinite polling). Uses testID='account-activity', 'dsd-job-progress' as expected.",
+    "One minor observation: design/[id].tsx client-side polls /hi/jobs/{id} every 2.5s for up to 180s — no server-side backpressure, but the job endpoints are lightweight lookups. Acceptable for MVP."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_reliability_b34_iter89.py (new)"
+  ],
+  "success_rate": {"backend": "100% (11/11)", "frontend": "100%"},
+  "seed_data_creation": "Created and CLEANED UP: 1 TEST_reading_nook ds_project + 2 versions (concept + refine) via backend E2E test, 1 TEST_b34_ratelimit hi_conversation + a few messages, 1 TEST_fe_nook + 1 TEST_fe_generate_v2 ds_projects for frontend testing. All deleted from Mongo at end. rl_ai_calls for demo user today cleared. rl_settings back to {ai_daily_per_user:300, ai_kill_switch:false}. Verified: demo user is NOT left rate-limited.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Doc 34 is fully green. Reliability engine (rl_jobs, rl_settings, rl_ai_calls collections) is production-shape. Design Studio concept generation is REAL Gemini image generation (~15-20s per job in tests). If future tests need to trigger rate-limit paths, use the Homie chat message endpoint /api/hi/chat/conversations/{cid}/message (not /hi/chat/homie which does not exist). Homie chat handler calls enforce_ai_budget after subscription_engine.enforce — a user with expired subscription would hit 402/403 before reaching 429.",
+  "rca_of_issue": "N/A — no failures."
+}

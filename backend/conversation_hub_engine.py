@@ -270,6 +270,8 @@ def build_router(get_current_user: Callable) -> APIRouter:
             raise HTTPException(status_code=400, detail="Type a message or attach a photo.")
         import subscription_engine
         await subscription_engine.enforce(user, "chat")
+        import reliability_engine
+        await reliability_engine.enforce_ai_budget(user["id"], "homie_chat")
 
         # persist the user's message (store image if present)
         photo_id = None
@@ -302,6 +304,14 @@ def build_router(get_current_user: Callable) -> APIRouter:
             return {"assistant": a, "photo_identification": photo_id or None}
 
         ctx_text = await _build_context(c["property_id"], c.get("context", {}))
+        # Doc 35 §8 — AI privacy controls: user can withhold home context / personalization.
+        try:
+            import data_governance_engine
+            _ai_priv = await data_governance_engine.get_ai_privacy(user["id"])
+        except Exception:
+            _ai_priv = {}
+        if _ai_priv and not _ai_priv.get("allow_home_context", True):
+            ctx_text = "The user has disabled sharing their home profile with AI. Do not assume home details; ask when needed."
         try:
             import admin_ops_engine
             approved_templates = await admin_ops_engine.get_published_templates(limit=6)
@@ -312,6 +322,15 @@ def build_router(get_current_user: Callable) -> APIRouter:
             guidance_prefs = await onboarding_engine.get_guidance_context(user["id"])
         except Exception:
             guidance_prefs = ""
+        if _ai_priv and not _ai_priv.get("ai_personalization", True):
+            guidance_prefs = ""
+        try:
+            import accessibility_engine
+            access_ctx = await accessibility_engine.get_access_context(user["id"])
+            if access_ctx:
+                guidance_prefs = f"{guidance_prefs}\n{access_ctx}".strip()
+        except Exception:
+            pass
         # recent history (last 8 turns)
         hist = await _db.hi_conversation_messages.find(
             {"conversation_id": cid}, {"_id": 0, "role": 1, "text": 1}).sort("created_at", -1).to_list(9)

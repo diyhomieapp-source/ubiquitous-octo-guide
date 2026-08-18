@@ -255,6 +255,13 @@ def build_router(get_current_user: Callable) -> APIRouter:
             guidance_prefs = await onboarding_engine.get_guidance_context(user["id"])
         except Exception:
             guidance_prefs = ""
+        try:
+            import accessibility_engine
+            access_ctx = await accessibility_engine.get_access_context(user["id"])
+            if access_ctx:
+                guidance_prefs = f"{guidance_prefs}\n{access_ctx}".strip()
+        except Exception:
+            pass
         system = (
             "You are DIYhomie's safety-first project planner. Create a structured DIY project plan.\n"
             "SAFETY: Classify risk_level as one of [Low Risk, Moderate Risk, High Risk, Professional "

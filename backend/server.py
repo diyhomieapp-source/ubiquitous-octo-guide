@@ -85,6 +85,9 @@ import orchestrator_engine
 import funding_engine
 import handoff_engine
 import guided_repair_engine
+import activation_engine
+import accessibility_engine
+import reliability_engine
 import property_record_engine
 import home_care_engine
 import visual_engine
@@ -95,6 +98,7 @@ import command_center_engine
 import tool_intelligence_engine
 import marketplace_engine
 import quality_feedback_engine
+import design_studio_engine
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -188,9 +192,10 @@ def public_user(u: dict) -> dict:
     }
 
 
-def create_token(user_id: str) -> str:
+def create_token(user_id: str, token_version: int = 0) -> str:
     payload = {
         "sub": user_id,
+        "tv": int(token_version or 0),
         "exp": datetime.now(timezone.utc) + timedelta(minutes=TOKEN_EXPIRE_MINUTES),
     }
     return jwt.encode(payload, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
@@ -207,6 +212,9 @@ async def get_current_user(creds: HTTPAuthorizationCredentials = Depends(securit
         raise cred_exc
     user = await db.users.find_one({"id": user_id}, {"_id": 0})
     if not user:
+        raise cred_exc
+    # Doc 35 session security: "log out everywhere" bumps token_version, invalidating old tokens.
+    if int(payload.get("tv", 0)) != int(user.get("token_version", 0)):
         raise cred_exc
     return user
 
@@ -745,7 +753,7 @@ async def register(req: RegisterReq):
         await emit_event("signup", user["id"], {})
     except Exception as e:
         logger.warning(f"automation signup failed: {e}")
-    token = create_token(user["id"])
+    token = create_token(user["id"], user.get("token_version", 0))
     return {"access_token": token, "token_type": "bearer", "user": public_user(user)}
 
 
@@ -755,8 +763,25 @@ async def login(req: LoginReq):
     if not user or not pwd_context.verify(req.password, user["hashed_password"]):
         raise HTTPException(status_code=400, detail="Incorrect email or password")
     await db.users.update_one({"id": user["id"]}, {"$set": {"last_login": now_iso()}})
-    token = create_token(user["id"])
+    token = create_token(user["id"], user.get("token_version", 0))
     return {"access_token": token, "token_type": "bearer", "user": public_user(user)}
+
+
+@api_router.post("/auth/logout-all")
+async def logout_all(user: dict = Depends(get_current_user)):
+    """Doc 35 §15: sign out of all devices. Bumps token_version (invalidating every issued
+    token) and returns a fresh token so THIS device stays signed in."""
+    new_version = int(user.get("token_version", 0)) + 1
+    await db.users.update_one({"id": user["id"]}, {"$set": {"token_version": new_version}})
+    try:
+        import audit_engine
+        await audit_engine.log_event("user", user["id"], "sessions_revoked_all", "security",
+                                     actor_email=user.get("email"), target_type="user",
+                                     target_id=user["id"], risk_level="medium")
+    except Exception:
+        pass
+    return {"access_token": create_token(user["id"], new_version), "token_type": "bearer",
+            "message": "Signed out everywhere else. This device stays signed in."}
 
 
 @api_router.get("/auth/me")
@@ -811,7 +836,7 @@ async def google_auth(req: GoogleAuthReq):
         await db.users.insert_one(user)
     else:
         await db.users.update_one({"id": user["id"]}, {"$set": {"last_login": now_iso()}})
-    token = create_token(user["id"])
+    token = create_token(user["id"], user.get("token_version", 0))
     return {"access_token": token, "token_type": "bearer", "user": public_user(user)}
 
 
@@ -8943,6 +8968,20 @@ app.include_router(inventory_engine.build_router(get_current_user))
 onboarding_engine.configure(db, logger)
 app.include_router(onboarding_engine.build_router(get_current_user))
 
+# Onboarding, Activation & First-Project Success (Build Doc 31).
+activation_engine.configure(db, logger, _llm_json)
+app.include_router(activation_engine.build_public_router())
+app.include_router(activation_engine.build_user_router(get_current_user))
+
+# Accessibility, Localization & Inclusive Guidance (Build Doc 30).
+accessibility_engine.configure(db, logger)
+app.include_router(accessibility_engine.build_router(get_current_user))
+
+# Platform Reliability, Performance & Scalability (Build Doc 34).
+reliability_engine.configure(db, logger)
+app.include_router(reliability_engine.build_router(get_current_user))
+app.include_router(reliability_engine.build_admin_router(require_admin))
+
 # Subscription Access, Feature Gating & Billing (Build Blueprint 09).
 subscription_engine.configure(db, logger)
 app.include_router(subscription_engine.build_router(get_current_user))
@@ -9162,6 +9201,10 @@ app.include_router(marketplace_engine.build_admin_router(require_admin))
 quality_feedback_engine.configure(db, logger)
 app.include_router(quality_feedback_engine.build_router(get_current_user))
 app.include_router(quality_feedback_engine.build_admin_router(require_admin))
+
+# Design Studio, Visualization & Design-to-Build Engine (Build Document 28).
+design_studio_engine.configure(db, logger, _llm_json)
+app.include_router(design_studio_engine.build_router(get_current_user))
 
 
 

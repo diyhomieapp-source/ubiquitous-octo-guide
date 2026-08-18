@@ -120,6 +120,24 @@ export default function Account() {
           <Switch testID="analytics-opt-out" value={optOut} onValueChange={toggleOptOut} trackColor={{ true: colors.brandPrimary, false: colors.surfaceTertiary }} />
         </View>
 
+        <Pressable testID="account-accessibility" style={styles.planCard} onPress={() => router.push("/home-intel/account/accessibility")}>
+          <View style={styles.planIcon}><MaterialCommunityIcons name="human-greeting-variant" size={20} color={colors.brandPrimary} /></View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.planCardTitle}>Accessibility & language</Text>
+            <Text style={styles.planCardSub}>Reading level, simplified mode, text size & language</Text>
+          </View>
+          <MaterialCommunityIcons name="chevron-right" size={22} color={colors.onSurfaceTertiary} />
+        </Pressable>
+
+        <Pressable testID="account-activity" style={styles.planCard} onPress={() => router.push("/home-intel/activity")}>
+          <View style={styles.planIcon}><MaterialCommunityIcons name="progress-clock" size={20} color={colors.brandPrimary} /></View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.planCardTitle}>Background activity</Text>
+            <Text style={styles.planCardSub}>Design renders, analysis & exports running for you</Text>
+          </View>
+          <MaterialCommunityIcons name="chevron-right" size={22} color={colors.onSurfaceTertiary} />
+        </Pressable>
+
         <Text style={styles.section}>Guidance preferences</Text>
         <Text style={styles.hint}>Homie tailors its chat and project plans to these.</Text>
         {PREF_FIELDS.map((f) => (

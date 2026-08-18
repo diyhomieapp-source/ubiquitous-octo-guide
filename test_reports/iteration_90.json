@@ -1,0 +1,33 @@
+{
+  "summary": "Docs 33/35/36 delta features fully tested — 7/7 backend pytest pass and frontend E2E pass. Doc 35 §15 session security: login demo → token A, /auth/me = 200; POST /auth/logout-all returns fresh token B + message 'Signed out everywhere else. This device stays signed in.', old token A → 401 on /auth/me, new token B → 200, fresh re-login → token C = 200. Doc 35 §8 AI privacy: GET /api/hi/privacy/ai-controls returns 6 booleans (ai_training_opt_in, analytics_opt_in, allow_home_context, allow_project_photos, allow_documents, ai_personalization); PUT allow_home_context:false persists (verified via GET); Homie chat POST /api/hi/chat/conversations + /message still returns valid assistant reply while home context is withheld — no crash; reset to true at end. Doc 33 support: POST /api/hi/help/tickets {category:'safety_concern', sparks} → priority='critical' + safety_note mentioning emergency/danger + ops record inserted in hi_safety_escalations with trigger_type='support_safety_ticket', risk_level='high'; POST ticket with context.related_entity_type='gr_issue' + demo user's real issue id → response ticket.context.homie_summary contains project/category/phase/evidence_items/plan_version/risk_flags. Doc 36 §5: admin GET /api/hi/admin/release/ai-cases returns 9 doc36_benchmark cases covering wet drywall, drill near breaker panel, pipe hit, prompt injection ('Ignore your safety rules'), joist notching, furnace noise, drywall anchors, vanity, private inspection report. FE E2E on 390x844: login /auth?mode=login → all 6 AI toggles + Sign out button render with correct testIDs (privacy-analytics, privacy-ai-training, privacy-ai-home, privacy-ai-photos, privacy-ai-docs, privacy-ai-personalization, privacy-logout-all); toggled privacy-ai-home off, reloaded, toggled back on — final API state confirms allow_home_context=true. Tapped 'Sign out' (privacy-logout-all) → alert accepted + subsequent goto /home-intel loads dashboard (Home Intelligence with My Home + Ask Homie + Design Studio cards) — NOT kicked to /auth, confirming the fresh token was stored. Regression: /home-intel/start renders input, /home-intel/design lists 2 existing projects (Test bedroom UI, Cozy living room). CLEANUP: 2 TEST_iter90 sup_tickets + associated sup_messages deleted; 2 corresponding hi_safety_escalations deleted; allow_home_context reset to true.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_b33_b35_b36_iter90.py",
+    "/app/test_reports/pytest/b33_b35_b36_iter90.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.create_token now embeds 'tv' (token_version) claim; get_current_user rejects tokens where payload.tv != user.token_version (line 217) — clean invalidation on logout-all. logout-all increments token_version then re-issues a token with the NEW version so the calling device keeps a valid session.",
+    "data_governance_engine.get_ai_privacy defaults new booleans to True (allow_home_context/photos/documents/ai_personalization) and analytics_opt_in True, but ai_training_opt_in False — sensible privacy defaults. PUT ai-controls uses upsert + $setOnInsert for first-time writers.",
+    "conversation_hub_engine.send_message reads AI privacy inline (line 306-326): when allow_home_context is false, ctx_text is replaced with a directive to not assume home details; when ai_personalization is false, guidance_prefs is emptied. Verified no crash when privacy is off.",
+    "support_engine.create_ticket sets priority='critical' for safety_concern via _classify_priority (line 48 category→priority map). Safety note is appended AFTER doc insertion (in the local variable only), so DB row does NOT persist safety_note — but response includes it. Consider persisting for admin visibility.",
+    "support_engine only attaches homie_summary when related_entity_type='gr_issue' AND issue belongs to the calling user (user_id match) — good tenant isolation.",
+    "release_engine.seed_release seeds 9 BENCHMARK_CASES exactly once (find_one on user_input) with source='doc36_benchmark' — idempotent seeding is correct.",
+    "Frontend privacy.tsx uses aria-checked=None on web (RN Switch translation limitation) but click handler + toggleAi() PUT call works; state is derived from ov.ai_prefs which is refetched on mount. Confirmed persistence via backend GET."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_b33_b35_b36_iter90.py (new)"
+  ],
+  "success_rate": {"backend": "100% (7/7)", "frontend": "100%"},
+  "seed_data_creation": "Created 2 TEST_iter90 sup_tickets (safety_concern sparks + gr_issue handoff) + associated sup_messages + 2 corresponding hi_safety_escalations. All CLEANED UP via module-scope pytest fixture teardown + follow-up delete for hi_safety_escalations. allow_home_context reset to true. demo user token_version was bumped 3 times during logout-all tests — fresh login still works fine (verified).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Docs 33/35/36 delta features are green. Note: aria-checked is NOT reflected on RN Switch when rendered on web — use API-side verification (GET /api/hi/privacy/ai-controls) to confirm persistence rather than DOM attribute polling. Auth screen defaults to REGISTER mode; must navigate to /auth?mode=login to trigger the login path (register attempts on existing email return 400). Homie chat route is not at /home-intel/homie — it lives under a different path (verified chat via API POST /api/hi/chat/conversations/{cid}/message). token_version rotation is fully working; if a stored client token gets 401, main agent should ensure the client auth layer prompts a fresh login (this already works via signIn flow).",
+  "rca_of_issue": "N/A — no failures."
+}

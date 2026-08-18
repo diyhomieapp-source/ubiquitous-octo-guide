@@ -7,6 +7,7 @@ import { colors, spacing, radius, font, type } from "@/src/theme";
 import { api } from "@/src/api";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
 import { UpgradeNudge } from "@/src/components/UpgradeNudge";
+import { SystemStatusBanner } from "@/src/components/SystemStatusBanner";
 
 type Asset = { id: string; name: string; category: string; status: string };
 type Task = { id: string; user_description: string; status: string; risk_level: string; asset_name?: string; created_at: string };
@@ -101,6 +102,17 @@ export default function HomeIntelDashboard() {
 
         <UpgradeNudge />
 
+        <SystemStatusBanner />
+
+        <Pressable testID="hi-ask-homie-start" style={styles.dashCard} onPress={() => router.push("/home-intel/start")}>
+          <MaterialCommunityIcons name="chat-question-outline" size={22} color={colors.brandPrimary} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.dashTitle}>Ask Homie — Start Something</Text>
+            <Text style={styles.dashSub}>{"Say what you're working on & get a first step. New home? Start there too."}</Text>
+          </View>
+          <MaterialCommunityIcons name="chevron-right" size={22} color={colors.brandPrimary} />
+        </Pressable>
+
         <Pressable testID="hi-dashboard" style={styles.dashCard} onPress={() => router.push("/home-intel/dashboard")}>
           <MaterialCommunityIcons name="view-dashboard-outline" size={22} color={colors.brandPrimary} />
           <View style={{ flex: 1 }}>
@@ -115,6 +127,15 @@ export default function HomeIntelDashboard() {
           <View style={{ flex: 1 }}>
             <Text style={styles.dashTitle}>Command Center</Text>
             <Text style={styles.dashSub}>{"One calm view: what needs attention now & what to do next"}</Text>
+          </View>
+          <MaterialCommunityIcons name="chevron-right" size={22} color={colors.brandPrimary} />
+        </Pressable>
+
+        <Pressable testID="hi-design-studio" style={styles.dashCard} onPress={() => router.push("/home-intel/design")}>
+          <MaterialCommunityIcons name="palette-outline" size={22} color={colors.brandPrimary} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.dashTitle}>Design Studio</Text>
+            <Text style={styles.dashSub}>See the space before you build it — AI concepts that become real projects</Text>
           </View>
           <MaterialCommunityIcons name="chevron-right" size={22} color={colors.brandPrimary} />
         </Pressable>

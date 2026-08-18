@@ -1,0 +1,38 @@
+{
+  "summary": "Doc 28 Design Studio MVP fully tested. Backend: 12/12 pytest cases pass covering validation 400s, list/get with no source_photo_base64 leak, cross-user 404, inspiration style_summary, refine v2 creation, buildability verdict + separated categories + measure_first, approve/convert idempotency. Frontend E2E on mobile (390x844): login as demo_home → /home-intel Design Studio card visible → list showed existing 'Cozy living room' → created new 'Test bedroom UI' project → generated real concept image (Nano Banana) → direction card + disclaimer rendered → buildability verdict card with 'Measure before buying' rendered → approve → convert → navigated to /home-intel/repair/{id}. All testIDs present and interactive. Minor state edge case: refining a project AFTER it was converted resets status to 'approved' but linked_issue_id remains, so the UI on that stale project shows Approve/Convert buttons instead of 'Open the build project'.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/hi/design-studio/projects/{pid}/refine", "issue": "Refining a project whose status is already 'converted' resets it to 'concept_generated' (later 'approved') while linked_issue_id stays populated. Subsequent convert returns already:true without restoring status='converted', leaving the frontend on the wrong branch (shows Approve/Convert instead of 'Open the build project'). Consider (a) blocking refine after convert, or (b) restoring status='converted' inside convert when linked_issue_id is already present."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {"flow": "Existing converted project detail (Cozy living room)", "issue": "Detail screen condition `proj.status === 'converted'` misses the case where linked_issue_id is set but status was later flipped by a refine call. Suggest: `proj.linked_issue_id ? show 'Open the build project' : show approve/convert`", "affected_testIDs": ["dsd-open-project", "dsd-approve", "dsd-convert"]}
+    ],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_design_studio_b28.py",
+    "/app/test_reports/pytest/design_studio_b28_iter87.xml"
+  ],
+  "action_items": [
+    "Optional: harden convert() to re-assert status='converted' when linked_issue_id already exists, or gate refine when status='converted'. This addresses the stale 'Cozy living room' UI state.",
+    "Optional FE hardening: use `proj.linked_issue_id` (not `proj.status === 'converted'`) to decide whether to render the 'Open the build project' button in /home-intel/design/[id].tsx (line ~143)."
+  ],
+  "critical_code_review_comments": [
+    "design_studio_engine.py cleanly excludes source_photo_base64 from list/get responses (projection {source_photo_base64: 0}); inspirations exclude base64 too. Verified no PII leak.",
+    "convert() correctly marks gr_issues with source='design_studio' and design_project_id for traceability.",
+    "buildability separates taste/buildability/safety/budget/permit/measure_first per Doc 28 spec — LLM verdict is validated against the allowed enum with a needs_review fallback.",
+    "image generation uses gemini-3.1-flash-image-preview via emergentintegrations with reference_b64 for room-aware edits — verified end-to-end from FE."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "seed_data_creation": "Created two projects during testing: refine bumped existing pid ee9deacc… to v2, and FE E2E created 'Test bedroom UI' (converted to gr_issue). Total ~2 Nano Banana images generated (within budget).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend + FE for Design Studio Doc 28 is green. Existing demo project 'Cozy living room' (pid ee9deacc-b818-4fe8-8f1e-abf7671d9780) is now in status='approved' with a linked_issue_id set — this is the artifact of the refine-after-convert edge case noted above. If retesting the 'Open the build project' visibility, either apply the minor fix or use a freshly-converted project.",
+  "rca_of_issue": "Root cause of the Cozy 'Open build project button not visible' observation: _make_version() unconditionally sets status='concept_generated' after any version creation (line ~202), which overwrites 'converted'. convert() has an early-return short-circuit when linked_issue_id exists (line ~269) that does not restore status. FE detail screen uses `proj.status === 'converted'` (line 143) as the sole gate for the open-project button. Mitigation: either guard refine when status='converted', or use linked_issue_id as the FE gate."
+}

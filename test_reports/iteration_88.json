@@ -1,0 +1,33 @@
+{
+  "summary": "Doc 31 (Onboarding/Activation) + Doc 30 (Accessibility & Localization MVP) fully tested. Backend pytest: 18/18 pass (public intent normal + emergency + <3-char 400; claim create/idempotent/404; checklist 7 steps; activation signals; new-homeowner 8 items + toggle persistence + bogus-key 400; access meta + settings defaults + PUT persist + invalid-value ignored + 401 unauth; Homie chat reply verifiably switches to Spanish/simple when user has language=es + reading_level=simple + simplified_mode=true). Frontend E2E on 390x844 mobile viewport: login as demo_home → /home-intel dashboard shows 'hi-ask-homie-start' card that navigates to /home-intel/start; typing 'My bathroom faucet is dripping' shows result card with Repair + Plumbing badges, diagnosis, 'Do this right now', next-step, save button → save navigates to /home-intel/repair/{id}; 'I smell gas in my kitchen' shows red safety panel with NO save-project button; /home-intel/new-home renders 8 checklist items with progress bar, toggling test_smoke_co flips state; /home-intel/account 'Accessibility & language' row navigates to /account/accessibility, chip taps Español + Simple + toggle Simplified mode persist after reload, then reset back to English/Standard/off (verified via API — final state is en/standard/simplified_mode=false). Backend access settings reset confirmed via API. No blocker or minor bugs found.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_b30_b31_activation_access_iter88.py",
+    "/app/test_reports/pytest/b30_b31_activation_access_iter88.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "activation_engine.build_public_router mounts /api/hi/start/intent as truly public (no Depends(get_current_user)) — verified 200 without Authorization header.",
+    "Emergency short-circuit in capture_intent correctly skips classification, sets is_emergency=true, returns safety block, and OMITS save_prompt — matches spec.",
+    "claim endpoint enforces cross-user conflict (409) and idempotency via intent.issue_id short-circuit; gr_issues doc includes source='onboarding_intent' + need_type.",
+    "activation.signals is computed live from user's collections (gr_issues, gr_plans, hi_assets, gr_evidence, rd_boms, hi_maintenance_occurrences); activation_completed analytics fires once on first true signal.",
+    "new-homeowner GET merges NEW_HOME_ITEMS with auto-derived done flags (address, hvac, appliances, inspection doc, maintenance) + manual items; toggle validates key against known set (400 on unknown).",
+    "accessibility_engine PUT silently ignores invalid enum values (language/reading_level/text_size) instead of 400 — matches spec 'ignored not errored'. get_access_context() correctly injects language + reading_level + simplified_mode prompt block consumed downstream by Homie chat (verified end-to-end producing Spanish output).",
+    "Conversation hub router prefix is /api/hi/chat (not /api/hi/conversations) — spec note in review request referenced /api/hi/conversations but actual endpoint is /api/hi/chat/conversations. Test file uses the actual prefix."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_b30_b31_activation_access_iter88.py (new)"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "seed_data_creation": "Created 1 ob_intents row + 1 gr_issue (source=onboarding_intent) via claim test. FE E2E also created 1 additional gr_issue for the 'My bathroom faucet is dripping' intent (issue id fda431ad-0cb4-4d9a-9139-b82dda5b0363 on demo user). new-home toggle rows for locate_water_shutoff + test_smoke_co set then unset. Access settings reset to en/standard/simplified_mode=false at end (verified).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Doc 30 + Doc 31 are green. Note that Homie conversation endpoints live at /api/hi/chat/conversations (not /api/hi/conversations as briefly stated in the review request). The demo user now has an extra gr_issue 'My bathroom faucet is dripping' created via the Ask Homie flow — safe to reuse or ignore.",
+  "rca_of_issue": "N/A — no failures."
+}

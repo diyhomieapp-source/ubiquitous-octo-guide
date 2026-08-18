@@ -4,7 +4,7 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 import { colors, spacing, radius, font, type } from "@/src/theme";
-import { api } from "@/src/api";
+import { api, setToken } from "@/src/api";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
 
 type PendingAction = { action: string; label: string; run: (token: string) => Promise<void> } | null;
@@ -153,7 +153,46 @@ export default function PrivacyScreen() {
             <View style={{ flex: 1, paddingRight: spacing.sm }}><Text style={styles.k}>Improve AI models</Text><Text style={styles.hint}>Optional. Allow anonymized data to improve AI. Off by default.</Text></View>
             <Switch testID="privacy-ai-training" value={!!ov.ai_prefs?.ai_training_opt_in} disabled={busy} onValueChange={(v) => toggleAi("ai_training_opt_in", v)} trackColor={{ true: colors.brandPrimary }} />
           </View>
+          <View style={[styles.rowBetween, styles.rowDivider]}>
+            <View style={{ flex: 1, paddingRight: spacing.sm }}><Text style={styles.k}>Homie can use My Home data</Text><Text style={styles.hint}>Lets Homie tailor answers to your home. Off = Homie asks instead of assuming.</Text></View>
+            <Switch testID="privacy-ai-home" value={ov.ai_prefs?.allow_home_context !== false} disabled={busy} onValueChange={(v) => toggleAi("allow_home_context", v)} trackColor={{ true: colors.brandPrimary }} />
+          </View>
+          <View style={[styles.rowBetween, styles.rowDivider]}>
+            <View style={{ flex: 1, paddingRight: spacing.sm }}><Text style={styles.k}>Homie can use project photos</Text><Text style={styles.hint}>Used only when you ask Homie to look at a photo.</Text></View>
+            <Switch testID="privacy-ai-photos" value={ov.ai_prefs?.allow_project_photos !== false} disabled={busy} onValueChange={(v) => toggleAi("allow_project_photos", v)} trackColor={{ true: colors.brandPrimary }} />
+          </View>
+          <View style={[styles.rowBetween, styles.rowDivider]}>
+            <View style={{ flex: 1, paddingRight: spacing.sm }}><Text style={styles.k}>Homie can read my documents</Text><Text style={styles.hint}>Used only when you explicitly ask Homie to analyze a document.</Text></View>
+            <Switch testID="privacy-ai-docs" value={ov.ai_prefs?.allow_documents !== false} disabled={busy} onValueChange={(v) => toggleAi("allow_documents", v)} trackColor={{ true: colors.brandPrimary }} />
+          </View>
+          <View style={[styles.rowBetween, styles.rowDivider]}>
+            <View style={{ flex: 1, paddingRight: spacing.sm }}><Text style={styles.k}>AI personalization</Text><Text style={styles.hint}>Adapts guidance to your skill level and preferences.</Text></View>
+            <Switch testID="privacy-ai-personalization" value={ov.ai_prefs?.ai_personalization !== false} disabled={busy} onValueChange={(v) => toggleAi("ai_personalization", v)} trackColor={{ true: colors.brandPrimary }} />
+          </View>
           <Text style={styles.note}>Safety and essential guidance always work and are never affected by these optional toggles.</Text>
+        </View>
+
+        {/* Sessions */}
+        <Text style={styles.section}>Sessions</Text>
+        <View style={styles.card}>
+          <View style={styles.rowBetween}>
+            <View style={{ flex: 1, paddingRight: spacing.sm }}>
+              <Text style={styles.k}>Sign out of other devices</Text>
+              <Text style={styles.hint}>Ends every session except this one. Use this if you signed in on a shared device.</Text>
+            </View>
+            <Pressable
+              testID="privacy-logout-all"
+              disabled={busy}
+              onPress={() => act(async () => {
+                const r = await api<any>("/auth/logout-all", { method: "POST" });
+                if (r?.access_token) await setToken(r.access_token);
+                Alert.alert("Done", r?.message || "Signed out everywhere else.");
+              }, true)}
+              style={styles.smallBtn}
+            >
+              <Text style={styles.smallBtnText}>Sign out</Text>
+            </Pressable>
+          </View>
         </View>
 
         {/* Sharing registry */}
