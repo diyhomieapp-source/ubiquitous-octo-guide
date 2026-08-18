@@ -192,13 +192,44 @@ def public_user(u: dict) -> dict:
     }
 
 
-def create_token(user_id: str, token_version: int = 0) -> str:
+def create_token(user_id: str, token_version: int = 0, sid: Optional[str] = None) -> str:
     payload = {
         "sub": user_id,
         "tv": int(token_version or 0),
         "exp": datetime.now(timezone.utc) + timedelta(minutes=TOKEN_EXPIRE_MINUTES),
     }
+    if sid:
+        payload["sid"] = sid
     return jwt.encode(payload, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
+
+
+SESSION_DAYS = 90
+
+
+async def create_device_session(user_id: str, device_name: Optional[str], platform: Optional[str]) -> str:
+    """Doc 38 §12 trusted-device session record. Returns the session id embedded in the JWT."""
+    import secrets as _secrets
+    sid = _secrets.token_urlsafe(24)
+    now = datetime.now(timezone.utc)
+    await db.auth_sessions.insert_one({
+        "id": sid, "user_id": user_id,
+        "device_name": (device_name or "Unknown device")[:80],
+        "platform": (platform or "unknown")[:20],
+        "created_at": now.isoformat(), "last_seen": now.isoformat(),
+        "expires_at": (now + timedelta(days=SESSION_DAYS)).isoformat(),
+        "revoked_at": None,
+    })
+    return sid
+
+
+async def sec_event(event: str, user_id: Optional[str], meta: Optional[dict] = None):
+    """Doc 38 §25 security events (login success/failure, session revoked...). Never logs secrets."""
+    try:
+        await db.auth_security_events.insert_one({
+            "id": new_id(), "user_id": user_id, "event": event,
+            "meta": meta or {}, "created_at": now_iso()})
+    except Exception:
+        pass
 
 
 async def get_current_user(creds: HTTPAuthorizationCredentials = Depends(security)) -> dict:
@@ -216,6 +247,12 @@ async def get_current_user(creds: HTTPAuthorizationCredentials = Depends(securit
     # Doc 35 session security: "log out everywhere" bumps token_version, invalidating old tokens.
     if int(payload.get("tv", 0)) != int(user.get("token_version", 0)):
         raise cred_exc
+    # Doc 38 §12: per-device revocation — tokens carrying a session id must map to an active session.
+    sid = payload.get("sid")
+    if sid:
+        sess = await db.auth_sessions.find_one({"id": sid, "user_id": user_id, "revoked_at": None}, {"_id": 0, "id": 1})
+        if not sess:
+            raise cred_exc
     return user
 
 
@@ -231,11 +268,15 @@ class RegisterReq(BaseModel):
     password: str
     name: str = ""
     ref: Optional[str] = None
+    device_name: Optional[str] = None
+    platform: Optional[str] = None
 
 
 class LoginReq(BaseModel):
     email: EmailStr
     password: str
+    device_name: Optional[str] = None
+    platform: Optional[str] = None
 
 
 class ProfileReq(BaseModel):
@@ -753,7 +794,9 @@ async def register(req: RegisterReq):
         await emit_event("signup", user["id"], {})
     except Exception as e:
         logger.warning(f"automation signup failed: {e}")
-    token = create_token(user["id"], user.get("token_version", 0))
+    sid = await create_device_session(user["id"], req.device_name, req.platform)
+    await sec_event("account_created", user["id"], {"platform": req.platform or "unknown"})
+    token = create_token(user["id"], user.get("token_version", 0), sid)
     return {"access_token": token, "token_type": "bearer", "user": public_user(user)}
 
 
@@ -761,10 +804,43 @@ async def register(req: RegisterReq):
 async def login(req: LoginReq):
     user = await db.users.find_one({"email": req.email.lower()})
     if not user or not pwd_context.verify(req.password, user["hashed_password"]):
+        await sec_event("login_failure", user["id"] if user else None, {"email_known": bool(user)})
         raise HTTPException(status_code=400, detail="Incorrect email or password")
     await db.users.update_one({"id": user["id"]}, {"$set": {"last_login": now_iso()}})
-    token = create_token(user["id"], user.get("token_version", 0))
+    sid = await create_device_session(user["id"], req.device_name, req.platform)
+    await sec_event("login_success", user["id"], {"platform": req.platform or "unknown"})
+    token = create_token(user["id"], user.get("token_version", 0), sid)
     return {"access_token": token, "token_type": "bearer", "user": public_user(user)}
+
+
+@api_router.get("/auth/sessions")
+async def list_sessions(user: dict = Depends(get_current_user),
+                        creds: HTTPAuthorizationCredentials = Depends(security)):
+    try:
+        current_sid = jwt.decode(creds.credentials, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM]).get("sid")
+    except jwt.PyJWTError:
+        current_sid = None
+    now = datetime.now(timezone.utc).isoformat()
+    rows = await db.auth_sessions.find(
+        {"user_id": user["id"], "revoked_at": None, "expires_at": {"$gt": now}},
+        {"_id": 0}).sort("created_at", -1).to_list(20)
+    for s in rows:
+        s["is_current"] = s["id"] == current_sid
+    events = await db.auth_security_events.find(
+        {"user_id": user["id"], "event": {"$in": ["login_success", "login_failure", "session_revoked", "sessions_revoked_all"]}},
+        {"_id": 0}).sort("created_at", -1).to_list(8)
+    return {"sessions": rows, "recent_activity": events}
+
+
+@api_router.post("/auth/sessions/{sid}/revoke")
+async def revoke_session(sid: str, user: dict = Depends(get_current_user)):
+    res = await db.auth_sessions.update_one(
+        {"id": sid, "user_id": user["id"], "revoked_at": None},
+        {"$set": {"revoked_at": now_iso()}})
+    if res.modified_count:
+        await sec_event("session_revoked", user["id"], {"sid": sid[:12]})
+    # Success either way — prevents session enumeration.
+    return {"ok": True}
 
 
 @api_router.post("/auth/logout-all")
@@ -773,6 +849,10 @@ async def logout_all(user: dict = Depends(get_current_user)):
     token) and returns a fresh token so THIS device stays signed in."""
     new_version = int(user.get("token_version", 0)) + 1
     await db.users.update_one({"id": user["id"]}, {"$set": {"token_version": new_version}})
+    await db.auth_sessions.update_many({"user_id": user["id"], "revoked_at": None},
+                                       {"$set": {"revoked_at": now_iso()}})
+    sid = await create_device_session(user["id"], "This device", None)
+    await sec_event("sessions_revoked_all", user["id"], {})
     try:
         import audit_engine
         await audit_engine.log_event("user", user["id"], "sessions_revoked_all", "security",
@@ -780,7 +860,7 @@ async def logout_all(user: dict = Depends(get_current_user)):
                                      target_id=user["id"], risk_level="medium")
     except Exception:
         pass
-    return {"access_token": create_token(user["id"], new_version), "token_type": "bearer",
+    return {"access_token": create_token(user["id"], new_version, sid), "token_type": "bearer",
             "message": "Signed out everywhere else. This device stays signed in."}
 
 
@@ -836,7 +916,9 @@ async def google_auth(req: GoogleAuthReq):
         await db.users.insert_one(user)
     else:
         await db.users.update_one({"id": user["id"]}, {"$set": {"last_login": now_iso()}})
-    token = create_token(user["id"], user.get("token_version", 0))
+    sid = await create_device_session(user["id"], "Google sign-in device", None)
+    await sec_event("login_success", user["id"], {"provider": "google"})
+    token = create_token(user["id"], user.get("token_version", 0), sid)
     return {"access_token": token, "token_type": "bearer", "user": public_user(user)}
 
 

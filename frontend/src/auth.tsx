@@ -140,10 +140,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })();
   }, [refresh, processSessionId]);
 
+  const deviceInfo = () => ({
+    platform: Platform.OS,
+    device_name: Platform.select({ ios: "iPhone/iPad", android: "Android device", default: "Web browser" }),
+  });
+
   const signIn = async (email: string, password: string) => {
     const res = await api<{ access_token: string; user: User }>("/auth/login", {
       method: "POST",
-      body: { email, password },
+      body: { email, password, ...deviceInfo() },
       auth: false,
     });
     await setToken(res.access_token);
@@ -156,7 +161,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try { ref = await storage.getItem<string>(REF_KEY, ""); } catch {}
     const res = await api<{ access_token: string; user: User }>("/auth/register", {
       method: "POST",
-      body: { email, password, name, ...(ref ? { ref } : {}) },
+      body: { email, password, name, ...(ref ? { ref } : {}), ...deviceInfo() },
       auth: false,
     });
     await setToken(res.access_token);

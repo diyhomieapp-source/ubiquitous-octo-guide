@@ -725,3 +725,15 @@ The user is delivering a sequential program of build docs. Status:
 - Testing: iteration_89 (Doc 34, 11/11 + frontend) & iteration_90 (7/7 + frontend E2E). Auth regression clean.
 ### 🟡 QUEUE: Doc 37 — Universal Design System & Experience Standards (pasted 3x — NEXT)
 - Largely satisfied (semantic tokens in src/theme.ts, ScreenHeader pattern, status badges, safety states, empty/error states). Planned gap pass: universal "Ask Homie about this" contextual launcher on major screens; consistent status label audit; next-best-action check (command_center already does this).
+
+## Session update 7 — Doc 38 deltas SHIPPED (iteration 91 ALL GREEN) + Doc 39 audit: ALREADY COVERED
+### ✅ Build Doc 38 — Identity/Auth deltas (integration_expert playbook followed; MongoDB+JWT, Supabase ignored per standing rule)
+- Per-device sessions: JWT "sid" claim (backward compatible — legacy tokens w/o sid stay valid), auth_sessions collection (device_name/platform/created/expires 90d/revoked_at); login/register/google create sessions; Expo client sends Platform-derived device info (src/auth.tsx deviceInfo()).
+- Endpoints: GET /api/auth/sessions (devices + is_current + recent_activity), POST /api/auth/sessions/{sid}/revoke (single device, no enumeration), /api/auth/logout-all now revokes all session records + returns fresh sid token.
+- Security events (auth_security_events): login_success/login_failure/account_created/session_revoked/sessions_revoked_all.
+- Frontend: privacy.tsx "Sessions & devices" card (list, This-device marker, revoke, recent activity). Iter-91 cosmetic fix applied (no dup "This device" label). Remaining cosmetic (optional): distinct testID prefix for session revoke vs share revoke.
+- Rest of Doc 38 (households/roles/scoped grants/consent/step-up/deletion) was already covered by collaboration_engine + data_governance_engine + audit_engine. MFA for admins NOT built (future).
+- Testing: iteration_91 — 20/20 backend + frontend E2E green.
+### ✅ Build Doc 39 — Home Graph audit: NO BUILD NEEDED
+- Every acceptance criterion maps to existing engines: onboarding_engine (property), room_intelligence_engine, home_intelligence_engine (assets), document_vault_engine, property_record_engine + home-dashboard timeline (manual notes w/ add/delete on /home-intel/timeline), search_engine (federated authorization-first /api/hi/search — smoke verified), property_brain_engine (pb_facts confidence/provenance + completeness signal + context requests), maintenance_engine, collaboration_engine (scoped sharing). Smoke sweep of endpoints returned 200s.
+### 🟡 QUEUE unchanged: Doc 37 gap pass (contextual Ask-Homie launcher audit); backlog Docs 15/19/21/22/24/25 need coverage audit vs existing engines before any build.

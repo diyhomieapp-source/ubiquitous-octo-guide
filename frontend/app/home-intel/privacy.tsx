@@ -15,6 +15,8 @@ export default function PrivacyScreen() {
   const [consents, setConsents] = useState<any[]>([]);
   const [shares, setShares] = useState<any[]>([]);
   const [homes, setHomes] = useState<any[]>([]);
+  const [sessions, setSessions] = useState<any[]>([]);
+  const [activity, setActivity] = useState<any[]>([]);
   const [dataMap, setDataMap] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -28,12 +30,14 @@ export default function PrivacyScreen() {
 
   const load = useCallback(async () => {
     try {
-      const [o, c, s, dm, ec, hh] = await Promise.all([
+      const [o, c, s, dm, ec, hh, se] = await Promise.all([
         api<any>("/hi/privacy/overview"), api<any>("/hi/privacy/consents"), api<any>("/hi/privacy/shares"),
         api<any>("/hi/privacy/data-map"), api<any>("/hi/privacy/export/categories"), api<any>("/hi/account/overview").catch(() => ({ properties: [] })),
+        api<any>("/auth/sessions").catch(() => ({ sessions: [], recent_activity: [] })),
       ]);
       setOv(o); setConsents(c.consents || []); setShares(s.shares || []); setDataMap(dm.data_map || []);
       setExportCats(ec.categories || []); setSelCats(ec.categories || []); setHomes(hh.properties || []);
+      setSessions(se.sessions || []); setActivity(se.recent_activity || []);
     } catch (e: any) { Alert.alert("Load failed", e?.message || "Try again."); } finally { setLoading(false); }
   }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
@@ -173,8 +177,29 @@ export default function PrivacyScreen() {
         </View>
 
         {/* Sessions */}
-        <Text style={styles.section}>Sessions</Text>
+        <Text style={styles.section}>Sessions & devices</Text>
         <View style={styles.card}>
+          {sessions.map((s) => (
+            <View key={s.id} style={[styles.rowBetween, styles.rowDivider]}>
+              <View style={{ flex: 1, paddingRight: spacing.sm }}>
+                <Text style={styles.k}>{s.is_current ? (s.device_name === "This device" ? "This device" : `${s.device_name}  ·  This device`) : s.device_name}</Text>
+                <Text style={styles.hint}>{s.platform} · signed in {String(s.created_at).slice(0, 10)}</Text>
+              </View>
+              {!s.is_current && (
+                <Pressable
+                  testID={`privacy-revoke-${s.id}`}
+                  disabled={busy}
+                  onPress={() => act(async () => {
+                    await api(`/auth/sessions/${s.id}/revoke`, { method: "POST" });
+                    await load();
+                  }, true)}
+                  style={[styles.smallBtn, { borderColor: "#EB5757" }]}
+                >
+                  <Text style={[styles.smallBtnText, { color: "#EB5757" }]}>Revoke</Text>
+                </Pressable>
+              )}
+            </View>
+          ))}
           <View style={styles.rowBetween}>
             <View style={{ flex: 1, paddingRight: spacing.sm }}>
               <Text style={styles.k}>Sign out of other devices</Text>
@@ -187,12 +212,23 @@ export default function PrivacyScreen() {
                 const r = await api<any>("/auth/logout-all", { method: "POST" });
                 if (r?.access_token) await setToken(r.access_token);
                 Alert.alert("Done", r?.message || "Signed out everywhere else.");
+                await load();
               }, true)}
               style={styles.smallBtn}
             >
               <Text style={styles.smallBtnText}>Sign out</Text>
             </Pressable>
           </View>
+          {activity.length > 0 && (
+            <View style={{ marginTop: spacing.sm }}>
+              <Text style={styles.hint}>Recent sign-in activity</Text>
+              {activity.slice(0, 5).map((a) => (
+                <Text key={a.id} style={styles.hint}>
+                  {String(a.created_at).slice(0, 16).replace("T", " ")} — {String(a.event).replace(/_/g, " ")}
+                </Text>
+              ))}
+            </View>
+          )}
         </View>
 
         {/* Sharing registry */}

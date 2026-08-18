@@ -1,0 +1,35 @@
+{
+  "summary": "Doc 38 per-device JWT sessions delta fully verified end-to-end. Backend: 20/20 pytest cases pass covering two-device login → GET /auth/sessions with is_current flag + recent_activity, single-device revoke (token A → 401, token B → 200, bogus sid → {ok:true}), logout-all returning fresh token C that kills A & B and leaves only 'This device' session, failed login → 400 + login_failure event visible after next login, register with device_name/platform → account_created event + working token, and regression spot check that /auth/me, /hi/start/checklist, /hi/jobs, /hi/access/settings all still authorize with a demo token containing sid. Frontend: /home-intel/privacy 'Sessions & devices' card lists all active devices with 'This device' marker on the current session, non-current rows expose testID privacy-revoke-{sid} which successfully calls the revoke API and the row disappears on reload (5 → 4). privacy-logout-all clicks, POSTs /api/auth/logout-all, receives fresh access_token + 'Signed out everywhere else' message, sessions collapse to a single 'This device' row, and the app stays signed in (home dashboard still renders Homie greeting). 'Recent sign-in activity' list renders login_success / session_revoked / sessions_revoked_all lines. Regression /home-intel/start (Ask Homie) still renders. No red screens, no deprecated packages introduced by this delta.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "home-intel/privacy", "issues": ["After logout-all, the newly-created current session has device_name='This device' AND the '· This device' marker is also appended by the UI, producing the visual 'This Device · This Device'. Cosmetic — consider suppressing the appended marker when device_name is literally 'This device', or setting the server-side device_name to a friendlier value like the caller's platform."]}
+    ],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_auth_sessions_doc38_iter91.py",
+    "/app/test_reports/pytest/auth_sessions_doc38_iter91.xml"
+  ],
+  "action_items": [
+    "(Minor / optional) In /app/frontend/app/home-intel/privacy.tsx line 185, avoid the duplicate 'This Device · This Device' label when device_name==='This device'. Suggestion: `{s.device_name}{s.is_current && s.device_name !== 'This device' ? '  ·  This device' : ''}`.",
+    "(Minor / optional) Same file uses the testID pattern `privacy-revoke-${s.id}` both for auth sessions (line 190) and for privacy shares (line 243). Session ids and share ids don't collide today, but consider distinct prefixes (e.g. `privacy-revoke-session-{sid}` vs `privacy-revoke-share-{id}`) to future-proof selectors and QA reports."
+  ],
+  "critical_code_review_comments": [
+    "server.py revoke_session correctly returns {ok:true} for unknown sid to prevent session enumeration — good.",
+    "logout-all bumps token_version AND revokes all auth_sessions AND mints a fresh session/token in a single call — matches Doc 38 §15 semantics.",
+    "get_current_user (line ~251) requires the sid (when present) to exist and be unrevoked in auth_sessions — this is what makes revoked tokens 401. Backward compatibility for tokens WITHOUT sid is preserved by the `if sid:` guard.",
+    "GET /auth/sessions filters recent_activity to login_success / login_failure / session_revoked / sessions_revoked_all only — note that account_created events exist in auth_security_events but are NOT surfaced in recent_activity. Intentional/OK, just documenting."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_auth_sessions_doc38_iter91.py (new pytest suite, 20 test cases)"
+  ],
+  "success_rate": {"backend": "100% (20/20)", "frontend": "100% of Doc 38 privacy screen flows"},
+  "seed_data_creation": "One throwaway user TEST_iter91_<uuid>@example.com created during register test; auto-cleaned in teardown_module (users, auth_sessions, auth_security_events). No stale rows left behind.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Base URL comes from /app/frontend/.env EXPO_PUBLIC_BACKEND_URL. Demo user token now contains a `sid` claim; revoking that sid via /api/auth/sessions/{sid}/revoke immediately invalidates the token (401 on /auth/me). /auth/logout-all issues a NEW token — clients must swap it in (frontend already does via setToken()). auth_security_events collection is append-only per user, filtered to 4 event types in the GET /auth/sessions recent_activity payload (login_success, login_failure, session_revoked, sessions_revoked_all). account_created events exist in DB but are intentionally omitted from recent_activity.",
+  "rca_of_issue": "No bugs found. All Doc 38 delta features (per-device sessions, session listing with is_current, single-device revoke, logout-all with fresh token, security events, register/login sending device_name+platform, privacy screen UI) are working as specified."
+}
