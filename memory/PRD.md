@@ -737,3 +737,16 @@ The user is delivering a sequential program of build docs. Status:
 ### ✅ Build Doc 39 — Home Graph audit: NO BUILD NEEDED
 - Every acceptance criterion maps to existing engines: onboarding_engine (property), room_intelligence_engine, home_intelligence_engine (assets), document_vault_engine, property_record_engine + home-dashboard timeline (manual notes w/ add/delete on /home-intel/timeline), search_engine (federated authorization-first /api/hi/search — smoke verified), property_brain_engine (pb_facts confidence/provenance + completeness signal + context requests), maintenance_engine, collaboration_engine (scoped sharing). Smoke sweep of endpoints returned 200s.
 ### 🟡 QUEUE unchanged: Doc 37 gap pass (contextual Ask-Homie launcher audit); backlog Docs 15/19/21/22/24/25 need coverage audit vs existing engines before any build.
+
+## Session update 8 — Doc 40 SHIPPED (iteration 92 ALL GREEN) + Doc 42 audit: ALREADY COVERED
+### ✅ Build Doc 40 — Dynamic AR Visual Guidance improvement layer (extends ar_guidance_engine.py, Blueprint 27)
+- 32 reusable ACTION_PRIMITIVES (LOOSEN_BOLT, DRIVE_SCREW, CAULK_PATH, CLOSE_SHUTOFF...) with motion/tool/direction/anchor/visuals; 33-tool TOOL_LIBRARY w/ grip/interaction/rotation metadata; 8 anchor types; 22 visual objects.
+- 4 ACTION_PACKAGES (painting 6, toilet_replacement 11, drywall_repair 9, flooring 7) — reusable sequences, not one-off animations.
+- compose_action(): deterministic step-text → structured Visual Instruction payload (action_id/motion/tool/direction/anchor{type,tracking_required}/visuals/voice/verification/safety_level) attached to every project-step AR instruction.
+- Endpoints: GET /api/hi/ar/meta/actions, /meta/packages, /meta/packages/{pid}; POST /sessions/{sid}/instructions/{iid}/target (confidence tiers: >=0.85 anchor_and_guide, >=0.5 request_confirmation, else request_rescan; user_confirmed override; target_state persisted).
+- Frontend: AR screen shows action chips + overlay list (testID ar-action-payload) for project-step instructions.
+- NOTE: true spatial AR (Unity/ARKit anchoring, avatar/tool 3D animation) requires a NATIVE BUILD + Unity/Reallusion professionals per Doc 40 §15 — this layer is the "DIYHomie Intelligence Layer" contract those pros consume. Expo preview shows 2D guided view only.
+- Testing: iteration_92 — 20/20 backend pytest + frontend smoke, zero residual fixtures.
+### ✅ Build Doc 42 — Project Workspace & Decision Ledger audit: NO BUILD NEEDED
+- Fully covered: gr_issues phases w/ backward movement, gr_positions (Project Position incl. alternatives_considered/rejected_approaches), gr_decisions + pi_decisions (Decision Ledger), pi_blockers/pi_change_events (problem & change management w/ impact review), project_intelligence next-best-action + workspace endpoint, pi_budget_snapshots, evidence/measurements attachment, completion → gr_timeline, collaboration permissions. Smoke verified position data on live issue.
+### Queue note: user skipped Doc 41 (never pasted). Docs 33/35/36/37/39/42 confirmed covered or delta-shipped.

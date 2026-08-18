@@ -150,6 +150,17 @@ export default function ARGuidance() {
             <View style={styles.card}>
               <Text style={styles.cardTitle}>{cur?.title}</Text>
               <Text style={styles.body}>{cur?.instruction}</Text>
+              {cur?.action ? (
+                <View testID="ar-action-payload" style={styles.actionWrap}>
+                  <View style={styles.actionChips}>
+                    <View style={styles.aChip}><MaterialCommunityIcons name="gesture-tap-hold" size={13} color={colors.brandPrimary} /><Text style={styles.aChipText}>{String(cur.action.action_id).replace(/_/g, " ").toLowerCase()}</Text></View>
+                    {cur.action.tool ? <View style={styles.aChip}><MaterialCommunityIcons name="tools" size={13} color={colors.brandPrimary} /><Text style={styles.aChipText}>{String(cur.action.tool).replace(/_/g, " ")}</Text></View> : null}
+                    {cur.action.direction ? <View style={styles.aChip}><MaterialCommunityIcons name={cur.action.direction === "counterclockwise" ? "rotate-left" : cur.action.direction === "clockwise" ? "rotate-right" : "arrow-right"} size={13} color={colors.brandPrimary} /><Text style={styles.aChipText}>{cur.action.direction}</Text></View> : null}
+                    <View style={styles.aChip}><MaterialCommunityIcons name="map-marker-outline" size={13} color={colors.brandPrimary} /><Text style={styles.aChipText}>{cur.action.anchor?.type} anchor</Text></View>
+                  </View>
+                  <Text style={styles.visualsHint}>Overlays: {(cur.action.visuals || []).map((v: string) => v.replace(/_/g, " ")).join(" · ")}</Text>
+                </View>
+              ) : null}
               {cur?.safety_note ? (
                 <View style={styles.safety}><MaterialCommunityIcons name="shield-alert-outline" size={16} color="#EB5757" /><Text style={styles.safetyText}>{cur.safety_note}</Text></View>
               ) : null}
@@ -213,6 +224,11 @@ const styles = StyleSheet.create({
   statusTitle: { fontFamily: font.bold, fontSize: type.base },
   reason: { color: colors.onSurfaceSecondary, fontFamily: font.regular, fontSize: type.sm, marginTop: 3, lineHeight: 18 },
   card: { backgroundColor: colors.surfaceSecondary, borderColor: colors.border, borderWidth: 1, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.md },
+  actionWrap: { marginTop: spacing.sm },
+  actionChips: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  aChip: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: colors.brandTertiary, borderRadius: radius.pill, paddingHorizontal: spacing.sm, paddingVertical: 4 },
+  aChipText: { fontFamily: font.medium, fontSize: type.xs, color: colors.onSurfaceSecondary, textTransform: "capitalize" },
+  visualsHint: { fontFamily: font.regular, fontSize: type.xs, color: colors.onSurfaceTertiary, marginTop: 6 },
   cardTitle: { color: colors.onSurface, fontFamily: font.bold, fontSize: type.lg, marginBottom: spacing.xs },
   body: { color: colors.onSurfaceSecondary, fontFamily: font.regular, fontSize: type.base, lineHeight: 21 },
   primaryBtn: { backgroundColor: colors.brandPrimary, borderRadius: radius.sm, paddingVertical: spacing.md, alignItems: "center", marginTop: spacing.md },

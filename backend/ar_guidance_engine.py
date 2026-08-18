@@ -38,6 +38,149 @@ PROFESSIONAL_KEYWORDS = ["electrical panel", "breaker", "service panel", "gas li
                          "main water line", "sewer main", "furnace", "wiring a circuit"]
 HAZARD_HINT = ["electrical", "gas", "roof", "height", "ladder", "chemical", "mold", "high voltage"]
 
+# ================================================================ Doc 40 — reusable action vocabulary
+# One reusable primitive per PHYSICAL action; never one-off per-project animations.
+# anchor types: world | object | component | surface | edge | point | path | plane
+ACTION_PRIMITIVES = {
+    "LOOSEN_BOLT":    {"motion": "ROTATE_COUNTERCLOCKWISE", "tool": "adjustable_wrench", "direction": "counterclockwise", "anchor": "component", "visuals": ["object_outline", "ghost_tool", "rotation_arrow"]},
+    "TIGHTEN_BOLT":   {"motion": "ROTATE_CLOCKWISE", "tool": "adjustable_wrench", "direction": "clockwise", "anchor": "component", "visuals": ["object_outline", "ghost_tool", "rotation_arrow"]},
+    "DRIVE_SCREW":    {"motion": "ROTATE_CLOCKWISE", "tool": "drill", "direction": "clockwise", "anchor": "point", "visuals": ["target_ring", "ghost_tool", "rotation_arrow"]},
+    "REMOVE_SCREW":   {"motion": "ROTATE_COUNTERCLOCKWISE", "tool": "screwdriver", "direction": "counterclockwise", "anchor": "component", "visuals": ["object_outline", "ghost_tool", "rotation_arrow"]},
+    "DRILL":          {"motion": "DRILL", "tool": "drill", "direction": "forward", "anchor": "point", "visuals": ["target_crosshair", "ghost_tool", "keep_out_zone"]},
+    "HAMMER":         {"motion": "HAMMER", "tool": "hammer", "direction": None, "anchor": "point", "visuals": ["target_dot", "ghost_tool"]},
+    "TAP_JOINT":      {"motion": "TAP", "tool": "rubber_mallet", "direction": None, "anchor": "edge", "visuals": ["edge_highlight", "ghost_tool", "direction_arrow"]},
+    "PRY":            {"motion": "PRY", "tool": "pry_bar", "direction": None, "anchor": "edge", "visuals": ["edge_highlight", "ghost_tool", "direction_arrow"]},
+    "CUT":            {"motion": "CUT", "tool": "utility_knife", "direction": None, "anchor": "path", "visuals": ["cut_line", "ghost_tool", "start_point", "end_point"]},
+    "SAW":            {"motion": "CUT", "tool": "handsaw", "direction": None, "anchor": "path", "visuals": ["cut_line", "ghost_tool"]},
+    "MEASURE":        {"motion": "MEASURE", "tool": "tape_measure", "direction": None, "anchor": "point", "visuals": ["start_point", "end_point", "distance_indicator"]},
+    "MARK":           {"motion": "MARK", "tool": "pencil", "direction": None, "anchor": "point", "visuals": ["target_dot", "alignment_guide"]},
+    "LEVEL_CHECK":    {"motion": "ALIGN", "tool": "level", "direction": None, "anchor": "surface", "visuals": ["level_indicator", "alignment_guide"]},
+    "APPLY_TAPE":     {"motion": "SLIDE", "tool": "painters_tape", "direction": None, "anchor": "edge", "visuals": ["tape_line", "edge_highlight", "path_line"]},
+    "CUT_IN_EDGE":    {"motion": "BRUSH", "tool": "paint_brush", "direction": None, "anchor": "edge", "visuals": ["edge_highlight", "path_line", "ghost_tool"]},
+    "ROLL_SURFACE":   {"motion": "ROLL", "tool": "paint_roller", "direction": None, "anchor": "surface", "visuals": ["surface_highlight", "path_line", "ghost_tool"]},
+    "APPLY_COMPOUND": {"motion": "SPREAD", "tool": "drywall_knife", "direction": None, "anchor": "surface", "visuals": ["surface_highlight", "ghost_tool"]},
+    "EMBED_TAPE":     {"motion": "SMOOTH", "tool": "drywall_knife", "direction": None, "anchor": "path", "visuals": ["path_line", "ghost_tool"]},
+    "SAND_SURFACE":   {"motion": "SMOOTH", "tool": "sanding_block", "direction": None, "anchor": "surface", "visuals": ["surface_highlight", "ghost_tool"]},
+    "SCRAPE":         {"motion": "SCRAPE", "tool": "scraper", "direction": None, "anchor": "surface", "visuals": ["surface_highlight", "ghost_tool"]},
+    "CAULK_PATH":     {"motion": "CAULK", "tool": "caulk_gun", "direction": None, "anchor": "path", "visuals": ["path_line", "start_point", "end_point", "ghost_tool"]},
+    "PLACE_OBJECT":   {"motion": "LOWER", "tool": None, "direction": None, "anchor": "surface", "visuals": ["ghost_object", "alignment_guide"]},
+    "ALIGN_OBJECT":   {"motion": "SLIDE", "tool": None, "direction": None, "anchor": "object", "visuals": ["object_outline", "alignment_guide", "direction_arrow"]},
+    "LIFT_OBJECT":    {"motion": "LIFT", "tool": None, "direction": "up", "anchor": "object", "visuals": ["object_outline", "direction_arrow"]},
+    "CLOSE_SHUTOFF":  {"motion": "ROTATE_CLOCKWISE", "tool": None, "direction": "clockwise", "anchor": "component", "visuals": ["object_outline", "rotation_arrow"]},
+    "OPEN_SHUTOFF":   {"motion": "ROTATE_COUNTERCLOCKWISE", "tool": None, "direction": "counterclockwise", "anchor": "component", "visuals": ["object_outline", "rotation_arrow"]},
+    "DISCONNECT_SUPPLY": {"motion": "TWIST", "tool": "pliers", "direction": "counterclockwise", "anchor": "component", "visuals": ["object_outline", "ghost_tool", "rotation_arrow"]},
+    "RECONNECT_SUPPLY": {"motion": "TWIST", "tool": None, "direction": "clockwise", "anchor": "component", "visuals": ["object_outline", "rotation_arrow"]},
+    "INSPECT":        {"motion": "POINT", "tool": "flashlight", "direction": None, "anchor": "surface", "visuals": ["surface_highlight", "target_ring"]},
+    "CHECK_FOR_LEAK": {"motion": "POINT", "tool": "flashlight", "direction": None, "anchor": "component", "visuals": ["object_outline", "inspection_marker"]},
+    "FIND_STUD":      {"motion": "SLIDE", "tool": "stud_finder", "direction": None, "anchor": "surface", "visuals": ["surface_highlight", "ghost_tool", "target_dot"]},
+    "WIPE_CLEAN":     {"motion": "WIPE", "tool": None, "direction": None, "anchor": "surface", "visuals": ["surface_highlight"]},
+}
+
+TOOL_LIBRARY = [
+    {"id": t, "label": t.replace("_", " ").title(), "grip_point": True, "interaction_point": True,
+     "rotation_axis": t in ("adjustable_wrench", "screwdriver", "drill", "socket_wrench", "impact_driver")}
+    for t in ["tape_measure", "pencil", "level", "square", "chalk_line", "screwdriver", "drill", "impact_driver",
+              "adjustable_wrench", "socket_wrench", "pliers", "hammer", "rubber_mallet", "pry_bar", "utility_knife",
+              "handsaw", "circular_saw", "jigsaw", "paint_brush", "paint_roller", "putty_knife", "drywall_knife",
+              "scraper", "caulk_gun", "trowel", "grout_float", "stud_finder", "flashlight", "laser_measure",
+              "clamp", "tile_spacer", "sanding_block", "painters_tape"]
+]
+
+ANCHOR_TYPES = ["world", "object", "component", "surface", "edge", "point", "path", "plane"]
+VISUAL_OBJECTS = ["target_dot", "target_ring", "target_crosshair", "object_outline", "surface_highlight",
+                  "edge_highlight", "corner_highlight", "path_line", "direction_arrow", "rotation_arrow",
+                  "start_point", "end_point", "cut_line", "tape_line", "keep_out_zone", "alignment_guide",
+                  "level_indicator", "distance_indicator", "angle_indicator", "ghost_object", "ghost_tool",
+                  "inspection_marker"]
+
+# Doc 40 §10 — action packages: reusable sequences, NOT isolated project animations.
+ACTION_PACKAGES = {
+    "painting": {"label": "Painting a wall", "actions": [
+        ("INSPECT", "Look over the wall for damage or grease before you start."),
+        ("APPLY_TAPE", "Run tape along this edge, pressing it flat as you go."),
+        ("CUT_IN_EDGE", "Load your brush lightly and cut in a steady band along the taped edge."),
+        ("ROLL_SURFACE", "Roll a W pattern in this section, then fill it in without lifting the roller."),
+        ("INSPECT", "Check for thin spots or drips while the paint is still wet."),
+        ("ROLL_SURFACE", "Apply the second coat the same way once the first coat is dry."),
+    ]},
+    "toilet_replacement": {"label": "Replacing a toilet", "actions": [
+        ("CLOSE_SHUTOFF", "Turn the shutoff valve clockwise until it stops."),
+        ("DISCONNECT_SUPPLY", "Twist the supply-line nut counterclockwise. Keep a towel underneath."),
+        ("LOOSEN_BOLT", "Place your wrench on this bolt and turn counterclockwise to loosen it."),
+        ("LIFT_OBJECT", "Lift the toilet straight up with your legs, not your back."),
+        ("SCRAPE", "Scrape the old wax seal off the flange completely."),
+        ("PLACE_OBJECT", "Set the new seal centered on the flange."),
+        ("ALIGN_OBJECT", "Lower the toilet so both bolts pass through the base holes."),
+        ("TIGHTEN_BOLT", "Tighten each bolt a little at a time, alternating sides. Snug, not cranked."),
+        ("RECONNECT_SUPPLY", "Reconnect the supply line hand-tight plus a quarter turn."),
+        ("OPEN_SHUTOFF", "Open the shutoff counterclockwise all the way."),
+        ("CHECK_FOR_LEAK", "Flush twice and check around the base and supply line for any water."),
+    ]},
+    "drywall_repair": {"label": "Repairing drywall", "actions": [
+        ("FIND_STUD", "Slide the stud finder across the wall and mark where it signals."),
+        ("MARK", "Mark your cut lines around the damaged area."),
+        ("CUT", "Score along this line with steady, repeated passes."),
+        ("PLACE_OBJECT", "Position the backing strip inside the opening."),
+        ("DRIVE_SCREW", "Drive a screw here until the head sits just below the surface."),
+        ("APPLY_COMPOUND", "Spread a thin, even layer of compound over the patch."),
+        ("EMBED_TAPE", "Press the tape into the compound and smooth it flat."),
+        ("APPLY_COMPOUND", "Feather a wider second coat past the edges."),
+        ("SAND_SURFACE", "Sand lightly in circles until the patch blends flush."),
+    ]},
+    "flooring": {"label": "Installing plank flooring", "actions": [
+        ("MEASURE", "Measure the room width so your last row won't be a sliver."),
+        ("PLACE_OBJECT", "Set the first board with the expansion gap against this wall."),
+        ("ALIGN_OBJECT", "Slide the next board into the joint at a low angle."),
+        ("TAP_JOINT", "Tap the joint closed with the mallet and a tapping block."),
+        ("MEASURE", "Measure the final piece for this row."),
+        ("MARK", "Mark the cut line on the board."),
+        ("SAW", "Cut along the line, finished side up."),
+    ]},
+}
+
+_ACTION_KEYWORDS = [
+    (["loosen", "unbolt"], "LOOSEN_BOLT"), (["tighten bolt", "tighten the bolt", "tighten nut", "snug"], "TIGHTEN_BOLT"),
+    (["unscrew", "remove screw", "remove the screw", "back out"], "REMOVE_SCREW"),
+    (["drive screw", "screw in", "fasten", "secure with screw"], "DRIVE_SCREW"),
+    (["drill"], "DRILL"), (["hammer", "nail"], "HAMMER"), (["pry"], "PRY"),
+    (["stud finder", "find the stud", "locate stud"], "FIND_STUD"),
+    (["saw"], "SAW"), (["cut", "score"], "CUT"),
+    (["measure", "distance"], "MEASURE"), (["mark"], "MARK"), (["level"], "LEVEL_CHECK"),
+    (["tape off", "painter's tape", "apply tape", "tape the"], "APPLY_TAPE"),
+    (["cut in", "cut-in", "brush along"], "CUT_IN_EDGE"),
+    (["roll", "roller"], "ROLL_SURFACE"),
+    (["compound", "mud", "joint compound", "spackle"], "APPLY_COMPOUND"),
+    (["embed tape", "mesh tape", "paper tape"], "EMBED_TAPE"),
+    (["sand"], "SAND_SURFACE"), (["scrape", "remove old"], "SCRAPE"),
+    (["caulk", "sealant", "bead of"], "CAULK_PATH"),
+    (["shut off", "shutoff", "turn off the water", "close the valve"], "CLOSE_SHUTOFF"),
+    (["turn the water back on", "open the valve", "restore water"], "OPEN_SHUTOFF"),
+    (["disconnect the supply", "disconnect supply"], "DISCONNECT_SUPPLY"),
+    (["reconnect", "reattach the supply"], "RECONNECT_SUPPLY"),
+    (["leak", "check for water"], "CHECK_FOR_LEAK"),
+    (["lift"], "LIFT_OBJECT"), (["align"], "ALIGN_OBJECT"),
+    (["place", "position", "set the", "lay"], "PLACE_OBJECT"),
+    (["wipe", "clean the"], "WIPE_CLEAN"),
+    (["inspect", "check", "verify", "look for"], "INSPECT"),
+]
+
+
+def compose_action(instr_text: str, safety_note=None) -> dict:
+    """Doc 40 §8 — map a step instruction to a structured, reusable visual-instruction payload.
+    Deterministic keyword mapping; Unity/AR layer consumes this, never free text."""
+    t = (instr_text or "").lower()
+    action_id = next((a for kws, a in _ACTION_KEYWORDS if any(k in t for k in kws)), "INSPECT")
+    p = ACTION_PRIMITIVES[action_id]
+    high_risk = any(w in t for w in HAZARD_HINT)
+    return {
+        "action_id": action_id, "motion": p["motion"], "tool": p["tool"], "direction": p["direction"],
+        "anchor": {"type": p["anchor"], "tracking_required": p["anchor"] in ("component", "point", "path", "edge", "object")},
+        "visuals": p["visuals"],
+        "voice": (instr_text or "").strip()[:220],
+        "verification": {"type": "user_confirmation", "prompt": "Tell me when this step is done."},
+        "safety_level": "caution" if (safety_note or high_risk) else "normal",
+    }
+
 # Overlay type inference from a step instruction.
 def _overlay_for(text: str) -> str:
     t = (text or "").lower()
@@ -208,6 +351,8 @@ async def _build_instructions(session_id, project, guidance_type, estimated) -> 
                                "drilling or making anything permanent. " + (safety_note or "")).strip()
             doc = {"id": _nid(), "ar_guidance_session_id": session_id, "sequence_number": i,
                    "title": title, "instruction": instr, "overlay_type": overlay,
+                   "action": compose_action(instr, st.get("safety_note")),
+                   "target_state": "unconfirmed",
                    "safety_note": safety_note, "requires_confirmation": requires_confirm or overlay == "placement_marker",
                    "project_step_id": st.get("id"), "status": "pending", "created_at": _now()}
             instructions.append(doc)
@@ -264,6 +409,11 @@ class FallbackReq(BaseModel):
     to: str = "2d"  # 2d | text | professional
 
 
+class TargetReq(BaseModel):
+    confidence: float = 0.0  # 0..1 from the vision/AR layer (or user-estimated)
+    user_confirmed: bool = False
+
+
 class CompleteReq(BaseModel):
     work_item_confirmed: bool = False
     user_feedback: Optional[str] = None
@@ -286,6 +436,45 @@ def build_router(get_current_user: Callable) -> APIRouter:
 
     async def _project(pid, uid):
         return await _db.hi_projects.find_one({"id": pid, "user_id": uid}, {"_id": 0}) if pid else None
+
+    @r.get("/meta/actions")
+    async def meta_actions(user: dict = Depends(get_current_user)):
+        return {"primitives": [{"id": k, **v} for k, v in ACTION_PRIMITIVES.items()],
+                "tools": TOOL_LIBRARY, "anchor_types": ANCHOR_TYPES, "visual_objects": VISUAL_OBJECTS}
+
+    @r.get("/meta/packages")
+    async def meta_packages(user: dict = Depends(get_current_user)):
+        return {"packages": [{"id": k, "label": v["label"], "action_count": len(v["actions"])}
+                             for k, v in ACTION_PACKAGES.items()]}
+
+    @r.get("/meta/packages/{pid}")
+    async def meta_package(pid: str, user: dict = Depends(get_current_user)):
+        pkg = ACTION_PACKAGES.get(pid)
+        if not pkg:
+            raise HTTPException(status_code=404, detail="Package not found.")
+        return {"id": pid, "label": pkg["label"],
+                "actions": [{"sequence": i, "action_id": aid,
+                             "motion": ACTION_PRIMITIVES[aid]["motion"], "tool": ACTION_PRIMITIVES[aid]["tool"],
+                             "direction": ACTION_PRIMITIVES[aid]["direction"], "anchor": ACTION_PRIMITIVES[aid]["anchor"],
+                             "visuals": ACTION_PRIMITIVES[aid]["visuals"], "voice": voice}
+                            for i, (aid, voice) in enumerate(pkg["actions"])]}
+
+    @r.post("/sessions/{sid}/instructions/{iid}/target")
+    async def target_instruction(sid: str, iid: str, req: TargetReq, user: dict = Depends(get_current_user)):
+        """Doc 40 §7 confidence-aware targeting: never hallucinate certainty."""
+        sess = await _db.ar_sessions.find_one({"id": sid, "user_id": user["id"]}, {"_id": 0, "id": 1})
+        instr = await _db.ar_instructions.find_one({"id": iid, "ar_guidance_session_id": sid}, {"_id": 0})
+        if not sess or not instr:
+            raise HTTPException(status_code=404, detail="Instruction not found.")
+        conf = max(0.0, min(1.0, float(req.confidence)))
+        if req.user_confirmed or conf >= 0.85:
+            state, behavior, message = "acquired", "anchor_and_guide", "Target locked. Follow the guide."
+        elif conf >= 0.5:
+            state, behavior, message = "candidate", "request_confirmation", "I believe this is the right spot. Tap it to confirm."
+        else:
+            state, behavior, message = "lost", "request_rescan", "I can't see the target clearly. Move closer or improve the lighting, then try again."
+        await _db.ar_instructions.update_one({"id": iid}, {"$set": {"target_state": state, "target_confidence": conf}})
+        return {"target_state": state, "behavior": behavior, "message": message, "confidence": conf}
 
     @r.post("/eligibility")
     async def eligibility(req: EligibilityReq, user: dict = Depends(get_current_user)):

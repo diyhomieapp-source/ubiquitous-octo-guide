@@ -1,0 +1,33 @@
+{
+  "summary": "Doc 40 — Dynamic AR Visual Guidance layer fully verified: 20/20 backend pytest cases pass and light frontend smoke test green. Backend: GET /hi/ar/meta/actions returns exactly 32 ACTION_PRIMITIVES (each with motion/tool/direction/anchor/visuals), 33 tools (all with grip_point/interaction_point/rotation_axis flags), 8 anchor_types (world/object/component/surface/edge/point/path/plane), and a visual_objects list; unauthenticated call is rejected. GET /hi/ar/meta/packages returns 4 packages {painting, toilet_replacement, drywall_repair, flooring} each with label+action_count. GET /hi/ar/meta/packages/toilet_replacement returns 11 sequenced actions starting with CLOSE_SHUTOFF; LOOSEN_BOLT step has tool=adjustable_wrench, direction=counterclockwise, anchor=component, visuals includes rotation_arrow. Bogus package id → 404. Confidence-aware targeting POST /hi/ar/sessions/{sid}/instructions/{iid}/target: conf=0.95 → target_state=acquired + behavior=anchor_and_guide, conf=0.6 → candidate + request_confirmation, conf=0.2 → lost + request_rescan, user_confirmed=true with conf=0.2 → acquired (override works), bogus iid → 404. Action payload on project-step instructions verified by seeding a benign TEST_iter92 hi_project + 4 hi_project_steps (measure/find_stud/drive_screw/place) for the demo user, starting a sequence_overlay session with that project_id — all instructions carry a fully-formed `action` object {action_id, motion, tool, direction, anchor{type,tracking_required}, visuals[], voice, verification{type,prompt}, safety_level in normal|caution} and every action_id belongs to the 32-primitive vocabulary. Regression: eligibility, calibrate, confirm-instruction, pause/resume, fallback, complete endpoints all still respond correctly. Frontend smoke (390x844, web): login demo → /home-intel dashboard renders with Home Intelligence + Homie + My Home + Ask Homie + Design Studio; /home-intel/ar renders '2D guided view' banner (LIMITED status expected on web) with no red screen, ar-start visible; tapping ar-start creates a session, ar-confirm + ar-show-text + Recenter/Tracking/Pause/Safety/Exit controls all render. ar-action-payload correctly does NOT render for the generic (no-project) session because that path emits an instruction without an `action` field — payload attachment is gated on project-step-driven sessions (backend-verified above). CLEANUP: seeded hi_projects+hi_project_steps rows + associated ar_sessions/ar_instructions/ar_anchors were all deleted in teardown_module; verified 0 residual TEST_iter92 rows in Mongo.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_ar_visual_guidance_doc40_iter92.py",
+    "/app/test_reports/pytest/ar_visual_guidance_doc40_iter92.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "ar_guidance_engine.compose_action() defaults to 'INSPECT' when no keyword matches — sensible fallback but note that _ACTION_KEYWORDS uses substring matching and can misfire (e.g. 'check' before 'shutoff' would match INSPECT before CHECK_FOR_LEAK). Order is currently good (LOOSEN before TIGHTEN, CHECK_FOR_LEAK before INSPECT) but any future addition should preserve the specific→generic ordering.",
+    "compose_action.safety_level toggles to 'caution' if the step has a safety_note OR any HAZARD_HINT keyword in the instruction body — this is stricter than the payload's stored safety_note (which comes only from st.get('safety_note')), so hazardous-sounding instructions without an explicit safety_note still get flagged caution. Good defensive default.",
+    "compose_action anchor tracking_required is True for component/point/path/edge/object (not surface/plane/world) — matches the spec that free-space anchors don't need tight tracking.",
+    "The generic (no-steps) fallback branch in _build_instructions does NOT attach an `action` payload — this is by design (compose_action needs an instruction body derived from an approved step). Confirmed via frontend: cur.action-guarded testID 'ar-action-payload' correctly hides.",
+    "TargetReq confidence is clamped to [0, 1] via max/min — good defensive input handling.",
+    "GET /meta/packages/{pid} constructs the response inline from ACTION_PRIMITIVES; if a package accidentally referenced a non-existent primitive id it would KeyError at 500. Currently all 4 packages reference valid primitives so this is latent only.",
+    "New /meta/* + /target endpoints are all wrapped in Depends(get_current_user) — no auth bypass."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_ar_visual_guidance_doc40_iter92.py (new)"
+  ],
+  "success_rate": {"backend": "100% (20/20)", "frontend": "100% of light smoke (login, /home-intel, /home-intel/ar, ar-start)"},
+  "seed_data_creation": "Seeded 1 TEST_iter92 hi_projects doc + 4 hi_project_steps for demo user (title='TEST_iter92 floating shelf install', risk_level='Low Risk'). All rows deleted in teardown_module along with associated ar_sessions/ar_instructions/ar_anchors. Verified 0 residual TEST_iter92 rows post-run.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Doc 40 delta green. NOTE: /home-intel/ar on web always reports LIMITED status (Live AR needs native build) — the 2D guided path IS the tested path; action-payload chips only render when the session was started with a project_id whose hi_project_steps exist. To reproduce the chip UI end-to-end, main agent would need to add a testable project_id query param onto the AR route with a seeded benign project — currently backend contract is complete and frontend has the testID hook in place. Auth screen: navigate to /auth?mode=login; the login CTA reads 'LOG IN' (not 'Sign in').",
+  "rca_of_issue": "N/A — no failures found."
+}
