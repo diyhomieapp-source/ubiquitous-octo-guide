@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert, TextInput, Switch, Linking, Platform } from "react-native";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useAudioRecorder, RecordingPresets, setAudioModeAsync, createAudioPlayer, getRecordingPermissionsAsync, requestRecordingPermissionsAsync } from "expo-audio";
 
@@ -23,6 +23,7 @@ const COMMANDS: { key: string; label: string; icon: string }[] = [
 ];
 
 export default function VoiceRuntime() {
+  const router = useRouter();
   const { projectId } = useLocalSearchParams<{ projectId?: string }>();
   const [session, setSession] = useState<any>(null);
   const [resp, setResp] = useState<any>(null);
@@ -158,6 +159,15 @@ export default function VoiceRuntime() {
   if (loading) return <View style={styles.root}><ScreenHeader title="Homie Voice" /><ActivityIndicator color={colors.brandPrimary} style={{ marginTop: spacing.xl }} /></View>;
 
   const emColor = resp ? (EMOTION_COLOR[resp.emotion] || colors.brandPrimary) : colors.brandPrimary;
+  const ACTION_ROUTES: Record<string, string> = {
+    whats_next: "/home-intel/projects", show_me: "/home-intel/guide", start_ar: "/home-intel/ar",
+    scan_it: "/home-intel/twin/capture", rescan_target: "/home-intel/twin/capture",
+    add_to_project: "/home-intel/projects", find_materials: "/home-intel/projects",
+    mark_complete: "/home-intel/projects", ask_a_pro: "/pros", save_for_later: "/home-intel/projects",
+  };
+  const runActionChip = (c: any) => {
+    if (c.action && ACTION_ROUTES[c.action]) router.push(ACTION_ROUTES[c.action] as any);
+  };
   const fs = large ? 2 : 0;
 
   return (
@@ -175,13 +185,23 @@ export default function VoiceRuntime() {
           <View style={[styles.respCard, { borderLeftColor: emColor }]}>
             <View style={styles.respHead}>
               <View style={[styles.emoChip, { backgroundColor: emColor + "22", borderColor: emColor }]}><Text style={[styles.emoText, { color: emColor }]}>{resp.emotion}</Text></View>
-              <View style={styles.emoChip}><Text style={styles.emoText}>gesture: {resp.gesture}</Text></View>
+              {resp.confidence_level ? <View testID="voice-confidence-chip" style={styles.emoChip}><Text style={styles.emoText}>confidence: {resp.confidence_level}</Text></View> : null}
+              {resp.safety_level && resp.safety_level !== "green" ? (
+                <View testID="voice-safety-chip" style={[styles.emoChip, { borderColor: resp.safety_level === "red" ? colors.error : "#F2C94C" }]}>
+                  <Text style={[styles.emoText, { color: resp.safety_level === "red" ? colors.error : "#F2C94C" }]}>safety: {resp.safety_level}</Text>
+                </View>
+              ) : null}
             </View>
             <Text style={[styles.spoken, { fontSize: type.lg + fs }]}>{resp.spoken}</Text>
             {resp.full_text && resp.full_text !== resp.spoken ? <Text style={[styles.caption, { fontSize: type.sm + fs }]}>{resp.full_text}</Text> : null}
             {resp.clarifying_question ? <Text style={[styles.clar, { fontSize: type.sm + fs }]}>❓ {resp.clarifying_question}</Text> : null}
             {resp.stop_condition ? <Text style={[styles.stop, { fontSize: type.sm + fs }]}>🛑 {resp.stop_condition}</Text> : null}
-            {(resp.action_cards || []).map((c: any, i: number) => <View key={i} style={styles.actionCard}><Text style={styles.actionText}>{c.label}</Text></View>)}
+            {(resp.action_cards || []).map((c: any, i: number) => (
+              <Pressable key={i} testID={`voice-action-${i}`} style={styles.actionCard} onPress={() => runActionChip(c)}>
+                <Text style={styles.actionText}>{c.label}</Text>
+                {c.action ? <MaterialCommunityIcons name="chevron-right" size={16} color={colors.brandPrimary} /> : null}
+              </Pressable>
+            ))}
             <View style={styles.respActions}>
               <Pressable testID="voice-simplify" disabled={simplifying || resp.simplified} onPress={simplify} style={[styles.simplifyBtn, resp.simplified && { opacity: 0.5 }]}>
                 {simplifying ? <ActivityIndicator size="small" color={colors.brandPrimary} /> : <><MaterialCommunityIcons name="lightbulb-outline" size={15} color={colors.brandPrimary} /><Text style={styles.simplifyText}>{resp.simplified ? "Simplified" : "Say it simpler"}</Text></>}
@@ -209,7 +229,7 @@ export default function VoiceRuntime() {
                 </Pressable>
               ))}
             </View>
-            <Text style={styles.hint}>High-risk or professional work never advances by voice alone — you'll always confirm.</Text>
+            <Text style={styles.hint}>High-risk or professional work never advances by voice alone — you&apos;ll always confirm.</Text>
           </>
         ) : null}
 
@@ -252,7 +272,7 @@ const styles = StyleSheet.create({
   caption: { color: colors.onSurfaceSecondary, fontFamily: font.regular, marginTop: spacing.sm, lineHeight: 20 },
   clar: { color: colors.info, fontFamily: font.medium, marginTop: spacing.sm },
   stop: { color: "#EB5757", fontFamily: font.bold, marginTop: spacing.sm },
-  actionCard: { borderColor: colors.brandPrimary, borderWidth: 1, borderRadius: radius.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, marginTop: spacing.sm },
+  actionCard: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderColor: colors.brandPrimary, borderWidth: 1, borderRadius: radius.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, marginTop: spacing.sm, minHeight: 44 },
   actionText: { color: colors.brandPrimary, fontFamily: font.bold, fontSize: type.sm },
   section: { color: colors.onSurface, fontFamily: font.bold, fontSize: type.lg, marginTop: spacing.lg, marginBottom: spacing.sm },
   cmdWrap: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },

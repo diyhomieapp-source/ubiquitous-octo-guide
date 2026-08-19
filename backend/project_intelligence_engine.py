@@ -145,6 +145,11 @@ class BudgetReq(BaseModel):
     actual_cost: Optional[float] = None
 
 
+class StuckReq(BaseModel):
+    reason_code: str
+    note: Optional[str] = None
+
+
 class SafeCompleteReq(BaseModel):
     confirm: bool = False
 
@@ -179,6 +184,64 @@ def _change_impact(change_type: str, new_value: str) -> dict:
 # ============================================================= router
 def build_router(get_current_user: Callable) -> APIRouter:
     r = APIRouter(prefix="/api/hi/pi", dependencies=[Depends(get_current_user)])
+
+    # ---------------- Doc 44 §15 — "I'm stuck" recovery flow
+    STUCK_REASONS = {
+        "cant_find_part": {"label": "I cannot find the part", "route": "marketplace",
+                           "guidance": "Let's find an alternative. Snap a photo of the part or its label and I'll identify compatible replacements.",
+                           "next_action": "Photograph the part or its packaging label."},
+        "measurement_mismatch": {"label": "The measurement does not match", "route": "measurement",
+                                 "guidance": "A mismatch changes downstream cuts, quantities and cost. Let's re-measure before anything else.",
+                                 "next_action": "Re-measure the area and update the project measurement — I'll recalculate what's affected."},
+        "route_blocked": {"label": "Something is blocking the route", "route": "replan",
+                          "guidance": "Blockers are normal. Photograph the obstruction so I can propose an alternate route or method.",
+                          "next_action": "Take a clear photo of what's in the way."},
+        "doesnt_fit": {"label": "The product does not fit", "route": "product",
+                       "guidance": "Before forcing anything, let's verify the dimensions and check return or alternative options.",
+                       "next_action": "Measure the product and the opening, then tell me both numbers."},
+        "dont_understand": {"label": "I do not understand the step", "route": "guidance",
+                            "guidance": "No problem — I'll break this step into smaller pieces and show it a different way.",
+                            "next_action": "Open the guided view and I'll walk you through it slowly."},
+        "found_utility": {"label": "I found plumbing / electrical / HVAC", "route": "safety",
+                          "guidance": "Stop work in that spot. Do not cut or drill further until we verify what you found.",
+                          "next_action": "Step back and photograph what you found — I'll assess it before you continue."},
+        "feel_unsafe": {"label": "I do not feel safe continuing", "route": "safety",
+                        "guidance": "Trust that instinct — stopping is the right call. Nothing here is worth getting hurt.",
+                        "next_action": "Pause the project. Tell me what feels wrong and I'll figure out the safe path, including professional help if needed."},
+        "other": {"label": "Something else", "route": "homie",
+                  "guidance": "Tell me what happened in your own words and I'll figure out where we stand.",
+                  "next_action": "Describe the problem to Homie."},
+    }
+
+    @r.get("/stuck/options")
+    async def stuck_options(user: dict = Depends(get_current_user)):
+        return {"options": [{"code": k, "label": v["label"]} for k, v in STUCK_REASONS.items()]}
+
+    @r.post("/projects/{pid}/stuck")
+    async def report_stuck(pid: str, req: StuckReq, user: dict = Depends(get_current_user)):
+        p = await _project(pid, user["id"])
+        reason = STUCK_REASONS.get(req.reason_code)
+        if not reason:
+            raise HTTPException(status_code=400, detail="Unknown reason.")
+        result = dict(reason)
+        # Safety-routed reasons get a real safety evaluation + event record.
+        if reason["route"] == "safety":
+            try:
+                import safety_engine
+                ev = safety_engine.evaluate_action(req.note or reason["label"])
+                await safety_engine.record_event(user["id"], req.note or reason["label"], ev, source="stuck_flow")
+                if ev["verdict"] != "allow":
+                    result["safety"] = {k: ev[k] for k in ("verdict", "risk_level", "message", "next_action")}
+            except Exception:
+                pass
+            await _db.hi_projects.update_one({"id": pid}, {"$set": {"status": "blocked"}})
+        await _db.pi_stuck_reports.insert_one({
+            "id": _nid(), "project_id": pid, "user_id": user["id"], "reason_code": req.reason_code,
+            "note": (req.note or "")[:500], "route": reason["route"], "created_at": _now()})
+        return {"reason_code": req.reason_code, **{k: result[k] for k in ("route", "guidance", "next_action")},
+                "safety": result.get("safety"),
+                "project_status": "blocked" if reason["route"] == "safety" else p.get("status")}
+
 
     @r.get("/projects/{pid}/next-best-action")
     async def next_best_action(pid: str, user: dict = Depends(get_current_user)):

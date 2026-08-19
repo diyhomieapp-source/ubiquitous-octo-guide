@@ -1,0 +1,30 @@
+{
+  "summary": "Doc 43 safety-engine planning fix + Doc 44 §15 'I'm stuck' recovery flow validated end-to-end. Backend pytest: 11/11 green in test_pi_stuck_doc44_iter94.py. Doc 43 bug now fixed — POST /api/hi/safety/evaluate {'text':'Choose a paint color for the bedroom'} → verdict='allow', risk_level=0, ppe=[]. Physical action still hits the warning path: 'Paint the bedroom wall' → allow_with_warning w/ Ventilation; regression scenarios (sand drywall → allow_with_warning; drill into wall → require_verification; gas smell → block_action) all pass; /api/hi/safety/meta → 200. Doc 44 §15: GET /api/hi/pi/stuck/options → exactly 8 options with code+label (measurement_mismatch, found_utility, feel_unsafe, cant_find_part, route_blocked, doesnt_fit, dont_understand, other). POST /api/hi/pi/projects/{pid}/stuck: (a) reason_code='measurement_mismatch' → route='measurement', guidance + next_action present, project_status NOT blocked (stayed 'active'), pi_stuck_reports row created; (b) reason_code='found_utility' + note 'I hit a live electrical wire behind the wall' → route='safety', safety object present with verdict/message/next_action, project_status='blocked', sf_events row with source='stuck_flow' written, pi_stuck_reports row created; (c) bogus reason_code → 400; (d) bogus project id → 404. Frontend (390x844): demo login (auth-email-input/auth-password-input/auth-submit-button) → direct nav to /home-intel/projects/intelligence?id=<demo-project-id> renders workspace; testID 'pi-stuck' present and tappable; tapping expands and shows all 8 pi-stuck-<code> options; tapping 'pi-stuck-measurement_mismatch' renders 'pi-stuck-result' with the measurement guidance + 'Next: Re-measure the area…' text; workspace re-renders after reload with pi-stuck still present. Nav path confirmed: /home-intel/projects (list) → /home-intel/projects/{id} → testID 'proj-intelligence' button pushes to intelligence?id=. CLEANUP: frontend-triggered pi_stuck_reports row for the paint-living-room project deleted; backend-test project status restored (backend test used demo user's real project and reset via teardown_module). No other seeded data left behind.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_pi_stuck_doc44_iter94.py",
+    "/app/test_reports/pytest/pi_stuck_doc44_iter94.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "safety_engine.evaluate_action step 4 planning short-circuit (line 153-161) is a clean fix: gates on planning verbs (choose/pick/select/decide/which color/…) AND absence of physical verbs (sand/cut/drill/install/…). Good — does not touch step 1 emergency triage or step 2 block-boundary, so gas-smell / load-bearing wall still fire before this check.",
+    "project_intelligence_engine.report_stuck (line 220-243): safety-routed branch swallows exceptions on safety_engine.evaluate_action failure (`try/except: pass` at 235-236) — if evaluate_action ever raises, the caller will still get project_status='blocked' but no safety object. That's fail-safe behaviour but logging the exception via _logger would help diagnose silent regressions.",
+    "report_stuck writes pi_stuck_reports AFTER the safety block (line 238-240) so if the safety branch throws inside try (unlikely — evaluate_action is pure), the report still lands. Good.",
+    "Non-safety routes set project_status to p.get('status') in the response but do NOT change the DB row — correct per spec (measurement/replan/etc. are advisory).",
+    "STUCK_REASONS is defined INSIDE build_router closure — fine for a single router mount, but the constant would be more testable at module scope (currently only reachable via the HTTP route).",
+    "Bug reproduction & fix verified: iter 93's failing scenario ('Choose a paint color for the bedroom') now returns exactly {verdict:'allow', risk_level:0, ppe:[]}. The planning-vs-action classifier avoids false PPE emissions without loosening any hazardous path."
+  ],
+  "updated_files": ["/app/backend/tests/test_pi_stuck_doc44_iter94.py (new)"],
+  "success_rate": {"backend": "100% (11/11)", "frontend": "100% (login, intel workspace renders, pi-stuck expands 8 options, measurement_mismatch result card renders with guidance+Next, workspace persists after reload)"},
+  "seed_data_creation": "No seeding needed — used demo_home user's existing hi_projects row (fcb04490-... 'Paint the living room'). Backend test's teardown_module restored prior status ('active') and deleted the two pi_stuck_reports rows it created (measurement_mismatch + found_utility). Frontend test's extra pi_stuck_reports row (from clicking measurement_mismatch in the UI) was cleaned up post-run; project status verified 'active'.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Both this iteration's deltas are green. Safety-engine planning-intent short-circuit works cleanly at /api/hi/safety/evaluate step 4 (safety_engine.py:153-161). Stuck-flow endpoints work end-to-end (STUCK_REASONS 8 entries, safety branch persists sf_events with source='stuck_flow' and flips project.status → 'blocked', non-safety routes only advise). Frontend testIDs: pi-stuck (toggle button), pi-stuck-<code> (each of the 8 options), pi-stuck-result (result card). Nav: /home-intel/projects → /home-intel/projects/{id} → 'proj-intelligence' → /home-intel/projects/intelligence?id={pid}. Auth testIDs are auth-email-input / auth-password-input / auth-submit-button on /auth?mode=login. No open issues.",
+  "rca_of_issue": "N/A — iter 93 bug (paint-color planning intent falsely routed to allow_with_warning) is now fixed by the added planning-vs-action guard in safety_engine.evaluate_action (step 4). Verified: 'Choose a paint color for the bedroom' → verdict allow / risk_level 0 / ppe []; 'Paint the bedroom wall' still returns allow_with_warning with Ventilation PPE, confirming action-path integrity."
+}

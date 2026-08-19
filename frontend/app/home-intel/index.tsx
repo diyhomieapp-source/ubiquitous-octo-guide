@@ -158,6 +158,15 @@ export default function HomeIntelDashboard() {
           <MaterialCommunityIcons name="chevron-right" size={22} color={colors.brandPrimary} />
         </Pressable>
 
+        <Pressable testID="hi-guide" style={styles.dashCard} onPress={() => router.push("/home-intel/guide")}>
+          <MaterialCommunityIcons name="hand-pointing-up" size={22} color={colors.brandPrimary} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.dashTitle}>Show Me How</Text>
+            <Text style={styles.dashSub}>Step-by-step visual guidance — from painting a wall to a balloon dog</Text>
+          </View>
+          <MaterialCommunityIcons name="chevron-right" size={22} color={colors.brandPrimary} />
+        </Pressable>
+
         <Pressable testID="hi-record" style={styles.dashCard} onPress={() => router.push("/home-intel/record")}>
           <MaterialCommunityIcons name="history" size={22} color={colors.brandPrimary} />
           <View style={{ flex: 1 }}>

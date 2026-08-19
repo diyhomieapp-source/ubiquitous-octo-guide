@@ -159,6 +159,16 @@ export default function ARGuidance() {
                     <View style={styles.aChip}><MaterialCommunityIcons name="map-marker-outline" size={13} color={colors.brandPrimary} /><Text style={styles.aChipText}>{cur.action.anchor?.type} anchor</Text></View>
                   </View>
                   <Text style={styles.visualsHint}>Overlays: {(cur.action.visuals || []).map((v: string) => v.replace(/_/g, " ")).join(" · ")}</Text>
+                  {cur.action.ppe?.length ? (
+                    <View style={[styles.actionChips, { marginTop: 6 }]}>
+                      {cur.action.ppe.map((p: string) => (
+                        <View key={p} style={[styles.aChip, { backgroundColor: "rgba(242,153,74,0.15)" }]}>
+                          <MaterialCommunityIcons name="shield-account-outline" size={13} color="#F2994A" />
+                          <Text style={styles.aChipText}>{p}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  ) : null}
                 </View>
               ) : null}
               {cur?.safety_note ? (

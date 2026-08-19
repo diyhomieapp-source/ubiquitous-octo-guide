@@ -172,10 +172,16 @@ def compose_action(instr_text: str, safety_note=None) -> dict:
     action_id = next((a for kws, a in _ACTION_KEYWORDS if any(k in t for k in kws)), "INSPECT")
     p = ACTION_PRIMITIVES[action_id]
     high_risk = any(w in t for w in HAZARD_HINT)
+    try:
+        from safety_engine import ppe_for
+        ppe = ppe_for(instr_text)
+    except Exception:
+        ppe = []
     return {
         "action_id": action_id, "motion": p["motion"], "tool": p["tool"], "direction": p["direction"],
         "anchor": {"type": p["anchor"], "tracking_required": p["anchor"] in ("component", "point", "path", "edge", "object")},
         "visuals": p["visuals"],
+        "ppe": ppe,
         "voice": (instr_text or "").strip()[:220],
         "verification": {"type": "user_confirmation", "prompt": "Tell me when this step is done."},
         "safety_level": "caution" if (safety_note or high_risk) else "normal",

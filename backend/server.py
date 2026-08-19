@@ -65,6 +65,11 @@ import rewards_funding_engine
 import homie_hq_engine
 import asset_exit_engine
 import ar_guidance_engine
+import guidance_runtime_engine
+import pro_connect_engine
+import project_workspace_engine
+import guided_execution_engine
+import spatial_targeting_engine
 import notification_engine
 import compliance_engine
 import pro_workspace_engine
@@ -88,6 +93,7 @@ import guided_repair_engine
 import activation_engine
 import accessibility_engine
 import reliability_engine
+import safety_engine
 import property_record_engine
 import home_care_engine
 import visual_engine
@@ -9064,6 +9070,11 @@ reliability_engine.configure(db, logger)
 app.include_router(reliability_engine.build_router(get_current_user))
 app.include_router(reliability_engine.build_admin_router(require_admin))
 
+# Safety, Risk, Escalation & Professional Boundary Foundation (Build Doc 43).
+safety_engine.configure(db, logger)
+app.include_router(safety_engine.build_router(get_current_user))
+app.include_router(safety_engine.build_admin_router(require_admin))
+
 # Subscription Access, Feature Gating & Billing (Build Blueprint 09).
 subscription_engine.configure(db, logger)
 app.include_router(subscription_engine.build_router(get_current_user))
@@ -9139,6 +9150,27 @@ app.include_router(asset_exit_engine.build_admin_router(require_admin))
 ar_guidance_engine.configure(db, logger)
 app.include_router(ar_guidance_engine.build_router(get_current_user))
 app.include_router(ar_guidance_engine.build_admin_router(require_admin))
+
+# Unified Spatial + Fine-Motor Visual Guidance Engine (Build Document 47).
+guidance_runtime_engine.configure(db, logger)
+app.include_router(guidance_runtime_engine.build_router(get_current_user))
+
+# Professional Procedure Packs, Creator Content & Bring in a Pro (Build Document 48).
+pro_connect_engine.configure(db, logger)
+app.include_router(pro_connect_engine.build_router(get_current_user))
+app.include_router(pro_connect_engine.build_admin_router(require_admin))
+
+# Active Project Workspace, Project State & Adaptive Daily Guidance (Build Document 49).
+project_workspace_engine.configure(db, logger)
+app.include_router(project_workspace_engine.build_router(get_current_user))
+
+# Guided Task Execution, Adaptive Coaching & Hands-Free Work Mode (Build Document 52).
+guided_execution_engine.configure(db, logger, _llm_json)
+app.include_router(guided_execution_engine.build_router(get_current_user))
+
+# AR Scan, Measurement & Spatial Targeting deltas (Build Document 53).
+spatial_targeting_engine.configure(db, logger)
+app.include_router(spatial_targeting_engine.build_router(get_current_user))
 
 # Notification, Reminder & Communication Orchestration (Build Blueprint 28).
 notification_engine.configure(db, logger)
@@ -9394,6 +9426,8 @@ async def _startup_seed_community():
     await homie_hq_engine.seed_hq()
     await asset_exit_engine.seed_exit()
     await ar_guidance_engine.seed_ar()
+    await guidance_runtime_engine.seed_guidance()
+    await pro_connect_engine.seed_pro_connect()
     await notification_engine.seed_notifications()
     await compliance_engine.seed_compliance()
     await pro_workspace_engine.seed_pro()

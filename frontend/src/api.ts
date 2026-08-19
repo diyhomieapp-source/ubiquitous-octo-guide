@@ -23,10 +23,12 @@ type Options = {
 
 export class ApiError extends Error {
   status: number;
-  constructor(message: string, status: number) {
+  detail?: any;
+  constructor(message: string, status: number, detail?: any) {
     super(message);
     this.name = "ApiError";
     this.status = status;
+    this.detail = detail;
   }
 }
 
@@ -49,7 +51,8 @@ export async function api<T = any>(path: string, opts: Options = {}): Promise<T>
     const text = await res.text();
     const data = text ? JSON.parse(text) : {};
     if (!res.ok) {
-      throw new ApiError(data?.detail || `Request failed (${res.status})`, res.status);
+      const msg = typeof data?.detail === "string" ? data.detail : `Request failed (${res.status})`;
+      throw new ApiError(msg, res.status, data?.detail);
     }
     return data as T;
   } finally {

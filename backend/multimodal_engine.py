@@ -112,38 +112,75 @@ async def _respond(user: dict, session: dict, text: str) -> dict:
                 "full_text": "It sounds like this could be an emergency. Please stop what you're doing, get yourself and others to safety, and call your local emergency number immediately. I can't help with emergencies here.",
                 "action_cards": [{"label": "See emergency steps", "route": "/home-intel/sync"}],
                 "emotion": "urgent", "gesture": "warning", "clarifying_question": None, "stop_condition": "Exit to safety immediately."}
-    # build minimal grounded context
+    # Doc 54 §2 — context hierarchy: guided task > project (state + next action) > room > passport
     ctx_bits = []
     if session.get("project_id"):
-        p = await _db.hi_projects.find_one({"id": session["project_id"]}, {"_id": 0, "title": 1, "status": 1})
+        p = await _db.hi_projects.find_one({"id": session["project_id"]}, {"_id": 0})
         if p:
-            ctx_bits.append(f"Active project: {p.get('title')} (status {p.get('status')})")
+            ctx_bits.append(f"Active project: {p.get('title')} (status {p.get('status')}, safety: {p.get('safety_status') or 'n/a'})")
+            ge = await _db.ge_sessions.find_one({"user_id": user["id"], "project_id": p["id"], "status": {"$in": ["active", "paused"]}}, {"_id": 0, "current_step_id": 1})
+            step = await _db.hi_project_steps.find_one({"id": (ge or {}).get("current_step_id")}, {"_id": 0, "instruction": 1, "safety_note": 1}) if ge else None
+            if not step:
+                step = await _db.hi_project_steps.find_one({"project_id": p["id"], "status": {"$in": ["active", "waiting"]}}, {"_id": 0, "instruction": 1, "safety_note": 1}) or \
+                       await _db.hi_project_steps.find_one({"project_id": p["id"], "status": "not_started"}, {"_id": 0, "instruction": 1, "safety_note": 1}, sort=[("sequence_number", 1)])
+            if step:
+                ctx_bits.append(f"Current/next task step: {step.get('instruction', '')[:160]}" + (f" (safety note: {step['safety_note'][:80]})" if step.get("safety_note") else ""))
+            blk = await _db.pi_blockers.find_one({"project_id": p["id"], "status": "active"}, {"_id": 0, "description": 1})
+            if blk:
+                ctx_bits.append(f"Active blocker: {blk['description'][:120]}")
+            mats = await _db.hi_project_materials.find({"project_id": p["id"], "user_status": {"$in": ["need_it", "unsure"]}}, {"_id": 0, "name": 1}).to_list(5)
+            if mats:
+                ctx_bits.append("Materials still needed: " + ", ".join(m["name"] for m in mats))
     if session.get("room_id"):
         rm = await _db.hi_rooms.find_one({"id": session["room_id"]}, {"_id": 0, "name": 1})
         if rm:
             ctx_bits.append(f"Room: {rm.get('name')}")
+    prof = await _db.hi_profiles.find_one({"user_id": user["id"]}, {"_id": 0, "skill_level": 1})
+    if prof and prof.get("skill_level"):
+        ctx_bits.append(f"User skill level: {prof['skill_level']}")
     ctx = " | ".join(ctx_bits) or "No specific project/room context."
     try:
-        system = ("You are Homie, a careful home-improvement assistant. Use ONLY the given context; never invent product "
-                  "prices, current local codes, or provider availability. Never claim to be a licensed professional and never "
-                  "guarantee structural, legal, permit or financial outcomes. Return STRICT JSON with keys: "
+        system = ("You are Homie, a careful home-improvement assistant. Use the given context FIRST — answer about the "
+                  "user's current task/project, never a generic guide. Never invent product prices, current local codes, "
+                  "or provider availability. Never claim to be a licensed professional and never guarantee structural, "
+                  "legal, permit or financial outcomes. If the question involves gas, live electrical, structural, major "
+                  "leaks, mold or roof risk: set safety_level to red and advise stopping + professional help without "
+                  "unsafe procedural detail. Return STRICT JSON with keys: "
                   "spoken (ONE concise next-action sentence, max 30 words), full_text (short helpful answer), "
-                  "action_cards (array of {label} max 3), emotion (one of neutral,encouraging,cautionary,urgent,celebratory), "
+                  "intent (one of: ask_next_step,explain_task,show_visual_guidance,start_ar,identify_object,measure,find_product,"
+                  "check_compatibility,materials_list,estimate_budget,report_issue,troubleshoot,safety_question,pro_escalation,"
+                  "create_project,resume_project,maintenance_question,general_education), "
+                  "confidence_level (high|medium|low — be honest; low means you should NOT guess), "
+                  "safety_level (green|yellow|orange|red), "
+                  "action_cards (array of {label, action} max 3, action one of: whats_next,show_me,start_ar,scan_it,add_to_project,"
+                  "find_materials,mark_complete,ask_a_pro,save_for_later,rescan_target), "
+                  "emotion (one of neutral,encouraging,cautionary,urgent,celebratory), "
                   "gesture (one of none,point,explain,pause,warning), clarifying_question (string or null), "
                   "stop_condition (string or null — when the user should stop and get a pro).")
-        data = await _llm_json(system, f"Context: {ctx}\nUser said: {text}", max_tokens=500, feature_area="multimodal_voice")
+        data = await _llm_json(system, f"Context: {ctx}\nUser said: {text}", max_tokens=600, feature_area="multimodal_voice")
         if not isinstance(data, dict):
             raise ValueError("bad response")
         cards = data.get("action_cards") or []
         norm_cards = []
+        _actions = {"whats_next", "show_me", "start_ar", "scan_it", "add_to_project", "find_materials",
+                    "mark_complete", "ask_a_pro", "save_for_later", "rescan_target"}
         for c in cards[:3]:
             if isinstance(c, dict) and c.get("label"):
-                norm_cards.append({"label": str(c["label"])[:60]})
+                norm_cards.append({"label": str(c["label"])[:60],
+                                   "action": c.get("action") if c.get("action") in _actions else None})
             elif isinstance(c, str):
-                norm_cards.append({"label": c[:60]})
+                norm_cards.append({"label": c[:60], "action": None})
+        intent = data.get("intent") if isinstance(data.get("intent"), str) else None
+        await _cap(user["id"], "homie_intent_classified", {"intent": (intent or "unknown")[:40]})
+        safety_level = data.get("safety_level") if data.get("safety_level") in ("green", "yellow", "orange", "red") else "green"
+        if safety_level == "red":
+            await _cap(user["id"], "homie_safety_response_shown", {"intent": (intent or "unknown")[:40]})
         return {"emergency": False, "spoken": (data.get("spoken") or data.get("full_text") or "Here's what to do next.")[:220],
                 "full_text": data.get("full_text") or data.get("spoken") or "",
                 "action_cards": norm_cards,
+                "intent": intent,
+                "confidence_level": data.get("confidence_level") if data.get("confidence_level") in ("high", "medium", "low") else "medium",
+                "safety_level": safety_level,
                 "emotion": data.get("emotion") if data.get("emotion") in EMOTIONS else "neutral",
                 "gesture": data.get("gesture") if data.get("gesture") in GESTURES else "explain",
                 "clarifying_question": data.get("clarifying_question") or None,
@@ -264,6 +301,18 @@ def build_router(get_current_user: Callable) -> APIRouter:
         await _cap(user["id"], "voice_simplified", {})
         return {"spoken": spoken, "full_text": full}
 
+    @r.get("/history")
+    async def history(project_id: Optional[str] = None, room_id: Optional[str] = None,
+                      user: dict = Depends(get_current_user)):
+        """Doc 54 §14 — reopen prior advice from the project record."""
+        q: dict = {"user_id": user["id"]}
+        if project_id:
+            q["project_id"] = project_id
+        elif room_id:
+            q["room_id"] = room_id
+        rows = await _db.mm_exchanges.find(q, {"_id": 0}).sort("created_at", -1).to_list(50)
+        return {"exchanges": rows}
+
     @r.get("/config")
     async def config(user: dict = Depends(get_current_user)):
         s = await _settings()
@@ -327,6 +376,14 @@ def build_router(get_current_user: Callable) -> APIRouter:
             await _db.mm_avatar.insert_one(dict(avatar)); avatar.pop("_id", None)
             await _cap(user["id"], "avatar_instruction_delivered", {"emotion": resp["emotion"]})
         await _db.mm_sessions.update_one({"id": sid}, {"$set": {"updated_at": _now()}})
+        # Doc 54 §14 — conversation history by context (project / room / general)
+        await _db.mm_exchanges.insert_one({
+            "id": _nid(), "user_id": user["id"], "multimodal_session_id": sid,
+            "project_id": session.get("project_id"), "room_id": session.get("room_id"),
+            "question": req.text.strip()[:500], "answer": resp["full_text"][:1000],
+            "spoken": resp["spoken"], "intent": resp.get("intent"),
+            "safety_level": resp.get("safety_level"), "created_at": _now()})
+        await _cap(user["id"], "homie_message_sent", {"intent": (resp.get("intent") or "unknown")[:40], "from_voice": bool(req.from_voice)})
         if req.from_voice:
             await _cap(user["id"], "voice_response_played", {})
         return {"response": resp, "voice_response_id": vr["id"], "avatar_instruction": avatar,

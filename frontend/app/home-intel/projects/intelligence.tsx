@@ -32,13 +32,26 @@ export default function ProjectIntelligence() {
   const [changeType, setChangeType] = useState("budget"); const [changeVal, setChangeVal] = useState("Low");
   const [impact, setImpact] = useState<any>(null);
   const [limit, setLimit] = useState("");
+  const [showStuck, setShowStuck] = useState(false);
+  const [stuckOptions, setStuckOptions] = useState<any[]>([]);
+  const [stuckResult, setStuckResult] = useState<any>(null);
 
   const load = useCallback(async () => {
     setErr(false);
     try { const d = await api<any>(`/hi/pi/projects/${id}/workspace`); setData(d); setLimit(d.budget.budget_limit != null ? String(d.budget.budget_limit) : ""); }
     catch { setErr(true); } finally { setLoading(false); }
+    try { const o = await api<any>("/hi/pi/stuck/options"); setStuckOptions(o.options || []); } catch {}
   }, [id]);
   useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  const reportStuck = async (code: string) => {
+    setBusy(true);
+    try {
+      const r = await api<any>(`/hi/pi/projects/${id}/stuck`, { method: "POST", body: { reason_code: code } });
+      setStuckResult(r); setShowStuck(false); await load();
+    } catch (e: any) { Alert.alert("Couldn't do that", e?.message || ""); }
+    finally { setBusy(false); }
+  };
 
   const addBlocker = async () => {
     if (!bDesc.trim()) { Alert.alert("Describe it", "What's blocking you?"); return; }
@@ -101,6 +114,30 @@ export default function ProjectIntelligence() {
           <Text style={styles.nbaTitle}>{nba.title}</Text>
           <Text style={styles.nbaWhy}>{nba.why}</Text>
         </View>
+
+        {/* I'm stuck (Doc 44 §15) */}
+        <Pressable testID="pi-stuck" style={styles.stuckBtn} onPress={() => setShowStuck((v) => !v)}>
+          <MaterialCommunityIcons name="hand-back-left-outline" size={18} color={colors.warning} />
+          <Text style={styles.stuckText}>{"I'm stuck"}</Text>
+          <MaterialCommunityIcons name={showStuck ? "chevron-up" : "chevron-down"} size={18} color={colors.warning} />
+        </Pressable>
+        {showStuck && (
+          <View style={styles.form}>
+            <Text style={styles.stuckPrompt}>What happened?</Text>
+            {stuckOptions.map((o) => (
+              <Pressable key={o.code} testID={`pi-stuck-${o.code}`} style={styles.stuckOption} disabled={busy} onPress={() => reportStuck(o.code)}>
+                <Text style={styles.stuckOptionText}>{o.label}</Text>
+                <MaterialCommunityIcons name="chevron-right" size={16} color={colors.onSurfaceTertiary} />
+              </Pressable>
+            ))}
+          </View>
+        )}
+        {stuckResult && (
+          <View testID="pi-stuck-result" style={[styles.stuckResult, stuckResult.route === "safety" && { borderColor: colors.error }]}>
+            <Text style={styles.stuckGuidance}>{stuckResult.safety?.message || stuckResult.guidance}</Text>
+            <Text style={styles.stuckNext}>Next: {stuckResult.safety?.next_action || stuckResult.next_action}</Text>
+          </View>
+        )}
 
         {/* Blockers */}
         <View style={styles.sectionHead}>
@@ -190,6 +227,14 @@ function BudgetRow({ label, value, accent }: { label: string; value: string; acc
 }
 
 const styles = StyleSheet.create({
+  stuckBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, borderWidth: 1, borderColor: colors.warning, borderRadius: radius.md, paddingVertical: spacing.md, marginTop: spacing.lg, minHeight: 44 },
+  stuckText: { fontFamily: font.bold, fontSize: type.base, color: colors.warning },
+  stuckPrompt: { fontFamily: font.bold, fontSize: type.base, color: colors.onSurface, marginBottom: spacing.sm },
+  stuckOption: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: spacing.md, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border, minHeight: 44 },
+  stuckOptionText: { fontFamily: font.regular, fontSize: type.base, color: colors.onSurface, flex: 1 },
+  stuckResult: { borderWidth: 1, borderColor: colors.warning, borderRadius: radius.md, padding: spacing.md, marginTop: spacing.sm, backgroundColor: colors.surfaceSecondary },
+  stuckGuidance: { fontFamily: font.medium, fontSize: type.base, color: colors.onSurface },
+  stuckNext: { fontFamily: font.regular, fontSize: type.sm, color: colors.onSurfaceSecondary, marginTop: 4 },
   root: { flex: 1, backgroundColor: colors.surface },
   projTitle: { color: colors.onSurface, fontFamily: font.display, fontSize: type["2xl"] },
   progressBar: { height: 8, backgroundColor: colors.surfaceSecondary, borderRadius: 4, marginTop: spacing.md, overflow: "hidden" },

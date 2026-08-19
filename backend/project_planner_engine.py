@@ -381,7 +381,7 @@ def build_router(get_current_user: Callable) -> APIRouter:
         if not st:
             raise HTTPException(status_code=404, detail="Step not found.")
         await _owned(st["project_id"], user["id"])
-        status = req.status if req.status in ("completed", "skipped", "active", "not_started") else "completed"
+        status = req.status if req.status in ("completed", "skipped", "active", "not_started", "waiting") else "completed"
         await _db.hi_project_steps.update_one({"id": step_id}, {"$set": {
             "status": status, "completed_at": _now() if status in ("completed", "skipped") else None}})
         if status in ("completed", "skipped"):
@@ -425,7 +425,7 @@ def build_router(get_current_user: Callable) -> APIRouter:
         if not m:
             raise HTTPException(status_code=404, detail="Material not found.")
         await _owned(m["project_id"], user["id"])
-        us = req.user_status if req.user_status in ("have_it", "need_it", "unsure") else "unsure"
+        us = req.user_status if req.user_status in ("have_it", "need_it", "unsure", "use_alternative", "ordered") else "unsure"
         await _db.hi_project_materials.update_one({"id": material_id}, {"$set": {"user_status": us}})
         await _track(user["id"], "project_material_status_updated", {"material_id": material_id, "status": us})
         return {"ok": True, "user_status": us}

@@ -1,0 +1,32 @@
+{
+  "summary": "Doc 49 (Active Project Workspace + Project State + Adaptive Daily Guidance) and Doc 51 (NBA / DO THIS NEXT card / skip-override) tested end-to-end. Backend: 22/22 pytest tests passing (/app/backend/tests/test_workspace_docs_49_51_iter96.py) covering meta shape (12 project states, 11 task states, 3 briefing styles, 9 problem types, 5 material options, 6 override reasons), briefing quick/standard/detailed, whats-next 5/60 min, readiness + PUT material use_alternative, problem may_be_unsafe -> pro_review + safety_status upgrade, problem found_obstruction -> pi_blockers row + hi_project_media photo persisted, timeline aggregates & desc-sorted with plan_change/material_ready/problem/blocker types, offline-bundle full shape, NOW card structured shape with safety GREEN/YELLOW/ORANGE/RED, now-summaries, override-reasons list, skip-override with different_method (persists to hi_project_steps.status=skipped + override_reason + ws_overrides row + appears in timeline as plan_change), invalid override reason 400, and step status='waiting' accepted by PUT /api/hi/projects/steps/{sid}. Frontend UI: login flow works, /home-intel/projects list renders 5 project cards with tab chips (All/Active/Paused/Planning/Done), Next preview lines visible on cards, tab filtering functions. Project detail screen shows Homie's briefing card with quick/standard/detailed chips (all switchable and re-fetching), 5/25/60 min time chips, ReportProblemModal opens with all 9 problem types (rp-type-*), Skip modal opens with override reasons, evidence timeline screen loads and shows Reported/Blocker items chronologically. Doc 47/48 flows not retested per main-agent instruction.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_workspace_docs_49_51_iter96.py",
+    "/app/test_reports/pytest/workspace_docs_49_51_iter96.xml"
+  ],
+  "action_items": [
+    "None blocking. Optional: seed a demo project with an active (non-blocked, mid-plan) step so the DO THIS NEXT NOW card + I Finished This / Skip buttons render in-browser for future visual QA. Currently demo user's 5 projects are Blocked (fcb04490), 0/0 steps (81b05bdd, f0e2e86b, 2fef9e2e), Completed (4ae43f68), or Escalated (Replace Main Electrical Panel) — so the NOW card is correctly not rendered per gating (!done && cur && !mustStop). Backend NOW card endpoint returns correct structured payload and the override flow was verified end-to-end via API on a seeded project."
+  ],
+  "critical_code_review_comments": [
+    "project_workspace_engine.py: clean, async everywhere, excludes _id in all projections, uses Pydantic models (ProblemReq/PrefsReq/OverrideReq), returns proper HTTP status (400/404), reads from safety_engine via lazy import to avoid circulars, and correctly upgrades project state to PRO_REVIEW when safety_engine block/escalate verdicts fire on may_be_unsafe/something_damaged.",
+    "Timeline aggregates from 8 sources (steps, media, notes, materials, blockers, change events, problems, overrides) and desc-sorts — verified via test.",
+    "OVERRIDE_REASONS is authoritatively surfaced in both /override-reasons GET and inside the 400 error body — nice UX.",
+    "[id].tsx NOW card render gate (!done && cur && !mustStop) is correct — prevents showing 'I Finished This' on completed/blocked/pro-review projects.",
+    "ReportProblemModal exposes rp-type-* testIDs for all 9 problem codes, matching backend PROBLEM_TYPES keys exactly."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_workspace_docs_49_51_iter96.py (new)"
+  ],
+  "success_rate": {"backend": "100% (22/22 pytest)", "frontend": "100% of testable flows (NOW card visual pending seeded active-plan project)"},
+  "seed_data_creation": "Test creates a TEST-prefixed lightweight project (title 'TEST_iter96 workspace stub') with 3 steps + 2 materials, exercises problem/override flows against it, and deletes all rows in the cleanup test. No demo/production data mutated (may_be_unsafe test resets safety_status back to 'Safe to continue' before found_obstruction to keep state deterministic).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Reusable tests at /app/backend/tests/test_workspace_docs_49_51_iter96.py. If you want to visually verify the DO THIS NEXT NOW card in-browser, either (a) call POST /api/hi/pi/blockers/{bid}/resolve on the fcb04490 project's active blocker (created by prior smoke test) or (b) create a fresh project and call POST /api/hi/projects/{pid}/plan (LLM, ~20-40s). All frontend testIDs verified: proj-tab-{all|active|paused|planning|done}, proj-new, proj-empty-{homie|scan|new}, proj-{<uuid>}, proj-brief-{quick|standard|detailed}, proj-time-{5|25|60}, proj-problem, proj-evidence, proj-shopping, proj-step-complete, proj-step-skip, proj-override-{reason}, rp-type-{9 codes}, rp-note, rp-photo-camera, rp-photo-library, rp-submit, rp-close."
+}
