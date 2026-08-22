@@ -145,6 +145,17 @@ class BudgetReq(BaseModel):
     actual_cost: Optional[float] = None
 
 
+EXPENSE_CATEGORIES = ["materials", "tools", "tool_rental", "delivery", "permits",
+                      "professional_services", "disposal", "custom_manufacturing", "contingency", "other"]
+
+
+class ExpenseReq(BaseModel):
+    label: str
+    amount: float
+    category: str = "other"
+    note: Optional[str] = None
+
+
 class StuckReq(BaseModel):
     reason_code: str
     note: Optional[str] = None
@@ -351,7 +362,19 @@ def build_router(get_current_user: Callable) -> APIRouter:
         # apply lightweight side-effects (budget preference recorded); history preserved
         if ev["change_type"] == "budget":
             await _db.hi_projects.update_one({"id": ev["project_id"]}, {"$set": {"budget_preference": ev["new_value"]}})
-        await _db.pi_change_events.update_one({"id": eid}, {"$set": {"status": "applied", "applied_at": _now()}})
+        await _db.pi_change_events.update_one({"id": eid}, {"$set": {"status": "applied", "user_decision": "approved", "applied_at": _now()}})
+        await _cap(user, "project_change_approved", {"change_id": eid, "change_type": ev["change_type"]})
+        return {"ok": True}
+
+    @r.post("/change-events/{eid}/reject")
+    async def reject_change(eid: str, user: dict = Depends(get_current_user)):
+        ev = await _db.pi_change_events.find_one({"id": eid}, {"_id": 0})
+        if not ev or not await _db.hi_projects.find_one({"id": ev["project_id"], "user_id": user["id"]}):
+            raise HTTPException(status_code=404, detail="Change not found.")
+        if ev.get("status") == "applied":
+            raise HTTPException(status_code=409, detail="This change was already applied.")
+        await _db.pi_change_events.update_one({"id": eid}, {"$set": {"status": "rejected", "user_decision": "rejected", "rejected_at": _now()}})
+        await _cap(user, "project_change_rejected", {"change_id": eid, "change_type": ev["change_type"]})
         return {"ok": True}
 
     @r.get("/projects/{pid}/changes")
@@ -380,6 +403,72 @@ def build_router(get_current_user: Callable) -> APIRouter:
         snap = await _budget_snapshot(p)
         await _db.pi_budget_snapshots.insert_one({"id": _nid(), "project_id": pid, **snap, "created_at": _now()})
         return snap
+
+    # ---- Doc 59: expenses + budget workspace
+    @r.post("/projects/{pid}/expenses")
+    async def add_expense(pid: str, req: ExpenseReq, user: dict = Depends(get_current_user)):
+        await _project(pid, user["id"])
+        if not req.label.strip():
+            raise HTTPException(status_code=400, detail="A short label is required.")
+        if req.amount is None or req.amount < 0:
+            raise HTTPException(status_code=400, detail="Amount must be zero or more.")
+        doc = {"id": _nid(), "project_id": pid, "user_id": user["id"],
+               "label": req.label.strip()[:120],
+               "category": req.category if req.category in EXPENSE_CATEGORIES else "other",
+               "amount": round(float(req.amount), 2), "note": req.note,
+               "created_at": _now()}
+        await _db.pi_expenses.insert_one(dict(doc))
+        doc.pop("_id", None)
+        await _cap(user, "project_expense_added", {"project_id": pid, "category": doc["category"]})
+        return doc
+
+    @r.get("/projects/{pid}/expenses")
+    async def list_expenses(pid: str, user: dict = Depends(get_current_user)):
+        await _project(pid, user["id"])
+        rows = await _db.pi_expenses.find({"project_id": pid}, {"_id": 0}).sort("created_at", -1).to_list(200)
+        return {"expenses": rows, "categories": EXPENSE_CATEGORIES,
+                "total": round(sum(e.get("amount") or 0 for e in rows), 2)}
+
+    @r.get("/projects/{pid}/budget-workspace")
+    async def budget_workspace(pid: str, user: dict = Depends(get_current_user)):
+        """Doc 59 — summary-first budget view with honest estimate confidence."""
+        p = await _project(pid, user["id"])
+        snap = await _budget_snapshot(p)
+        mats = await _db.hi_project_materials.find({"project_id": pid}, {"_id": 0}).to_list(300)
+        expenses = await _db.pi_expenses.find({"project_id": pid}, {"_id": 0}).to_list(200)
+        mat_actual = round(sum((m.get("actual_price") or 0) for m in mats), 2)
+        exp_total = round(sum((e.get("amount") or 0) for e in expenses), 2)
+        purchased = round(mat_actual + exp_total, 2)
+        est_high = snap.get("estimated_cost_high") or snap.get("estimated_cost_low") or 0
+        remaining = round(max(0, est_high - purchased), 2)
+        target = snap.get("budget_limit")
+        if target is None:
+            status = "no_target"
+        elif purchased > target:
+            status = "over_budget"
+        elif est_high > target:
+            status = "at_risk"
+        else:
+            status = "on_track"
+        # estimate confidence (honest, derived — never asserted)
+        meas = await _db.hi_measurements.find({"user_id": user["id"], "project_id": pid},
+                                              {"_id": 0, "verification_status": 1}).to_list(100)
+        confirmed_meas = any(m.get("verification_status") in ("user_confirmed", "verified", "verified_future") for m in meas)
+        qty_based = [m for m in mats if m.get("quantity_basis") in ("measured", "user_entered")]
+        priced = [m for m in mats if m.get("actual_price") is not None or m.get("estimated_price") is not None]
+        if confirmed_meas and (qty_based or priced):
+            confidence, reason = "high", "Based on confirmed measurements and known product quantities."
+        elif meas or qty_based or priced:
+            confidence, reason = "medium", "Based on estimated quantities or pricing assumptions — confirm measurements to improve this."
+        else:
+            confidence, reason = "low", "Important project details (measurements, quantities) are still unknown."
+        return {"project": {"id": pid, "title": p.get("title")},
+                "estimated_total": est_high, "estimated_low": snap.get("estimated_cost_low") or 0,
+                "purchased_total": purchased,
+                "breakdown": {"materials_actual": mat_actual, "expenses": exp_total},
+                "remaining_estimate": remaining, "budget_target": target, "status": status,
+                "confidence": confidence, "confidence_reason": reason,
+                "expense_count": len(expenses)}
 
     # ---- safety-gated completion
     @r.post("/projects/{pid}/steps/{step_id}/safe-complete")

@@ -1,8 +1,9 @@
-import { useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, ActivityIndicator, Alert, KeyboardAvoidingView, Platform } from "react-native";
+import { useState, useRef } from "react";
+import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Modal, Dimensions } from "react-native";
 import { Image } from "expo-image";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import ConfettiCannon from "react-native-confetti-cannon";
 
 import { colors, spacing, radius, font, type } from "@/src/theme";
 import { api } from "@/src/api";
@@ -24,6 +25,17 @@ export default function CompleteProject() {
   const [photo, setPhoto] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [celebration, setCelebration] = useState<any>(null);
+  const [completion, setCompletion] = useState<any>(null);
+  const [achievements, setAchievements] = useState<any[]>([]);
+  const celTimer = useRef<any>(null);
+
+  const endCelebration = async (action: "skipped" | "completed") => {
+    if (celTimer.current) { clearTimeout(celTimer.current); celTimer.current = null; }
+    const cid = celebration?.celebration_event_id;
+    setCelebration(null);
+    if (cid) { try { await api(`/hi/celebration/events/${cid}/${action}`, { method: "POST", body: {} }); } catch {} }
+  };
 
   const addPhoto = () => {
     Alert.alert("Completion photo", "Add a photo of the finished work", [
@@ -42,6 +54,18 @@ export default function CompleteProject() {
         completion_photo_base64: photo || undefined,
       } });
       setSaved(true);
+      if (result === "completed") {
+        try {
+          const cel = await api(`/hi/celebration/projects/${id}/completed`, { method: "POST", body: {} });
+          setCompletion(cel.completion || null);
+          setAchievements(cel.achievements || []);
+          if (cel.celebration && !cel.already_recorded) {
+            setCelebration(cel.celebration);
+            const ms = (cel.celebration.duration_seconds || 7) * 1000;
+            celTimer.current = setTimeout(() => endCelebration("completed"), ms);
+          }
+        } catch {}
+      }
     } catch (e: any) { Alert.alert("Couldn't save", e?.message || "Try again."); }
     finally { setSaving(false); }
   };
@@ -50,14 +74,59 @@ export default function CompleteProject() {
     return (
       <View style={styles.root}><ScreenHeader title="Saved" />
         <ScrollView contentContainerStyle={{ padding: spacing.lg }}>
-          <View style={styles.doneCard}><MaterialCommunityIcons name="party-popper" size={44} color={colors.brandPrimary} /><Text style={styles.doneTitle}>Saved to your home history</Text></View>
+          <View style={styles.doneCard}>
+            <MaterialCommunityIcons name="party-popper" size={44} color={colors.brandPrimary} />
+            <Text style={styles.doneTitle}>{result === "completed" ? "Project Complete" : "Saved to your home history"}</Text>
+            {completion && (
+              <View style={styles.summaryBox}>
+                {completion.actual_cost != null && <Text style={styles.sumLine}>Materials & costs: ${completion.actual_cost}</Text>}
+                {completion.estimated_pro_cost != null && <Text style={styles.sumLine}>Estimated professional cost: ${completion.estimated_pro_cost}</Text>}
+                {completion.estimated_savings != null && completion.estimated_savings > 0 && (
+                  <Text testID="completion-savings" style={[styles.sumLine, { color: colors.success }]}>Estimated savings: ${completion.estimated_savings}</Text>
+                )}
+                {completion.estimated_savings != null && <Text style={styles.sumNote}>{completion.savings_note}</Text>}
+                <Text style={styles.sumNote}>Saved to your Home Passport.</Text>
+              </View>
+            )}
+            {achievements.length > 0 && (
+              <View style={styles.achieveRow}>
+                {achievements.map((a) => (
+                  <View key={a.id} testID={`achievement-${a.achievement_type}`} style={styles.achieveChip}>
+                    <MaterialCommunityIcons name="trophy-outline" size={14} color={colors.warning} />
+                    <Text style={styles.achieveText}>{a.label}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
           <Text style={styles.next}>What&apos;s next?</Text>
           <NextBtn testID="next-cleanup" icon="broom" label="Clean up & log leftovers" highlight onPress={() => router.replace(`/home-intel/cleanup?project_id=${id}`)} />
-          <NextBtn testID="next-maintenance" icon="calendar-clock" label="Schedule maintenance" onPress={() => Alert.alert("Maintenance", "The Maintenance Scheduler is coming in the next update.")} />
+          <NextBtn testID="next-maintenance" icon="calendar-clock" label="Schedule maintenance follow-up" onPress={async () => {
+            try {
+              const res = await api<{ task: { title: string; due_date: string }; created: boolean }>(`/hi/maintenance/followup/from-project/${id}`, { method: "POST", body: {} });
+              Alert.alert(res.created ? "Follow-up scheduled" : "Already scheduled", `${res.task.title} — due ${res.task.due_date}.`);
+            } catch (e: any) { Alert.alert("Couldn't schedule", e?.message || "Try again."); }
+          }} />
           <NextBtn testID="next-another" icon="plus-circle-outline" label="Start another project" onPress={() => router.replace("/home-intel/projects/start")} />
-          <NextBtn testID="next-pro" icon="account-hard-hat" label="Share with a professional" onPress={() => router.replace("/pros")} />
+          <NextBtn testID="next-pro" icon="account-hard-hat" label="Share with a professional" onPress={() => router.replace(`/home-intel/projects/pro-help?id=${id}`)} />
           <NextBtn testID="next-done" icon="home-outline" label="Back to projects" onPress={() => router.replace("/home-intel/projects")} />
         </ScrollView>
+
+        {/* Homie celebration overlay (Doc 63 — skippable, asset-driven, reduced-motion aware) */}
+        <Modal visible={!!celebration} transparent animationType="fade" onRequestClose={() => endCelebration("skipped")}>
+          <Pressable testID="celebration-overlay" style={styles.celWrap} onPress={() => endCelebration("skipped")}>
+            {celebration?.play?.effects && (
+              <ConfettiCannon count={140} origin={{ x: Dimensions.get("window").width / 2, y: -10 }}
+                colors={celebration?.confetti_colors} fadeOut autoStart explosionSpeed={400} fallSpeed={2600} />
+            )}
+            <View style={styles.celCard}>
+              <MaterialCommunityIcons name="robot-happy-outline" size={72} color={colors.brandPrimary} />
+              {celebration?.play?.voice && <Text testID="celebration-voice" style={styles.celVoice}>{celebration?.voice_line}</Text>}
+              {celebration?.play?.animation && <Text style={styles.celSub}>{celebration?.subtitle}</Text>}
+              <Text style={styles.celSkip}>Tap anywhere to skip</Text>
+            </View>
+          </Pressable>
+        </Modal>
       </View>
     );
   }
@@ -121,4 +190,15 @@ const styles = StyleSheet.create({
   nextBtn: { flexDirection: "row", alignItems: "center", gap: spacing.sm, backgroundColor: colors.surfaceSecondary, borderColor: colors.border, borderWidth: 1, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.sm },
   nextBtnHi: { borderColor: colors.brandPrimary, backgroundColor: colors.brandPrimary + "14" },
   nextText: { flex: 1, color: colors.onSurface, fontFamily: font.bold, fontSize: type.base },
+  summaryBox: { alignSelf: "stretch", backgroundColor: colors.surfaceSecondary, borderColor: colors.border, borderWidth: 1, borderRadius: radius.md, padding: spacing.md, marginTop: spacing.md, gap: 2 },
+  sumLine: { color: colors.onSurface, fontFamily: font.medium, fontSize: type.base },
+  sumNote: { color: colors.onSurfaceTertiary, fontFamily: font.regular, fontSize: type.sm },
+  achieveRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.xs, marginTop: spacing.md, justifyContent: "center" },
+  achieveChip: { flexDirection: "row", alignItems: "center", gap: 4, borderColor: colors.warning, borderWidth: 1, backgroundColor: colors.warning + "14", borderRadius: radius.pill, paddingVertical: 4, paddingHorizontal: spacing.md },
+  achieveText: { color: colors.warning, fontFamily: font.bold, fontSize: type.sm },
+  celWrap: { flex: 1, backgroundColor: "#000C", alignItems: "center", justifyContent: "center" },
+  celCard: { alignItems: "center", gap: spacing.sm, padding: spacing.xl },
+  celVoice: { color: "#FFFFFF", fontFamily: font.display, fontSize: type["2xl"], textAlign: "center" },
+  celSub: { color: "#FFFFFFAA", fontFamily: font.medium, fontSize: type.base, textAlign: "center" },
+  celSkip: { color: "#FFFFFF66", fontFamily: font.regular, fontSize: type.sm, marginTop: spacing.lg },
 });

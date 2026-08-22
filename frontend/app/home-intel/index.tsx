@@ -215,6 +215,10 @@ export default function HomeIntelDashboard() {
           <MaterialCommunityIcons name="home-search-outline" size={20} color={colors.brandPrimary} />
           <Text style={styles.secondaryText}>My Home Assets{count ? ` (${count})` : ""}</Text>
         </Pressable>
+        <Pressable testID="hi-passport" style={styles.secondary} onPress={() => router.push("/home-intel/passport")}>
+          <MaterialCommunityIcons name="book-open-page-variant-outline" size={20} color={colors.brandPrimary} />
+          <Text style={styles.secondaryText}>Home Passport</Text>
+        </Pressable>
         <Pressable testID="hi-map-home" style={styles.secondary} onPress={() => router.push("/home-intel/rooms")}>
           <MaterialCommunityIcons name="floor-plan" size={20} color={colors.brandPrimary} />
           <Text style={styles.secondaryText}>Map my home</Text>

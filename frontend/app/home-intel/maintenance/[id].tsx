@@ -47,10 +47,36 @@ export default function MaintenanceDetail() {
     finally { setBusy(false); }
   };
 
+  const SKIP_REASONS = [
+    { code: "do_later", label: "I'll do it later" },
+    { code: "no_materials", label: "I don't have the materials" },
+    { code: "need_professional", label: "I need professional help" },
+    { code: "not_applicable", label: "This doesn't apply" },
+    { code: "other", label: "Other" },
+  ];
+
+  const skipWithReason = async (reason: string) => {
+    try {
+      const res = await api<{ next_action?: { label?: string; route?: string; message: string } | null; paused?: boolean }>(
+        `/hi/maintenance/tasks/${id}/skip`, { method: "POST", body: { reason } });
+      load();
+      if (res.next_action?.message) {
+        if (res.next_action.route && res.next_action.label) {
+          Alert.alert("Postponed", res.next_action.message, [
+            { text: "Not now", style: "cancel" },
+            { text: res.next_action.label, onPress: () => router.push(res.next_action!.route as any) },
+          ]);
+        } else {
+          Alert.alert("Postponed", res.next_action.message);
+        }
+      }
+    } catch {}
+  };
+
   const skip = () => {
-    Alert.alert("Skip this time?", "It will roll forward to the next scheduled date if recurring.", [
-      { text: "Cancel", style: "cancel" },
-      { text: "Skip", onPress: async () => { try { await api(`/hi/maintenance/tasks/${id}/skip`, { method: "POST" }); load(); } catch {} } },
+    Alert.alert("Why are you postponing this?", "No pressure — this just helps Homie help you.", [
+      ...SKIP_REASONS.map((r) => ({ text: r.label, onPress: () => skipWithReason(r.code) })),
+      { text: "Cancel", style: "cancel" as const },
     ]);
   };
 

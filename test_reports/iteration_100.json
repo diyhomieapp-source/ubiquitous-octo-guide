@@ -1,0 +1,32 @@
+{
+  "summary": "Iteration 100 — verified newest deltas Doc 61 (notification snooze + Today with Homie briefing) and Doc 63 (Celebration engine) end-to-end. Backend: 11/11 pytest green — briefing returns greeting + kinds in {safety,professional,maintenance,project,delivery} with empty_message null when items exist; snooze validates option (400 on 'later'), tomorrow returns snoozed_until and item disappears from inbox, safety category returns 409; celebration prefs GET defaults + PUT toggle persists; celebration completed returns 409 for non-completed project, full flow on fresh user returns completion record (estimated_pro_cost, estimated_savings w/ savings_note), HOMIE_VICTORY_01 with play flags + events timeline, achievements[] includes first_project_complete, maintenance follow-up task created (source=post_project), second call returns already_recorded=true and celebration=null, POST /events/{cid}/skipped works, GET /projects/{pid}/completion returns record; reduced_motion=true shapes package to duration_seconds=2 and play.effects=false; celebrations_enabled=false yields celebration=null; admin /packages lists seeded HOMIE_VICTORY_01. Frontend (mobile 390x844): /home-intel/projects/49186adc-f93a-4417-96f3-9b6178193c77 no longer crashes — proj-budget and proj-pro-help both render (iter99 cleanup_disposal Array.isArray fix confirmed). /home-intel/inbox shows Today with Homie briefing card (testID inbox-briefing) with greeting 'Good afternoon, Jordan.' + 3 briefing items (test notif, HVAC filter maintenance due, Floating Shelf ready to continue) and 4 inbox-snooze-* buttons. /home-intel/projects/complete?id=49186adc... with cmp-completed → cmp-save triggered celebration-overlay ('Boom! You did it!' voice line, tap-to-skip hint), completion-savings ($210), achievement-first_project_complete chip, next-cleanup, next-maintenance, next-pro and next-done all visible.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_docs_61_63_iter100.py",
+    "/app/test_reports/pytest/docs_61_63_iter100.xml"
+  ],
+  "action_items": [
+    "No blocking issues found in this pass. Doc 61 and Doc 63 are production-ready for the tested surface.",
+    "Optional cleanup: fresh_user_headers fixture in test_docs_61_63_iter100.py registers a brand-new user per test (function-scope) to avoid the free-tier single-project cap; this creates ~6 disposable users per full run (safe to leave)."
+  ],
+  "critical_code_review_comments": [
+    "celebration_engine.py — _select_package properly applies reduced_motion (duration_seconds=2 + play.effects=false) and celebrations_enabled=false short-circuits to None. Completion record math: est_pro=round(est_high*2.4), savings=est_pro-(actual or est_high) with savings_note always set — matches Doc 63 honest-estimate rule. _evaluate_achievements is idempotent via `have` set; first_project_complete fires only when completed_count==1 which matches fresh-user first completion. Follow-up creation is idempotent via existing filter on project_id+source='post_project'.",
+    "notification_engine.py — /briefing correctly caps at items[:4], kinds match spec (safety/professional/maintenance/project/delivery). Snooze: option validation returns 400, safety category returns 409 before computing until. The 'tomorrow' path sets 09:00 next-day UTC which reads as 'moved to tomorrow morning' — good UX default.",
+    "project_planner_engine.py — /outcome endpoint sets hi_projects.status='completed' (not 'complete') which correctly matches celebration_engine.py's `if p.get('status') != 'completed'` gate."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_docs_61_63_iter100.py (new)"
+  ],
+  "success_rate": {"backend": "100% (11/11 iter100 + iter99 37/37 still green)", "frontend": "100% — all Doc 61 & Doc 63 UI surfaces render + integrate; iter99 projects/[id] cleanup_disposal crash is fixed"},
+  "seed_data_creation": "6 fresh users registered iter100_*@example.com — 4 with a completed test project + achievements + follow-up maintenance task; 1 with an active-only project (for 409); 3 shared for snooze/briefing tests (product/maintenance/safety test notifications in their inbox). Demo user demo_home@diyhomie.com had their Floating Shelf project marked completed via UI complete flow — this created a hi_project_completion record + HOMIE_VICTORY_01 celebration event + first_project_complete achievement + post_project maintenance follow-up task on that user (a subsequent re-run of the UI complete flow will return already_recorded=true).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Docs 61/63 verified green. If retesting, note: (1) demo_home's Floating Shelf (49186adc-f93a-4417-96f3-9b6178193c77) now has a completion record — subsequent /hi/celebration/projects/{pid}/completed returns already_recorded=true and celebration=null (expected). (2) demo_home's inbox has 4 unread safety 'This is a test notification' items + 1 product from prior iters — the dedupe rule uses event_type+entity+channel over 24h so repeated /notifications/test calls with the same category get suppressed as 'duplicate'. Use a freshly-registered user for clean snooze tests. (3) Test-user registration must use a real-looking TLD; @diyhomie.test is rejected by email-validator, use @example.com. (4) hi/projects create endpoint is POST /api/hi/projects/start with body {goal, project_category?}; vague goals return {needs_clarification:true} with no project row — pass unambiguous goals like 'Install new bathroom faucet with braided supply lines'.",
+  "rca_of_issue": "N/A — no regressions or new bugs found. iter99 RCA on /home-intel/projects/[id] cleanup_disposal is confirmed fixed at [id].tsx:293-294 with Array.isArray guard + string fallback."
+}

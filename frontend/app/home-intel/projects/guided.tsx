@@ -36,7 +36,25 @@ export default function GuidedWorkMode() {
   const [recording, setRecording] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
   const [muted, setMuted] = useState(false);
+  const [assessment, setAssessment] = useState<any>(null);
+  const [checkpointDef, setCheckpointDef] = useState<any>(null);
+  const [checked, setChecked] = useState<string[]>([]);
+  const [checkpointDone, setCheckpointDone] = useState(false);
+  const [acked, setAcked] = useState(false);
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+
+  const assessStep = useCallback(async (stepObj: any) => {
+    setAssessment(null); setCheckpointDef(null); setChecked([]); setCheckpointDone(false); setAcked(false);
+    if (!stepObj) return;
+    try {
+      const res = await api<any>("/hi/safetysys/assessments", {
+        method: "POST", body: { project_id: id, task_id: stepObj.id, task_text: stepObj.instruction_text },
+      });
+      setAssessment(res.assessment);
+      if (res.checkpoint) setCheckpointDef(res.checkpoint);
+      if (res.assessment?.acknowledgment_tier === "informational") setAcked(true);
+    } catch { setAcked(true); }
+  }, [id]);
 
   useEffect(() => () => { try { player.pause(); } catch {} }, []);
 
@@ -57,9 +75,10 @@ export default function GuidedWorkMode() {
       setPayload(res);
       const first = res.welcome_back || res.step?.voice_text;
       if (first) speak(first);
+      assessStep(res.step);
     } catch { Alert.alert("Guided Mode", "Couldn't start guided mode. Generate a project plan first."); router.back(); }
     finally { setLoading(false); }
-  }, [id, router, speak]);
+  }, [id, router, speak, assessStep]);
   useEffect(() => { start(); }, [start]);
 
   const sid = payload?.session?.id;
@@ -93,6 +112,7 @@ export default function GuidedWorkMode() {
         setPayload(res);
         setMicro(null);
         setHomieMsg(null);
+        assessStep(res.step);
         if (res.completion?.up_next) speak(`Nice work. Up next: ${res.completion.up_next}`);
         else if (res.work_state === "TASK_COMPLETE") speak("Nice work. Everything in this plan is done.");
       } else {
@@ -113,12 +133,40 @@ export default function GuidedWorkMode() {
 
   const runVoiceCommand = (cmd: string) => {
     if (["repeat", "slow", "why", "tool", "whats_next", "help"].includes(cmd)) sendEvent(cmd);
-    else if (cmd === "done") setVerifying(true);
+    else if (cmd === "done") {
+      if (safetyGated) { setHomieMsg("Before we finish this step, complete the safety check on screen — voice can't skip safety confirmations."); }
+      else setVerifying(true);
+    }
     else if (cmd === "pause") pause();
     else if (cmd === "continue") { setCompletion(null); setHomieMsg(null); }
     else if (cmd === "bring_in_pro") { api(`/hi/guided/sessions/${sid}/pro`, { method: "POST" }).catch(() => {}); router.push(`/home-intel/projects/${id}`); }
     else if (cmd === "back") setHomieMsg("Going back within a completed step isn't supported yet — use Repeat to review this one.");
   };
+
+  const submitCheckpoint = async () => {
+    if (!checkpointDef) return;
+    setBusy(true);
+    try {
+      const res = await api<any>("/hi/safetysys/checkpoints", {
+        method: "POST",
+        body: { project_id: id, task_id: step?.id, checkpoint_type: checkpointDef.checkpoint_type, checked_items: checked },
+      });
+      setHomieMsg(res.message);
+      if (res.unlocked) { setCheckpointDone(true); setAcked(true); }
+    } catch {} finally { setBusy(false); }
+  };
+
+  const acknowledgeSafety = async () => {
+    if (!assessment) { setAcked(true); return; }
+    setBusy(true);
+    try {
+      const res = await api<any>(`/hi/safetysys/assessments/${assessment.id}/acknowledge`, { method: "POST", body: { confirmed: true } });
+      if (res.ok) setAcked(true);
+    } catch {} finally { setBusy(false); }
+  };
+
+  const safetyGated = (checkpointDef && !checkpointDone) || (assessment && !acked &&
+    ["caution_confirmation", "critical_confirmation"].includes(assessment.acknowledgment_tier));
 
   const startRecording = async () => {
     try {
@@ -285,6 +333,37 @@ export default function GuidedWorkMode() {
               ))}
             </View>
 
+            {/* Doc 56 — safety checkpoint / acknowledgment gate */}
+            {checkpointDef && !checkpointDone && (
+              <View style={styles.checkpointCard}>
+                <Text style={styles.checkpointTitle}>🛡 {checkpointDef.title}</Text>
+                {checkpointDef.items.map((it: string) => {
+                  const on = checked.includes(it);
+                  return (
+                    <Pressable key={it} testID={`gw-cp-item-${checkpointDef.items.indexOf(it)}`} style={styles.checkRow}
+                      onPress={() => setChecked((prev) => (on ? prev.filter((x) => x !== it) : [...prev, it]))}>
+                      <MaterialCommunityIcons name={on ? "checkbox-marked" : "checkbox-blank-outline"} size={20} color={on ? colors.success : colors.onSurfaceTertiary} />
+                      <Text style={styles.checkText}>{it}</Text>
+                    </Pressable>
+                  );
+                })}
+                <Pressable testID="gw-cp-confirm" style={[styles.primaryBtn, checked.length < checkpointDef.items.length && { opacity: 0.5 }]}
+                  disabled={busy || checked.length < checkpointDef.items.length} onPress={submitCheckpoint}>
+                  <Text style={styles.primaryText}>Confirm Safety Checkpoint</Text>
+                </Pressable>
+              </View>
+            )}
+            {!checkpointDef && assessment && !acked && ["caution_confirmation", "critical_confirmation"].includes(assessment.acknowledgment_tier) && (
+              <View style={styles.checkpointCard}>
+                <Text style={styles.checkpointTitle}>🛡 Safety confirmation needed</Text>
+                <Text style={styles.checkText}>{(assessment.reasons || [])[0] || step?.safety_card || "Confirm the safety conditions for this step are met."}</Text>
+                {(assessment.ppe || []).length > 0 && <Text style={styles.ppeText}>PPE: {assessment.ppe.join(", ").replace(/_/g, " ")}</Text>}
+                <Pressable testID="gw-ack" style={styles.primaryBtn} disabled={busy} onPress={acknowledgeSafety}>
+                  <Text style={styles.primaryText}>I&apos;ve Confirmed This Is Safe</Text>
+                </Pressable>
+              </View>
+            )}
+
             {/* verification */}
             {verifying ? (
               <View style={styles.verifyCard}>
@@ -299,8 +378,8 @@ export default function GuidedWorkMode() {
                 </View>
               </View>
             ) : (
-              <Pressable testID="gw-done" style={styles.primaryBtn} disabled={busy} onPress={() => setVerifying(true)}>
-                <Text style={styles.primaryText}>I&apos;m Done With This Step</Text>
+              <Pressable testID="gw-done" style={[styles.primaryBtn, safetyGated && { opacity: 0.5 }]} disabled={busy || !!safetyGated} onPress={() => setVerifying(true)}>
+                <Text style={styles.primaryText}>{safetyGated ? "Complete Safety Check First" : "I'm Done With This Step"}</Text>
               </Pressable>
             )}
 
@@ -368,6 +447,11 @@ const styles = StyleSheet.create({
   ctrlBtn: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, paddingHorizontal: spacing.sm, paddingVertical: spacing.sm, minHeight: 44, flexGrow: 1, justifyContent: "center" },
   ctrlText: { color: colors.onSurface, fontFamily: font.medium, fontSize: type.xs },
   verifyCard: { backgroundColor: colors.surfaceSecondary, borderColor: "#F2C94C55", borderWidth: 1, borderRadius: radius.md, padding: spacing.md, marginTop: spacing.md },
+  checkpointCard: { backgroundColor: colors.surfaceSecondary, borderColor: "#F2C94C88", borderWidth: 1, borderRadius: radius.md, padding: spacing.md, marginTop: spacing.md },
+  checkpointTitle: { color: colors.onSurface, fontFamily: font.bold, fontSize: type.sm, marginBottom: spacing.sm },
+  checkRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, minHeight: 44 },
+  checkText: { color: colors.onSurfaceSecondary, fontFamily: font.regular, fontSize: type.sm, flex: 1, lineHeight: 20 },
+  ppeText: { color: "#F2C94C", fontFamily: font.medium, fontSize: type.xs, marginTop: spacing.xs, textTransform: "capitalize" },
   verifyQ: { color: colors.onSurface, fontFamily: font.medium, fontSize: type.base, marginBottom: spacing.md, lineHeight: 22 },
   primaryBtn: { backgroundColor: colors.brandPrimary, borderRadius: radius.md, alignItems: "center", justifyContent: "center", paddingVertical: spacing.md, minHeight: 48, marginTop: spacing.md },
   primaryText: { color: colors.onBrandPrimary, fontFamily: font.bold, fontSize: type.base },

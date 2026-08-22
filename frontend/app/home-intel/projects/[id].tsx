@@ -289,8 +289,9 @@ export default function ProjectWorkspace() {
           </View>
         ))}
 
-        {p.stop_conditions?.length > 0 && (<><Text style={[styles.section, { color: colors.error }]}>Stop immediately if…</Text>{p.stop_conditions.map((c: string, i: number) => <Text key={i} style={styles.li}>• {c}</Text>)}</>)}
-        {p.cleanup_disposal?.length > 0 && (<><Text style={styles.section}>Cleanup & disposal</Text>{p.cleanup_disposal.map((c: string, i: number) => <Text key={i} style={styles.li}>• {c}</Text>)}</>)}
+        {Array.isArray(p.stop_conditions) && p.stop_conditions.length > 0 && (<><Text style={[styles.section, { color: colors.error }]}>Stop immediately if…</Text>{p.stop_conditions.map((c: string, i: number) => <Text key={i} style={styles.li}>• {c}</Text>)}</>)}
+        {Array.isArray(p.cleanup_disposal) && p.cleanup_disposal.length > 0 && (<><Text style={styles.section}>Cleanup & disposal</Text>{p.cleanup_disposal.map((c: string, i: number) => <Text key={i} style={styles.li}>• {c}</Text>)}</>)}
+        {!Array.isArray(p.cleanup_disposal) && !!p.cleanup_disposal && (<><Text style={styles.section}>Cleanup & disposal</Text><Text style={styles.li}>{String(p.cleanup_disposal)}</Text></>)}
         {!!p.maintenance_followup && (<><Text style={styles.section}>Maintenance follow-up</Text><Text style={styles.li}>{p.maintenance_followup}</Text></>)}
 
         <Pressable testID="proj-problem" style={[styles.wideBtn, { borderColor: colors.warning }]} onPress={() => setProblemOpen(true)}>
@@ -301,6 +302,12 @@ export default function ProjectWorkspace() {
         </Pressable>
         <Pressable testID="proj-shopping" style={styles.wideBtn} onPress={() => router.push(`/home-intel/projects/materials?id=${id}`)}>
           <MaterialCommunityIcons name="cart-outline" size={18} color={colors.brandPrimary} /><Text style={styles.wideText}>  Shopping List</Text>
+        </Pressable>
+        <Pressable testID="proj-budget" style={styles.wideBtn} onPress={() => router.push(`/home-intel/projects/budget?id=${id}`)}>
+          <MaterialCommunityIcons name="cash-multiple" size={18} color={colors.brandPrimary} /><Text style={styles.wideText}>  Budget &amp; Changes</Text>
+        </Pressable>
+        <Pressable testID="proj-pro-help" style={styles.wideBtn} onPress={() => router.push(`/home-intel/projects/pro-help?id=${id}`)}>
+          <MaterialCommunityIcons name="account-hard-hat" size={18} color={colors.brandPrimary} /><Text style={styles.wideText}>  Bring in a Pro</Text>
         </Pressable>
         <Pressable testID="proj-intelligence" style={styles.wideBtn} onPress={() => router.push(`/home-intel/projects/intelligence?id=${id}`)}>
           <MaterialCommunityIcons name="lightbulb-on-outline" size={18} color={colors.brandPrimary} /><Text style={styles.wideText}>  Next Best Step &amp; Blockers</Text>

@@ -1,0 +1,29 @@
+{
+  "summary": "Doc 56 (Safety, Confidence, Stop-Work & Professional Escalation) — 17/17 backend pytest cases green and frontend guided-mode safety gate verified end-to-end on a real drilling step. Backend: GET /checkpoints/electrical returns 4 items, unknown type 404; POST /assessments — 'Roll paint onto the wall' → GREEN informational, 'Drill anchor holes into the wall' → checkpoint=drilling with critical/caution tier + checkpoint payload, 'Disconnect the gas line' → RED hard_stop with stop payload options {rescan, show_safer_options, bring_in_pro}; POST /assessments/{aid}/acknowledge — hard_stop → 409, caution confirmed=true → ok+unlocked, confirmed=false → ok:false; POST /assessments/{aid}/override — RED → 409, empty reason → 400, valid reason → recorded with user_reason persisted; POST /checkpoints partial → unlocked=false with missing list of 2, all items → unlocked=true; GET /projects/{pid}/history aggregates assessment+checkpoint+override entries sorted desc; POST /urgent 'I smell gas' → urgent=true category=gas, benign → urgent=false. Frontend (guided.tsx on active drilling step 4/11 of demo user's Floating Shelf project): safety strip renders YELLOW, checkpoint card 'Before drilling' displays with gw-cp-item-0..3, gw-done shows label 'Complete Safety Check First' and is aria-disabled=true; after ticking 4 items and pressing gw-cp-confirm, backend returns 'Checkpoint complete', gw-done label flips to 'I'm Done With This Step' and re-enables. All Doc 52 controls (gw-ctrl-repeat/slow/why/tool/whats_next/help, gw-speak, gw-micro, gw-mic, gw-problem, gw-pause, gw-mute) still render — no regression. Voice 'done' command guarded by safetyGated check in runVoiceCommand (line 137) — code path validated by inspection.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_doc56_safety_escalation_iter98.py",
+    "/app/test_reports/pytest/doc56_iter98.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "safety_escalation_engine.py cleanly layered on safety_engine (Doc 43), workspace safety colors (Docs 49/51), guided (Doc 52), Homie urgent (Doc 54). Tier promotion logic (_tier_for) is deterministic: RED→hard_stop, ORANGE or electrical/plumbing checkpoint→critical_confirmation, YELLOW or any other checkpoint→caution_confirmation, else informational.",
+    "Override endpoint short-circuits correctly: RED/hard_stop 409 before reason validation so red conditions can never be silently overridden even with reason. Reason is trimmed and truncated to 400 chars — persisted on sa_overrides and pointer set on the assessment.",
+    "acknowledge endpoint refuses hard_stop with 409 even if confirmed=true — matches Doc 56 spec that RED must be resolved/rerouted, never dismissed.",
+    "urgent detection uses substring matches on lowercased text — 'I smell gas' hits gas pattern, 'smoke' hits fire, 'sparking'/'got shocked' hits electrical. Note: 'burning smell' (fire) also matches 'smell' in gas list if order mattered, but gas trigger requires 'smell gas' phrase, so no collision.",
+    "guided.tsx safetyGated computed derived from (checkpointDef && !checkpointDone) || (assessment && !acked && ack_tier in caution/critical) — gw-done disabled prop and label switch correctly bound. Voice runVoiceCommand.'done' respects the gate (line 137).",
+    "assessStep called on session start (line 78) and on every advance (line 115) — new step always re-assessed and gate state reset (line 47)."
+  ],
+  "updated_files": ["/app/backend/tests/test_doc56_safety_escalation_iter98.py (new)"],
+  "success_rate": {"backend": "100% (17/17)", "frontend": "100% (safety gate + all guided testIDs verified on live drilling step)"},
+  "seed_data_creation": "Reused existing planned project '49186adc-f93a-4417-96f3-9b6178193c77' (Floating Shelf Installation, 11 steps) from iter 97. Progressed guided session via /done event once to reach step 4 'Drill holes based on your markings' — an active drilling step that surfaces the checkpoint. Backend tests wrote several sa_assessments/sa_checkpoints/sa_overrides rows on this project (visible in /history endpoint).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Demo user's Floating Shelf project is currently at step 4 (drilling) after this test — guided session id 12c853fe-62d4-4b1d-974d-81c3a0cdb138 has one completed checkpoint. If next testing needs a fresh step, either advance further via /done or start a new session (backend creates a new one per POST). Free-tier project cap still tight — reuse this project rather than create new."
+}

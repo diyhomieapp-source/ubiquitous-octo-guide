@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
@@ -21,6 +21,7 @@ export default function Inbox() {
   const [unread, setUnread] = useState(0);
   const [filter, setFilter] = useState("all");
   const [loading, setLoading] = useState(true);
+  const [briefing, setBriefing] = useState<any>(null);
 
   const load = useCallback(async (cat: string) => {
     try {
@@ -28,6 +29,7 @@ export default function Inbox() {
       const d = await api(`/hi/notifications/inbox${q}`);
       setItems(d.items || []); setUnread(d.unread_count || 0);
     } catch {} finally { setLoading(false); }
+    try { setBriefing(await api("/hi/notifications/briefing")); } catch {}
   }, []);
   useFocusEffect(useCallback(() => { load(filter); }, [load, filter]));
 
@@ -40,6 +42,18 @@ export default function Inbox() {
   };
   const archive = async (it: any) => { try { await api(`/hi/notifications/inbox/${it.id}/archive`, { method: "POST" }); await load(filter); } catch {} };
   const readAll = async () => { try { await api("/hi/notifications/inbox/read-all", { method: "POST" }); await load(filter); } catch {} };
+
+  const snooze = (it: any) => {
+    if (it.category === "safety") { Alert.alert("Can't snooze", "Safety notifications can't be snoozed."); return; }
+    const opts = [
+      { code: "tonight", label: "Tonight" }, { code: "tomorrow", label: "Tomorrow" },
+      { code: "weekend", label: "This weekend" }, { code: "next_week", label: "Next week" },
+    ];
+    Alert.alert("Remind me…", "", [
+      ...opts.map((o) => ({ text: o.label, onPress: async () => { try { await api(`/hi/notifications/inbox/${it.id}/snooze`, { method: "POST", body: { option: o.code } }); await load(filter); } catch {} } })),
+      { text: "Cancel", style: "cancel" as const },
+    ]);
+  };
 
   return (
     <View style={styles.root}>
@@ -58,6 +72,22 @@ export default function Inbox() {
         ))}
       </ScrollView>
       <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing["3xl"] }}>
+        {briefing && (
+          <View testID="inbox-briefing" style={styles.briefing}>
+            <View style={styles.briefHead}>
+              <MaterialCommunityIcons name="weather-sunny" size={18} color={colors.brandPrimary} />
+              <Text style={styles.briefTitle}>Today with Homie</Text>
+            </View>
+            <Text style={styles.briefGreeting}>{briefing.greeting}</Text>
+            {(briefing.items || []).map((b: any, i: number) => (
+              <Pressable key={i} testID={`briefing-item-${i}`} style={styles.briefRow} onPress={() => b.route && router.push(b.route)}>
+                <MaterialCommunityIcons name={({ safety: "shield-alert-outline", professional: "account-hard-hat", maintenance: "wrench-outline", project: "hammer-screwdriver", delivery: "truck-outline" } as any)[b.kind] || "circle-small"} size={16} color={b.kind === "safety" ? colors.error : colors.brandPrimary} />
+                <Text style={styles.briefText}>{b.text}</Text>
+              </Pressable>
+            ))}
+            {briefing.empty_message ? <Text style={styles.briefText}>{briefing.empty_message}</Text> : null}
+          </View>
+        )}
         {loading ? <ActivityIndicator color={colors.brandPrimary} style={{ marginTop: spacing.lg }} /> :
           items.length === 0 ? <Text style={styles.empty}>You're all caught up.</Text> :
             items.map((it) => (
@@ -73,6 +103,7 @@ export default function Inbox() {
                   <Text style={styles.itemBody} numberOfLines={2}>{it.body}</Text>
                   <Text style={styles.itemMeta}>{it.category}{it.priority === "emergency" ? " · urgent" : ""}</Text>
                 </View>
+                <Pressable testID={`inbox-snooze-${it.id}`} hitSlop={8} onPress={() => snooze(it)}><MaterialCommunityIcons name="alarm-snooze" size={18} color={colors.onSurfaceTertiary} /></Pressable>
                 <Pressable testID={`inbox-archive-${it.id}`} hitSlop={8} onPress={() => archive(it)}><MaterialCommunityIcons name="archive-outline" size={18} color={colors.onSurfaceTertiary} /></Pressable>
               </Pressable>
             ))}
@@ -92,6 +123,12 @@ const styles = StyleSheet.create({
   chipText: { color: colors.onSurfaceSecondary, fontFamily: font.medium, fontSize: type.xs, textTransform: "capitalize" },
   chipTextOn: { color: colors.brandPrimary },
   empty: { color: colors.onSurfaceTertiary, fontFamily: font.regular, fontSize: type.base, textAlign: "center", marginTop: spacing.xl },
+  briefing: { backgroundColor: colors.brandPrimary + "0E", borderColor: colors.brandPrimary + "44", borderWidth: 1, borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.md, gap: spacing.xs },
+  briefHead: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
+  briefTitle: { color: colors.brandPrimary, fontFamily: font.bold, fontSize: type.sm, textTransform: "uppercase" },
+  briefGreeting: { color: colors.onSurface, fontFamily: font.bold, fontSize: type.lg },
+  briefRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs, paddingVertical: 2 },
+  briefText: { color: colors.onSurfaceSecondary, fontFamily: font.regular, fontSize: type.sm, flex: 1 },
   item: { flexDirection: "row", gap: spacing.sm, alignItems: "center", backgroundColor: colors.surfaceSecondary, borderColor: colors.border, borderWidth: 1, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.sm },
   itemUnread: { borderColor: colors.brandPrimary + "55", backgroundColor: colors.brandPrimary + "08" },
   catIcon: { width: 40, height: 40, borderRadius: radius.sm, alignItems: "center", justifyContent: "center" },

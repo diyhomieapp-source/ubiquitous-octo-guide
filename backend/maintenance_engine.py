@@ -137,6 +137,20 @@ class RescheduleReq(BaseModel):
     due_date: str
 
 
+SKIP_REASONS = {
+    "do_later": "I'll do it later",
+    "no_materials": "I do not have the materials",
+    "need_professional": "I need professional help",
+    "not_applicable": "This does not apply",
+    "other": "Other",
+}
+
+
+class SkipReq(BaseModel):
+    reason: Optional[str] = None
+    note: Optional[str] = None
+
+
 def build_router(get_current_user: Callable) -> APIRouter:
     r = APIRouter(prefix="/api/hi/maintenance", dependencies=[Depends(get_current_user)])
 
@@ -280,19 +294,75 @@ def build_router(get_current_user: Callable) -> APIRouter:
         return {"ok": True, "recurring": False}
 
     @r.post("/tasks/{task_id}/skip")
-    async def skip_task(task_id: str, user: dict = Depends(get_current_user)):
+    async def skip_task(task_id: str, req: SkipReq = None, user: dict = Depends(get_current_user)):
         t = await _owned(task_id, user["id"])
+        reason = (req.reason if req and req.reason in SKIP_REASONS else None)
         await _db.hi_maintenance_occurrences.update_one(
             {"maintenance_task_id": task_id, "status": {"$in": ["upcoming", "due", "overdue"]}},
-            {"$set": {"status": "skipped", "completed_date": _today().isoformat()}})
-        await _track(user["id"], "maintenance_task_skipped", {"task_id": task_id})
+            {"$set": {"status": "skipped", "completed_date": _today().isoformat(),
+                      "skip_reason": reason, "skip_note": (req.note if req else None)}})
+        await _track(user["id"], "maintenance_task_deferred" if reason == "do_later" else "maintenance_task_skipped",
+                     {"task_id": task_id, "reason": reason})
+        # helpful next action — never punish a deferral (Doc 58)
+        next_action = None
+        if reason == "no_materials":
+            next_action = {"label": "Find what you need", "route": "/home-intel/inventory",
+                           "message": "You'll need the right materials before this task can be completed. "
+                                      "Check your toolbox or add it to a shopping list."}
+        elif reason == "need_professional":
+            next_action = {"label": "Bring in a Pro", "route": "/home-intel/guide/assist",
+                           "message": "This can go to a professional with your home details attached."}
+        elif reason == "not_applicable":
+            await _db.hi_maintenance_tasks.update_one({"id": task_id}, {"$set": {"status": "paused", "updated_at": _now()}})
+            return {"ok": True, "next_due": None, "paused": True,
+                    "next_action": {"label": None, "route": None,
+                                    "message": "Got it — this task is paused and won't keep coming back."}}
         nxt = _next_due(t.get("frequency_type", "one_time"), t.get("custom_interval_days"), _today())
         if nxt:
             await _db.hi_maintenance_tasks.update_one({"id": task_id}, {"$set": {"due_date": nxt, "updated_at": _now()}})
             await _db.hi_maintenance_occurrences.insert_one({
                 "id": _new_id(), "maintenance_task_id": task_id, "user_id": user["id"],
                 "scheduled_date": nxt, "completed_date": None, "status": "upcoming", "notes": None, "cost": None, "created_at": _now()})
-        return {"ok": True, "next_due": nxt}
+        return {"ok": True, "next_due": nxt, "next_action": next_action}
+
+    @r.get("/skip-reasons")
+    async def skip_reasons(user: dict = Depends(get_current_user)):
+        return {"reasons": [{"code": k, "label": v} for k, v in SKIP_REASONS.items()]}
+
+    # -------------------------------------------------- post-project follow-up (Doc 58)
+    @r.post("/followup/from-project/{project_id}")
+    async def followup_from_project(project_id: str, user: dict = Depends(get_current_user)):
+        p = await _db.hi_projects.find_one({"id": project_id, "user_id": user["id"]}, {"_id": 0})
+        if not p:
+            raise HTTPException(status_code=404, detail="Project not found.")
+        existing = await _db.hi_maintenance_tasks.find_one(
+            {"user_id": user["id"], "project_id": project_id, "source": "post_project"}, {"_id": 0})
+        if existing:
+            existing["computed_status"] = _compute_status(existing)
+            return {"task": existing, "created": False}
+        prop = await _get_or_create_property(user["id"])
+        due = (_today() + timedelta(days=7)).isoformat()
+        title = f"Check up on: {p.get('title') or 'completed project'}"
+        followup_hint = p.get("maintenance_followup")
+        tid = _new_id()
+        doc = {"id": tid, "user_id": user["id"], "property_id": prop["id"],
+               "room_id": p.get("room_id"), "asset_id": None, "project_id": project_id,
+               "title": title[:120], "category": "Post-project follow-up",
+               "description": (followup_hint or "Inspect the completed work after the first week of use — "
+                                                "look for loosening, leaks or wear."),
+               "priority": "medium", "frequency_type": "one_time", "custom_interval_days": None,
+               "due_date": due, "status": "active", "source": "post_project",
+               "source_reason": f"Created automatically after completing “{p.get('title')}”.",
+               "season": None, "created_at": _now(), "updated_at": _now()}
+        await _db.hi_maintenance_tasks.insert_one(dict(doc))
+        await _db.hi_maintenance_occurrences.insert_one({
+            "id": _new_id(), "maintenance_task_id": tid, "user_id": user["id"],
+            "scheduled_date": due, "completed_date": None, "status": "upcoming",
+            "notes": None, "cost": None, "created_at": _now()})
+        await _track(user["id"], "maintenance_task_created", {"task_id": tid, "source": "post_project"})
+        doc.pop("_id", None)
+        doc["computed_status"] = _compute_status(doc)
+        return {"task": doc, "created": True}
 
     @r.post("/tasks/{task_id}/reschedule")
     async def reschedule(task_id: str, req: RescheduleReq, user: dict = Depends(get_current_user)):

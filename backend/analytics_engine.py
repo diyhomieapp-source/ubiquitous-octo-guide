@@ -215,6 +215,15 @@ EVENT_CATALOG = [
     ("homie_intent_classified", "homie", "Homie intent classified", ["intent"]),
     ("homie_safety_response_shown", "homie", "Homie safety response shown", ["intent"]),
     ("homie_action_selected", "homie", "Homie action chip selected", ["action"]),
+    # Doc 56 — safety, stop-work & escalation system
+    ("safety_warning_shown", "safety_sys", "Safety warning shown", ["project_id", "risk_color", "tier"]),
+    ("safety_warning_acknowledged", "safety_sys", "Safety warning acknowledged", ["project_id", "tier"]),
+    ("safety_checkpoint_started", "safety_sys", "Safety checkpoint started", ["project_id", "checkpoint_type"]),
+    ("safety_checkpoint_completed", "safety_sys", "Safety checkpoint completed", ["project_id", "checkpoint_type"]),
+    ("safety_stop_triggered", "safety_sys", "Safety stop triggered", ["project_id"]),
+    ("safety_override_requested", "safety_sys", "Safety override requested", ["project_id", "risk_color"]),
+    ("safety_override_recorded", "safety_sys", "Safety override recorded", ["project_id", "risk_color"]),
+    ("emergency_intent_detected", "safety_sys", "Emergency intent detected", ["category"]),
 ]
 _APPROVED = {name: set(props) for name, _fa, _d, props in EVENT_CATALOG}
 _FEATURE_AREA = {name: fa for name, fa, _d, _p in EVENT_CATALOG}

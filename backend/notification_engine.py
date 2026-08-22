@@ -234,13 +234,19 @@ class TestReq(BaseModel):
     category: str = "product"
 
 
+class SnoozeReq(BaseModel):
+    option: str = "tomorrow"   # tonight | tomorrow | weekend | next_week | custom
+    until: Optional[str] = None
+
+
 # ============================================================= user router
 def build_router(get_current_user: Callable) -> APIRouter:
     r = APIRouter(prefix="/api/hi/notifications", dependencies=[Depends(get_current_user)])
 
     @r.get("/inbox")
     async def inbox(category: Optional[str] = None, unread: bool = False, user: dict = Depends(get_current_user)):
-        flt = {"user_id": user["id"], "archived_at": None}
+        flt = {"user_id": user["id"], "archived_at": None,
+               "$or": [{"snoozed_until": None}, {"snoozed_until": {"$exists": False}}, {"snoozed_until": {"$lte": _now()}}]}
         if category in CATEGORIES:
             flt["category"] = category
         if unread:
@@ -249,6 +255,84 @@ def build_router(get_current_user: Callable) -> APIRouter:
         unread_count = await _db.notif_inbox.count_documents({"user_id": user["id"], "archived_at": None, "read_at": None})
         await _cap(user["id"], "inbox_opened", {})
         return {"items": items, "unread_count": unread_count}
+
+    @r.post("/inbox/{iid}/snooze")
+    async def snooze(iid: str, req: SnoozeReq, user: dict = Depends(get_current_user)):
+        """Doc 61 — postpone a non-critical reminder."""
+        item = await _db.notif_inbox.find_one({"id": iid, "user_id": user["id"]}, {"_id": 0, "category": 1})
+        if not item:
+            raise HTTPException(status_code=404, detail="Not found.")
+        if item.get("category") == "safety":
+            raise HTTPException(status_code=409, detail="Safety notifications can't be snoozed.")
+        now = datetime.now(timezone.utc)
+        if req.option == "tonight":
+            until = now.replace(hour=19, minute=0, second=0, microsecond=0)
+            if until <= now:
+                until = now + timedelta(hours=4)
+        elif req.option == "tomorrow":
+            until = (now + timedelta(days=1)).replace(hour=9, minute=0, second=0, microsecond=0)
+        elif req.option == "weekend":
+            days_ahead = (5 - now.weekday()) % 7 or 7  # next Saturday
+            until = (now + timedelta(days=days_ahead)).replace(hour=9, minute=0, second=0, microsecond=0)
+        elif req.option == "next_week":
+            until = (now + timedelta(days=7)).replace(hour=9, minute=0, second=0, microsecond=0)
+        elif req.option == "custom" and req.until:
+            try:
+                until = datetime.fromisoformat(req.until.replace("Z", "+00:00"))
+            except Exception:
+                raise HTTPException(status_code=400, detail="Invalid custom date.")
+        else:
+            raise HTTPException(status_code=400, detail="Pick tonight, tomorrow, weekend, next_week or custom.")
+        await _db.notif_inbox.update_one({"id": iid}, {"$set": {"snoozed_until": until.isoformat()}})
+        await _cap(user["id"], "notification_snoozed", {"category": item.get("category"), "option": req.option})
+        return {"ok": True, "snoozed_until": until.isoformat()}
+
+    @r.get("/briefing")
+    async def daily_briefing(user: dict = Depends(get_current_user)):
+        """Doc 61 — concise 'Today with Homie' briefing: never a cluttered dashboard."""
+        hour = datetime.now(timezone.utc).hour
+        greeting = "Good morning" if 5 <= hour < 12 else ("Good afternoon" if 12 <= hour < 18 else "Good evening")
+        name = (user.get("name") or "").split(" ")[0] or None
+        items = []
+        # 1. safety first — unread safety notifications
+        safety = await _db.notif_inbox.find_one({"user_id": user["id"], "category": "safety", "read_at": None,
+                                                 "archived_at": None}, {"_id": 0, "title": 1, "deep_link": 1})
+        if safety:
+            items.append({"kind": "safety", "text": safety.get("title") or "A safety item needs your attention.",
+                          "route": safety.get("deep_link") or "/home-intel/inbox"})
+        # 2. professional responses waiting
+        pro = await _db.pcx_handoffs.find_one({"user_id": user["id"], "status": "professional_responded",
+                                               "recommendation_decision": None}, {"_id": 0, "project_id": 1})
+        if pro:
+            items.append({"kind": "professional", "text": "A professional responded to your help request.",
+                          "route": f"/home-intel/projects/pro-help?id={pro['project_id']}"})
+        # 3. maintenance due
+        today = datetime.now(timezone.utc).date().isoformat()
+        due = await _db.hi_maintenance_tasks.find(
+            {"user_id": user["id"], "status": "active", "due_date": {"$lte": today}},
+            {"_id": 0, "id": 1, "title": 1}).sort("due_date", 1).to_list(2)
+        for t in due:
+            items.append({"kind": "maintenance", "text": f"{t['title']} is due.",
+                          "route": f"/home-intel/maintenance/{t['id']}"})
+        # 4. active project continuation
+        proj = await _db.hi_projects.find_one({"user_id": user["id"], "status": "active"},
+                                              {"_id": 0, "id": 1, "title": 1}, sort=[("updated_at", -1)])
+        if proj:
+            step = await _db.hi_project_steps.find_one({"project_id": proj["id"], "status": "active"},
+                                                       {"_id": 0, "instruction": 1})
+            txt = f"{proj['title']} is ready to continue" + (f" — next: {step['instruction'][:80]}" if step else "")
+            items.append({"kind": "project", "text": txt, "route": f"/home-intel/projects/{proj['id']}"})
+        # 5. materials waiting (ordered but not delivered)
+        if proj:
+            ordered = await _db.hi_project_materials.count_documents({"project_id": proj["id"], "user_status": "ordered"})
+            if ordered:
+                items.append({"kind": "delivery", "text": f"{ordered} ordered item(s) to check on for {proj['title']}.",
+                              "route": f"/home-intel/projects/materials?id={proj['id']}"})
+        await _cap(user["id"], "daily_briefing_generated", {"item_count": len(items)})
+        return {"greeting": f"{greeting}{', ' + name if name else ''}.",
+                "items": items[:4],
+                "empty_message": None if items else "Nothing pressing today — your home is in good shape."}
+
 
     @r.get("/unread-count")
     async def unread_count(user: dict = Depends(get_current_user)):

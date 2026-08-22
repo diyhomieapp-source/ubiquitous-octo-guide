@@ -70,6 +70,11 @@ import pro_connect_engine
 import project_workspace_engine
 import guided_execution_engine
 import spatial_targeting_engine
+import safety_escalation_engine
+import home_passport_engine
+import material_intelligence_engine
+import pro_collab_engine
+import celebration_engine
 import notification_engine
 import compliance_engine
 import pro_workspace_engine
@@ -9172,6 +9177,28 @@ app.include_router(guided_execution_engine.build_router(get_current_user))
 spatial_targeting_engine.configure(db, logger)
 app.include_router(spatial_targeting_engine.build_router(get_current_user))
 
+# Safety, Confidence, Stop-Work & Professional Escalation deltas (Build Document 56).
+safety_escalation_engine.configure(db, logger)
+app.include_router(safety_escalation_engine.build_router(get_current_user))
+
+# Home Passport, Room Capture & Mobile Asset Intelligence (Build Document 50).
+home_passport_engine.configure(db, logger)
+app.include_router(home_passport_engine.build_router(get_current_user))
+
+# Project Materials, Tools, Product Matching & Purchase Readiness (Build Document 55).
+material_intelligence_engine.configure(db, logger, _llm_json, EMERGENT_LLM_KEY)
+app.include_router(material_intelligence_engine.build_router(get_current_user))
+
+# Bring in a Pro, Expert Review & Hybrid Project Collaboration (Build Document 57).
+pro_collab_engine.configure(db, logger)
+app.include_router(pro_collab_engine.build_router(get_current_user))
+app.include_router(pro_collab_engine.build_admin_router(require_admin))
+
+# Project Completion, Rewards & Homie Celebration Engine (Build Document 63).
+celebration_engine.configure(db, logger)
+app.include_router(celebration_engine.build_router(get_current_user))
+app.include_router(celebration_engine.build_admin_router(require_admin))
+
 # Notification, Reminder & Communication Orchestration (Build Blueprint 28).
 notification_engine.configure(db, logger)
 app.include_router(notification_engine.build_router(get_current_user))
@@ -9419,6 +9446,7 @@ async def _startup_seed_community():
     await appstore_engine.seed_appstore()
     await analytics_engine.seed()
     await rewards_engine.seed()
+    await celebration_engine.seed()
     await integration_gateway_engine.seed_connectors()
     await knowledge_graph_engine.seed_knowledge()
     await recommendation_engine.seed_recommendations()
