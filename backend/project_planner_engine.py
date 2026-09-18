@@ -163,6 +163,8 @@ def build_router(get_current_user: Callable) -> APIRouter:
         q = {"user_id": user["id"], "property_id": prop["id"]}
         if status:
             q["status"] = status
+        else:
+            q["status"] = {"$ne": "archived"}  # archived projects only appear when explicitly requested
         if room_id:
             q["room_id"] = room_id
         if asset_id:
@@ -393,7 +395,7 @@ def build_router(get_current_user: Callable) -> APIRouter:
     async def set_status(project_id: str, req: StepStatusReq, user: dict = Depends(get_current_user)):
         await _owned(project_id, user["id"])
         s = req.status
-        if s not in ("active", "paused", "draft"):
+        if s not in ("active", "paused", "draft", "archived"):
             raise HTTPException(status_code=400, detail="Invalid status.")
         await _db.hi_projects.update_one({"id": project_id}, {"$set": {"status": s}})
         await _track(user["id"], "project_paused" if s == "paused" else "project_resumed", {"project_id": project_id})

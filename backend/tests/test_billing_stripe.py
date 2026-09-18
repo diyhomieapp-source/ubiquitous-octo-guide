@@ -116,6 +116,8 @@ class TestStripeCheckout:
             json={"tier": tier, "origin_url": "https://example.com"},
             timeout=30,
         )
+        from conftest import skip_unless_real_stripe
+        skip_unless_real_stripe(r)
         assert r.status_code == 200, r.text
         body = r.json()
         assert "url" in body and "session_id" in body
@@ -146,6 +148,8 @@ class TestStripeCheckout:
             json={"tier": "pro", "origin_url": "https://example.com"},
             timeout=30,
         )
+        from conftest import skip_unless_real_stripe
+        skip_unless_real_stripe(r)
         assert r.status_code == 200, r.text
         sid = r.json()["session_id"]
 
@@ -177,6 +181,8 @@ class TestStripeCheckout:
             json={"tier": "pro", "origin_url": "https://example.com"},
             timeout=30,
         )
+        from conftest import skip_unless_real_stripe
+        skip_unless_real_stripe(r)
         assert r.status_code == 200
         sid = r.json()["session_id"]
         asyncio.run(_mark_fulfilled(sid))

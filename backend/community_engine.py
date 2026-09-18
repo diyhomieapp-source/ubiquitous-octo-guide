@@ -456,8 +456,9 @@ def build_admin_router(require_admin: Callable) -> APIRouter:
                "decision": req.decision, "reason": (req.reason or "")[:500] or None, "created_at": _now()}
         await _db.cc_moderation.insert_one(dict(dec)); dec.pop("_id", None)
         try:
-            await _db.hi_admin_audit.insert_one({"id": _nid(), "actor_user_id": admin["id"], "action": "community_moderation",
-                "detail": {"content_id": cid, "decision": req.decision, "new_status": new_status}, "created_at": _now()})
+            from admin_ops_engine import append_audit_raw
+            await append_audit_raw({"actor_user_id": admin["id"], "action": "community_moderation",
+                "detail": {"content_id": cid, "decision": req.decision, "new_status": new_status}})
         except Exception:
             pass
         if req.decision == "approve":

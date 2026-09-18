@@ -262,7 +262,7 @@ async def _build_timeline(user: dict, prop: dict, filters: dict) -> list:
         ev("Document uploaded", d.get("title") or d.get("filename") or "Document", "Saved to your Document Vault.", d.get("created_at", _now()), "document", d["id"])
     # measurements
     for m in await _db.hi_measurements.find({"user_id": uid}, {"_id": 0}).to_list(300):
-        ev("Measurement recorded", m.get("label") or "Measurement", (m.get("value") or "") + (f" {m.get('unit','')}" if m.get("unit") else ""), m.get("created_at", _now()), "measurement", m["id"], room_id=m.get("room_id"))
+        ev("Measurement recorded", m.get("label") or "Measurement", str(m.get("value") or "") + (f" {m.get('unit','')}" if m.get("unit") else ""), m.get("created_at", _now()), "measurement", m["id"], room_id=m.get("room_id"))
         if m.get("verification_status") == "user_confirmed":
             ev("Measurement confirmed", m.get("label") or "Measurement", "You confirmed this measurement.", m.get("updated_at", m.get("created_at", _now())), "measurement", m["id"], room_id=m.get("room_id"))
     # maintenance completed occurrences

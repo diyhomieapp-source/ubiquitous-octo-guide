@@ -46,7 +46,7 @@ class TestB42Assist:
         r = requests.get(f"{API}/hi/help/categories", headers=uheaders, timeout=30)
         assert r.status_code == 200
         cats = r.json()["categories"]
-        assert len(cats) == 10
+        assert len(cats) == 11
         keys = {c["key"] for c in cats}
         assert "account_access" in keys and "privacy_data" in keys
 

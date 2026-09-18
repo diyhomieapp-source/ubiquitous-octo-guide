@@ -250,5 +250,7 @@ class TestPayFlow:
         if r.status_code == 200:
             assert r.json().get("checkout_url", "").startswith("http")
         else:
+            from conftest import skip_unless_real_stripe
+            skip_unless_real_stripe(r)
             assert r.status_code == 400, f"unexpected pay status {r.status_code}: {r.text}"
             assert "supplier" in r.text.lower() or "payment" in r.text.lower()

@@ -274,7 +274,7 @@ def _seed_procedures():
             "tools": ["260_balloon", "hand_pump"],
             "steps": [
                 _step("inflate", "Inflate the balloon to the marked length", "INFLATE", "260 balloon",
-                      "DEFORMABLE_OBJECT", 0.7, "Inflate the balloon, leaving about a four-finger tail uninflated at the end.",
+                      "DEFORMABLE_OBJECT", 0.6, "Inflate the balloon, leaving about a four-finger tail uninflated at the end.",
                       "Use a pump — these balloons are very hard to inflate by mouth. Stop when the tail is about 3 inches.",
                       "~3 inch tail; burp a little air out to soften it for twisting.",
                       "The uninflated tail gives the air somewhere to go with every twist — no tail, no dog.",

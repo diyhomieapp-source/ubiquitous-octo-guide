@@ -196,8 +196,9 @@ def build_admin_router(require_admin: Callable) -> APIRouter:
             upd["deployed_at"] = _now()
         if req.status == "rolled_back":
             try:
-                await _db.hi_admin_audit.insert_one({"id": _nid(), "actor_user_id": admin["id"], "action": "release_rolled_back",
-                    "detail": {"release_id": rid, "version": rel.get("version")}, "created_at": _now()})
+                from admin_ops_engine import append_audit_raw
+                await append_audit_raw({"actor_user_id": admin["id"], "action": "release_rolled_back",
+                    "detail": {"release_id": rid, "version": rel.get("version")}})
             except Exception:
                 pass
         await _db.rel_releases.update_one({"id": rid}, {"$set": upd})
@@ -275,8 +276,9 @@ def build_admin_router(require_admin: Callable) -> APIRouter:
         if not res.matched_count:
             raise HTTPException(status_code=404, detail="Flag not found.")
         try:
-            await _db.hi_admin_audit.insert_one({"id": _nid(), "actor_user_id": admin["id"], "action": "feature_flag_updated",
-                "detail": {"flag_id": fid, **upd}, "created_at": _now()})
+            from admin_ops_engine import append_audit_raw
+            await append_audit_raw({"actor_user_id": admin["id"], "action": "feature_flag_updated",
+                "detail": {"flag_id": fid, **upd}})
         except Exception:
             pass
         return {"ok": True}

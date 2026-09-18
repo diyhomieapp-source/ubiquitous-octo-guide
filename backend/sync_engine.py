@@ -300,8 +300,9 @@ def build_router(get_current_user: Callable) -> APIRouter:
         await _db.sync_conflicts.update_one({"id": cid}, {"$set": {"status": "resolved", "resolution_choice": req.choice, "resolved_at": _now()}})
         # audit trail
         try:
-            await _db.hi_admin_audit.insert_one({"id": _nid(), "actor_user_id": user["id"], "action": "sync_conflict_resolved",
-                "detail": {"conflict_id": cid, "choice": req.choice, "entity_type": c["entity_type"]}, "created_at": _now()})
+            from admin_ops_engine import append_audit_raw
+            await append_audit_raw({"actor_user_id": user["id"], "action": "sync_conflict_resolved",
+                "detail": {"conflict_id": cid, "choice": req.choice, "entity_type": c["entity_type"]}})
         except Exception:
             pass
         await _cap(user["id"], "sync_conflict_resolved", {"choice": req.choice})

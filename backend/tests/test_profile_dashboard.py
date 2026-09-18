@@ -125,6 +125,8 @@ class TestCustomerPortal:
             json={"origin_url": __import__("os").environ.get("TEST_BASE_URL", "http://localhost:8001")},
             timeout=60,
         )
+        from conftest import skip_unless_real_stripe
+        skip_unless_real_stripe(r)
         assert r.status_code == 200, r.text
         d = r.json()
         assert "url" in d, d
@@ -141,6 +143,8 @@ class TestCustomerPortal:
             json={"origin_url": __import__("os").environ.get("TEST_BASE_URL", "http://localhost:8001")},
             timeout=60,
         )
+        from conftest import skip_unless_real_stripe
+        skip_unless_real_stripe(r1)
         assert r1.status_code == 200
         # Now /billing/summary should reflect has_customer=true
         s = session.get(f"{API}/billing/summary", headers=H(user_a), timeout=30).json()

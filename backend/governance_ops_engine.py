@@ -62,8 +62,8 @@ def _nid():
 
 async def _audit(admin_id: str, action: str, meta=None):
     try:
-        await _db.hi_admin_audit.insert_one({"id": _nid(), "admin_id": admin_id, "action": action,
-                                             "meta": meta or {}, "at": _iso()})
+        from admin_ops_engine import append_audit_raw
+        await append_audit_raw({"admin_id": admin_id, "action": action, "meta": meta or {}})
     except Exception:
         pass
 

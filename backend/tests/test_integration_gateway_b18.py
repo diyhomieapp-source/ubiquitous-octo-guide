@@ -231,9 +231,10 @@ class TestFeeds:
 # ============================================================ Stripe webhook signature + dedupe
 class TestStripeWebhook:
     def test_missing_signature_rejected_400(self):
-        body = json.dumps({"id": "evt_TEST_no_sig_1", "type": "test.event"})
+        eid = "evt_TEST_no_sig_" + str(int(time.time()))
+        body = json.dumps({"id": eid, "type": "test.event"})
         r = requests.post(f"{BASE_URL}/api/integrations/webhooks/stripe",
-                          data=body, headers={"Content-Type": "application/json", "X-Event-Id": "evt_TEST_no_sig_1"},
+                          data=body, headers={"Content-Type": "application/json", "X-Event-Id": eid},
                           timeout=30)
         assert r.status_code == 400, f"expected 400 for missing signature, got {r.status_code} {r.text}"
 

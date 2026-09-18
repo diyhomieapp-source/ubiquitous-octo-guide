@@ -413,9 +413,11 @@ def build_router(get_current_user: Callable) -> APIRouter:
 
     @r.post("/test")
     async def test(req: TestReq, user: dict = Depends(get_current_user)):
+        # diagnostic send — unique entity id per call so the 24h dedupe never suppresses it
         res = await notify(user["id"], req.category if req.category in CATEGORIES else "product",
                            "test_notification", "This is a test notification",
-                           "If you can see this in your inbox, notifications are working.", channels=["in_app"])
+                           "If you can see this in your inbox, notifications are working.",
+                           related_entity_id=_nid(), channels=["in_app"])
         return {"ok": True, "result": res}
 
     return r

@@ -34,3 +34,12 @@ def pytest_configure(config):
     for var in ("TEST_USER_PASSWORD", "TEST_ADMIN_PASSWORD"):
         if not os.environ.get(var):
             raise SystemExit(f"{var} is not set — create backend/.env.test (see .env.test.example).")
+
+
+def skip_unless_real_stripe(r):
+    """Skip Stripe Customers/Connect-dependent tests when only the Emergent
+    placeholder key is configured (it supports checkout-session proxying only)."""
+    import pytest
+    txt = r.text.lower()
+    if r.status_code in (500, 502, 503) and ("not configured" in txt or "could not start checkout" in txt or "could not open billing" in txt):
+        pytest.skip("requires a real Stripe TEST key — Emergent placeholder key lacks Customers/Connect/Billing-portal APIs")

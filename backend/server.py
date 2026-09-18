@@ -1354,6 +1354,12 @@ async def get_supplies(project_id: str, user: dict = Depends(get_current_user)):
     readiness = round(owned_ct / total * 100) if total else 0
 
     remaining = [i["name"] for i in all_items if not i["owned"]]
+    def amazon_url(name: str) -> str:
+        for l in links_for(name):
+            if l["retailer"] == "amazon":
+                return l["url"]
+        return f"https://www.amazon.com/s?k={name.replace(' ', '+')}&tag={tag}"
+
     bundle_q = "+".join(s.replace(" ", "+") for s in remaining)
     amz = cfg.get("retailers", {}).get("amazon", {})
     tag = amz.get("affiliate_tag") or AMAZON_TAG
@@ -1361,6 +1367,8 @@ async def get_supplies(project_id: str, user: dict = Depends(get_current_user)):
 
     return {
         "materials": materials, "tools": tools,
+        # legacy shape consumed by the Supplies tab + older clients
+        "items": [{"name": n, "url": amazon_url(n)} for n in remaining],
         "readiness": readiness, "owned_count": owned_ct, "total": total,
         "bundle_url": bundle_url, "project_title": project["title"],
     }

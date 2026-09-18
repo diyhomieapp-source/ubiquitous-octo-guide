@@ -117,15 +117,24 @@ async def _permissions_for(role: str) -> set:
     return {r["permission_key"] for r in rows}
 
 
-async def _append_audit(actor_id, action, target_type, target_id, before=None, after=None, reason=None):
+async def append_audit_raw(body: dict):
+    """Shared hash-chain writer for hi_admin_audit. EVERY engine that records an
+    admin-audit entry must go through this (raw inserts break the chain)."""
     prev = await _db.hi_admin_audit.find_one({}, {"_id": 0, "entry_hash": 1}, sort=[("created_at", -1)])
-    body = {"id": _new_id(), "admin_user_id": actor_id, "action_type": action,
-            "target_entity_type": target_type, "target_entity_id": str(target_id) if target_id else None,
-            "before_data": before, "after_data": after, "reason": (reason or None),
-            "prev_hash": prev.get("entry_hash") if prev else None, "created_at": _now()}
+    body = dict(body)
+    body.setdefault("id", _new_id())
+    body.setdefault("created_at", _now())
+    body["prev_hash"] = prev.get("entry_hash") if prev else None
     canonical = json.dumps({k: v for k, v in body.items() if k != "entry_hash"}, default=str, sort_keys=True)
     body["entry_hash"] = hashlib.sha256(canonical.encode()).hexdigest()
     await _db.hi_admin_audit.insert_one(dict(body))
+
+
+async def _append_audit(actor_id, action, target_type, target_id, before=None, after=None, reason=None):
+    await append_audit_raw({"admin_user_id": actor_id, "action_type": action,
+                            "target_entity_type": target_type,
+                            "target_entity_id": str(target_id) if target_id else None,
+                            "before_data": before, "after_data": after, "reason": (reason or None)})
 
 
 # ---------------------------------------------------------------- models

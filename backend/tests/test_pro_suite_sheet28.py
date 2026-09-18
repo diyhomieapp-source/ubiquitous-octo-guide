@@ -402,5 +402,7 @@ class TestInvoices:
             json={"origin_url": BASE_URL},
             timeout=25,
         )
+        from conftest import skip_unless_real_stripe
+        skip_unless_real_stripe(r)
         assert r.status_code == 400, f"expected 400 payout-not-set-up, got {r.status_code}: {r.text}"
         assert "payout" in r.text.lower() or "setting up" in r.text.lower()
