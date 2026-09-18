@@ -5,11 +5,11 @@ import json
 import pytest
 import requests
 
-BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "https://step-by-step-diy.preview.emergentagent.com").rstrip("/")
+BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", __import__("os").environ.get("TEST_BASE_URL", "http://localhost:8001")).rstrip("/")
 ADMIN_EMAIL = "Diyhomieapp@gmail.com"
-ADMIN_PASS = "diyhomie1122"
+ADMIN_PASS = __import__("os").environ.get("TEST_ADMIN_PASSWORD", "")
 USER_EMAIL = "demo_home@diyhomie.com"
-USER_PASS = "Test1234"
+USER_PASS = __import__("os").environ.get("TEST_USER_PASSWORD", "")
 
 SECRET_MARKERS = ["sk_", "pk_", "AKIA", "AIza", "secret", "SECRET_VALUE"]
 

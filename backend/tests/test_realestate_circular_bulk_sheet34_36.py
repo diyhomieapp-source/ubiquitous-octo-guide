@@ -11,11 +11,11 @@ import time
 import pytest
 import requests
 
-BASE_URL = (os.environ.get("EXPO_PUBLIC_BACKEND_URL") or "https://step-by-step-diy.preview.emergentagent.com").rstrip("/")
+BASE_URL = (os.environ.get("EXPO_PUBLIC_BACKEND_URL") or __import__("os").environ.get("TEST_BASE_URL", "http://localhost:8001")).rstrip("/")
 DEMO_EMAIL = "demo_home@diyhomie.com"
-DEMO_PASS = "Test1234"
+DEMO_PASS = __import__("os").environ.get("TEST_USER_PASSWORD", "")
 PRO_EMAIL = "pat_pro_test@diyhomie.com"
-PRO_PASS = "Test1234"
+PRO_PASS = __import__("os").environ.get("TEST_USER_PASSWORD", "")
 
 
 def _login(email, pw):

@@ -29,7 +29,7 @@ def _register(suffix: str) -> tuple[str, dict]:
     ts = int(time.time() * 1000)
     email = f"TEST_mem_{suffix}_{ts}@diyhomie.com"
     r = requests.post(f"{API}/auth/register",
-                      json={"email": email, "password": "Test1234", "name": f"Mem {suffix}"},
+                      json={"email": email, "password": __import__("os").environ.get("TEST_USER_PASSWORD", ""), "name": f"Mem {suffix}"},
                       timeout=20)
     assert r.status_code == 200, f"register failed: {r.status_code} {r.text}"
     data = r.json()

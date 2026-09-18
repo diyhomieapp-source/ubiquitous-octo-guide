@@ -17,8 +17,8 @@ def _load_base_url() -> str:
 
 
 BASE_URL = _load_base_url()
-DEMO = {"email": "demo_home@diyhomie.com", "password": "Test1234"}
-ADMIN = {"email": "Diyhomieapp@gmail.com", "password": "diyhomie1122"}
+DEMO = {"email": "demo_home@diyhomie.com", "password": __import__("os").environ.get("TEST_USER_PASSWORD", "")}
+ADMIN = {"email": "Diyhomieapp@gmail.com", "password": __import__("os").environ.get("TEST_ADMIN_PASSWORD", "")}
 
 
 @pytest.fixture(scope="module")

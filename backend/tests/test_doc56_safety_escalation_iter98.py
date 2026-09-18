@@ -10,11 +10,11 @@ import requests
 BASE = (os.environ.get("EXPO_BACKEND_URL") or os.environ.get("EXPO_PUBLIC_BACKEND_URL") or "").rstrip("/")
 if not BASE:
     # Fallback per review request context
-    BASE = "https://step-by-step-diy.preview.emergentagent.com"
+    BASE = __import__("os").environ.get("TEST_BASE_URL", "http://localhost:8001")
 
 API = f"{BASE}/api"
 EMAIL = "demo_home@diyhomie.com"
-PW = "Test1234"
+PW = __import__("os").environ.get("TEST_USER_PASSWORD", "")
 
 
 @pytest.fixture(scope="module")

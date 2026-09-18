@@ -9,7 +9,7 @@ import requests
 
 BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "").rstrip("/") or os.environ.get("EXPO_BACKEND_URL", "").rstrip("/")
 DEMO_EMAIL = "demo_home@diyhomie.com"
-DEMO_PASSWORD = "Test1234"
+DEMO_PASSWORD = __import__("os").environ.get("TEST_USER_PASSWORD", "")
 
 
 @pytest.fixture(scope="module")

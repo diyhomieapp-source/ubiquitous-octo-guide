@@ -26,17 +26,17 @@ def _h(tok):
 
 @pytest.fixture(scope="module")
 def demo_token(session):
-    return _login(session, "demo_home@diyhomie.com", "Test1234")
+    return _login(session, "demo_home@diyhomie.com", __import__("os").environ.get("TEST_USER_PASSWORD", ""))
 
 
 @pytest.fixture(scope="module")
 def pro_token(session):
-    return _login(session, "pat_pro_test@diyhomie.com", "Test1234")
+    return _login(session, "pat_pro_test@diyhomie.com", __import__("os").environ.get("TEST_USER_PASSWORD", ""))
 
 
 @pytest.fixture(scope="module")
 def admin_token(session):
-    return _login(session, "Diyhomieapp@gmail.com", "diyhomie1122")
+    return _login(session, "Diyhomieapp@gmail.com", __import__("os").environ.get("TEST_ADMIN_PASSWORD", ""))
 
 
 # =========================================================================

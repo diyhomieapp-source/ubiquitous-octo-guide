@@ -13,7 +13,7 @@ BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "").rstrip("/")
 API = f"{BASE_URL}/api"
 
 ADMIN_EMAIL = "Diyhomieapp@gmail.com"
-ADMIN_PASSWORD = "diyhomie1122"
+ADMIN_PASSWORD = __import__("os").environ.get("TEST_ADMIN_PASSWORD", "")
 
 
 # --- helpers ---
@@ -28,7 +28,7 @@ def _login(session: requests.Session, email: str, password: str) -> str:
 
 def _register(session: requests.Session) -> tuple[str, str, str]:
     email = f"TEST_pros_{uuid.uuid4().hex[:8]}@diyhomie.com"
-    password = "Test1234"
+    password = __import__("os").environ.get("TEST_USER_PASSWORD", "")
     r = session.post(
         f"{API}/auth/register",
         json={"email": email, "password": password, "name": "TEST Pros"},

@@ -70,7 +70,7 @@
     "backend": "100% (1/1 free-first-guide test passed; user credits 60 -> 60 across guide gen)",
     "frontend": "100% functional pass on all funnel checkpoints. 1 medium-severity UX delay on demo-startfree-button, 1 minor invalid-icon warning. Stripe LIVE redirect verified (no card entered)."
   },
-  "seed_data_creation": "Two disposable users created: funnel+1782091356@diyhomie.com / Test1234 and funnel2+1782091501@diyhomie.com / Test1234. One TEST_funnel_<ts>@diyhomie.com from backend test. All left in DB; harmless.",
+  "seed_data_creation": "Two disposable users created: funnel+1782091356@diyhomie.com / [REDACTED] and funnel2+1782091501@diyhomie.com / [REDACTED]. One TEST_funnel_<ts>@diyhomie.com from backend test. All left in DB; harmless.",
   "retest_needed": false,
   "should_main_agent_self_test": true,
   "context_for_next_testing_agent": "All funnel screens have testIDs (survey-option-*, survey-kit-*, survey-continue-button, analysis-continue-button, auth-*-input, auth-submit-button, demo-suggestion-*, demo-generate-button, demo-unlock-button, demo-startfree-button, paywall-select-pro, paywall-select-master). For full re-runs: register a unique funnel+<ts>@diyhomie.com user; the survey 'tools' and 'pain_point' cards are multi-select and need survey-continue-button; the other 3 advance on selection. Demo guide gen takes 10-30s. The demo-startfree-button currently has a ~10s perceived delay before /(tabs) loads — bake at least 12s of polling into the wait OR fix per action_items. Stripe is LIVE; only verify checkout session redirect via framenavigated, never enter card details. Backend test: pytest backend/tests/test_free_first_guide.py.",

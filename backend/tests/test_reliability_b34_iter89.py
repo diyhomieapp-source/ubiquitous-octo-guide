@@ -10,11 +10,11 @@ import requests
 from pymongo import MongoClient
 from datetime import datetime, timezone
 
-BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "https://step-by-step-diy.preview.emergentagent.com").rstrip("/")
+BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", __import__("os").environ.get("TEST_BASE_URL", "http://localhost:8001")).rstrip("/")
 API = f"{BASE_URL}/api"
 
-DEMO = {"email": "demo_home@diyhomie.com", "password": "Test1234"}
-ADMIN = {"email": "Diyhomieapp@gmail.com", "password": "diyhomie1122"}
+DEMO = {"email": "demo_home@diyhomie.com", "password": __import__("os").environ.get("TEST_USER_PASSWORD", "")}
+ADMIN = {"email": "Diyhomieapp@gmail.com", "password": __import__("os").environ.get("TEST_ADMIN_PASSWORD", "")}
 
 
 @pytest.fixture(scope="module")

@@ -22,9 +22,9 @@ BASE_URL = (os.environ.get("EXPO_PUBLIC_BACKEND_URL") or _read_env("/app/fronten
 assert BASE_URL, "EXPO_PUBLIC_BACKEND_URL missing"
 
 DEMO_EMAIL = "demo_home@diyhomie.com"
-DEMO_PW = "Test1234"
+DEMO_PW = __import__("os").environ.get("TEST_USER_PASSWORD", "")
 ADMIN_EMAIL = "Diyhomieapp@gmail.com"
-ADMIN_PW = "diyhomie1122"
+ADMIN_PW = __import__("os").environ.get("TEST_ADMIN_PASSWORD", "")
 DEMO_ISSUE = "72625ba1-7c0b-4686-b3e0-512bedc5cda1"
 
 

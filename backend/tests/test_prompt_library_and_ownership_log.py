@@ -10,9 +10,9 @@ import requests
 BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "").rstrip("/") or os.environ.get("EXPO_BACKEND_URL", "").rstrip("/")
 
 ADMIN_EMAIL = "Diyhomieapp@gmail.com"
-ADMIN_PASSWORD = "diyhomie1122"
+ADMIN_PASSWORD = __import__("os").environ.get("TEST_ADMIN_PASSWORD", "")
 USER_EMAIL = "demo_home@diyhomie.com"
-USER_PASSWORD = "Test1234"
+USER_PASSWORD = __import__("os").environ.get("TEST_USER_PASSWORD", "")
 
 EXPECTED_KEYS = {"master_step", "full_guide", "intake_questions", "quick_answer", "emergency_triage", "image_style"}
 

@@ -28,7 +28,7 @@ BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "").rstrip("/")
 API = f"{BASE_URL}/api"
 MONGO_URL = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
 DB_NAME = os.environ.get("DB_NAME", "diyhomie")
-DEMO = {"email": "demo_home@diyhomie.com", "password": "Test1234"}
+DEMO = {"email": "demo_home@diyhomie.com", "password": __import__("os").environ.get("TEST_USER_PASSWORD", "")}
 
 _state = {"seeded_pid": None, "seeded_mid": None, "seeded_step_ids": [], "created_problem_ids": [],
           "created_override_ids": [], "restored_safety": None}

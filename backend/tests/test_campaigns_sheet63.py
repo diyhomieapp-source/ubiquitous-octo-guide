@@ -8,8 +8,8 @@ if not BASE_URL:
     # Fallback used only within container test harness; public URL is source of truth.
     raise RuntimeError("EXPO_PUBLIC_BACKEND_URL not set")
 
-DEMO = {"email": "demo_home@diyhomie.com", "password": "Test1234"}
-ADMIN = {"email": "Diyhomieapp@gmail.com", "password": "diyhomie1122"}
+DEMO = {"email": "demo_home@diyhomie.com", "password": __import__("os").environ.get("TEST_USER_PASSWORD", "")}
+ADMIN = {"email": "Diyhomieapp@gmail.com", "password": __import__("os").environ.get("TEST_ADMIN_PASSWORD", "")}
 
 
 def _login(session, creds):

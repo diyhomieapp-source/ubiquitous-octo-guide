@@ -8,6 +8,7 @@ import ConfettiCannon from "react-native-confetti-cannon";
 import { colors, spacing, radius, font, type } from "@/src/theme";
 import { api } from "@/src/api";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
+import { HomieFace } from "@/src/components/HomieFace";
 import { pickFromLibrary, takePhoto } from "@/src/utils/pickImage";
 
 const RESULTS = [
@@ -100,6 +101,9 @@ export default function CompleteProject() {
             )}
           </View>
           <Text style={styles.next}>What&apos;s next?</Text>
+          {result === "completed" && (
+            <NextBtn testID="next-share-win" icon="share-variant" label="Share My Win" onPress={() => router.push(`/home-intel/projects/share-win?id=${id}`)} />
+          )}
           <NextBtn testID="next-cleanup" icon="broom" label="Clean up & log leftovers" highlight onPress={() => router.replace(`/home-intel/cleanup?project_id=${id}`)} />
           <NextBtn testID="next-maintenance" icon="calendar-clock" label="Schedule maintenance follow-up" onPress={async () => {
             try {
@@ -120,7 +124,7 @@ export default function CompleteProject() {
                 colors={celebration?.confetti_colors} fadeOut autoStart explosionSpeed={400} fallSpeed={2600} />
             )}
             <View style={styles.celCard}>
-              <MaterialCommunityIcons name="robot-happy-outline" size={72} color={colors.brandPrimary} />
+              <HomieFace size={110} pose="celebrating" />
               {celebration?.play?.voice && <Text testID="celebration-voice" style={styles.celVoice}>{celebration?.voice_line}</Text>}
               {celebration?.play?.animation && <Text style={styles.celSub}>{celebration?.subtitle}</Text>}
               <Text style={styles.celSkip}>Tap anywhere to skip</Text>

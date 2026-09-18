@@ -4,9 +4,9 @@ import time
 import pytest
 import requests
 
-BASE = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "https://step-by-step-diy.preview.emergentagent.com").rstrip("/")
+BASE = os.environ.get("EXPO_PUBLIC_BACKEND_URL", __import__("os").environ.get("TEST_BASE_URL", "http://localhost:8001")).rstrip("/")
 DEMO_EMAIL = "demo_home@diyhomie.com"
-DEMO_PWD = "Test1234"
+DEMO_PWD = __import__("os").environ.get("TEST_USER_PASSWORD", "")
 
 session = requests.Session()
 STATE = {}

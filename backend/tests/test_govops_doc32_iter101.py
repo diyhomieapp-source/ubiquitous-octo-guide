@@ -12,13 +12,13 @@ import uuid
 import pytest
 import requests
 
-BASE_URL = os.environ.get("EXPO_BACKEND_URL", "https://step-by-step-diy.preview.emergentagent.com").rstrip("/")
+BASE_URL = os.environ.get("EXPO_BACKEND_URL", __import__("os").environ.get("TEST_BASE_URL", "http://localhost:8001")).rstrip("/")
 API = f"{BASE_URL}/api"
 
 ADMIN_EMAIL = "Diyhomieapp@gmail.com"
-ADMIN_PW = "diyhomie1122"
+ADMIN_PW = __import__("os").environ.get("TEST_ADMIN_PASSWORD", "")
 DEMO_EMAIL = "demo_home@diyhomie.com"
-DEMO_PW = "Test1234"
+DEMO_PW = __import__("os").environ.get("TEST_USER_PASSWORD", "")
 
 
 def _login(email, pw):
@@ -47,7 +47,7 @@ def demo_token():
 def throwaway():
     """Register a throwaway user for deletion-execute test."""
     email = f"TEST_deluser_{uuid.uuid4().hex[:8]}@diyhomie.com"
-    pw = "Test1234!"
+    pw = __import__("os").environ.get("TEST_USER_PASSWORD", "") + "!"
     r = requests.post(f"{API}/auth/register", json={"email": email, "password": pw, "name": "Throwaway"}, timeout=30)
     assert r.status_code in (200, 201), f"register: {r.status_code} {r.text[:200]}"
     tok = r.json().get("access_token") or r.json().get("token") or _login(email, pw)

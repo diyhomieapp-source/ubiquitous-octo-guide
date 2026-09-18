@@ -28,6 +28,6 @@
   "seed_data_creation": "Test-created inventory items are prefixed with 'TEST_' and archived at end of test_archive_removes_from_list; one item created via UI ('TEST_UI_Hammer_<ts>') remains in demo user toolbox (harmless, prefixed).",
   "retest_needed": false,
   "should_main_agent_self_test": false,
-  "context_for_next_testing_agent": "B07 inventory + Templates-in-Homie are green. Reuse /app/backend/tests/test_inventory_b07.py for regression. Demo user demo_home@diyhomie.com/Test1234 keeps a persistent 'Cordless Drill' inventory item needed by the match test (do not archive). Published 'Ladder Safety' template must remain published for the templates-in-Homie assertion to pass.",
+  "context_for_next_testing_agent": "B07 inventory + Templates-in-Homie are green. Reuse /app/backend/tests/test_inventory_b07.py for regression. Demo user demo_home@diyhomie.com/[REDACTED] keeps a persistent 'Cordless Drill' inventory item needed by the match test (do not archive). Published 'Ladder Safety' template must remain published for the templates-in-Homie assertion to pass.",
   "rca_of_issue": "N/A — no failures encountered."
 }

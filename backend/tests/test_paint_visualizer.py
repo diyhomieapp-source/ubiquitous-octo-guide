@@ -32,7 +32,7 @@ def fresh_user():
     ts = int(time.time())
     email = f"TEST_paint_{ts}@diyhomie.com"
     r = s.post(f"{API}/auth/register",
-               json={"email": email, "password": "Test1234", "name": "PaintTester"},
+               json={"email": email, "password": __import__("os").environ.get("TEST_USER_PASSWORD", ""), "name": "PaintTester"},
                timeout=20)
     assert r.status_code == 200, r.text
     data = r.json()

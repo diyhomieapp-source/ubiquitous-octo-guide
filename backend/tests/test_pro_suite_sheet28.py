@@ -23,9 +23,9 @@ BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "").rstrip("/")
 assert BASE_URL, "EXPO_PUBLIC_BACKEND_URL is required"
 API = f"{BASE_URL}/api"
 
-VERIFIED_PRO = {"email": "pat_pro_test@diyhomie.com", "password": "Test1234"}
-CLIENT = {"email": "demo_home@diyhomie.com", "password": "Test1234"}
-ADMIN = {"email": "Diyhomieapp@gmail.com", "password": "diyhomie1122"}
+VERIFIED_PRO = {"email": "pat_pro_test@diyhomie.com", "password": __import__("os").environ.get("TEST_USER_PASSWORD", "")}
+CLIENT = {"email": "demo_home@diyhomie.com", "password": __import__("os").environ.get("TEST_USER_PASSWORD", "")}
+ADMIN = {"email": "Diyhomieapp@gmail.com", "password": __import__("os").environ.get("TEST_ADMIN_PASSWORD", "")}
 
 
 def _login(email: str, password: str) -> str:
@@ -59,7 +59,7 @@ def admin_token() -> str:
 def new_user():
     """Register a fresh user so we can test the apply->pending->verify->ban gate."""
     email = f"TEST_pro_{uuid.uuid4().hex[:8]}@diyhomie.com"
-    password = "Test1234"
+    password = __import__("os").environ.get("TEST_USER_PASSWORD", "")
     r = requests.post(
         f"{API}/auth/register",
         json={"email": email, "password": password, "name": "Test Pro"},

@@ -1,7 +1,8 @@
 import { useEffect, useRef } from "react";
 import { View, Text, StyleSheet, Animated, Easing, Platform } from "react-native";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+
+import { HomieFace, HomiePose } from "@/src/components/HomieFace";
 
 export type AvatarState = "idle" | "listening" | "thinking" | "speaking";
 
@@ -113,10 +114,11 @@ export function AvatarStage({ state = "idle", caption }: { state?: AvatarState; 
           <LinearGradient colors={[accent + "00", accent + "88", accent + "00"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.shimmer} />
         </Animated.View>
 
-        {/* breathing core — placeholder for the live avatar render surface */}
+        {/* breathing core — Homie's face, pose follows the conversation state */}
         <Animated.View style={[styles.core, { borderColor: accent + "66", transform: [{ scale: coreScale }] }]}>
           <LinearGradient colors={["rgba(40,40,40,0.9)", "rgba(10,10,10,0.95)"]} style={StyleSheet.absoluteFill} />
-          <MaterialCommunityIcons name="face-man-shimmer" size={72} color={accent} />
+          <HomieFace size={150} ring={false}
+            pose={({ speaking: "talking", listening: "listening", thinking: "thinking", idle: "idle" } as Record<AvatarState, HomiePose>)[state]} />
         </Animated.View>
 
         <View style={[styles.badge, { borderColor: accent + "55" }]}>

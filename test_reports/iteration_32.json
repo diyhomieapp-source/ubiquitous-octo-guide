@@ -45,6 +45,6 @@
   "seed_data_creation": "Created TEST_UI_key (revoked) + one webhook to httpbin.org/post (test-fired then deleted) on demo_home@diyhomie.com. Also transferred+imported a portability token between demo_home and pat_pro_test to verify 404-on-claim. Prior TEST_* keys from earlier iterations remain on demo_home but are all REVOKED (visible in admin partners).",
   "retest_needed": false,
   "should_main_agent_self_test": false,
-  "context_for_next_testing_agent": "Backend tests are idempotent (test_platform_audit_portability.py). All 4 modules are validated E2E. Note that AI audit uses gpt-4o-mini so factor labels vary between refreshes (test asserts shape not content). Admin PartnersModule requires a browser session; use Diyhomieapp@gmail.com/diyhomie1122 and navigate /admin with cleared storage.",
+  "context_for_next_testing_agent": "Backend tests are idempotent (test_platform_audit_portability.py). All 4 modules are validated E2E. Note that AI audit uses gpt-4o-mini so factor labels vary between refreshes (test asserts shape not content). Admin PartnersModule requires a browser session; use Diyhomieapp@gmail.com/[REDACTED] and navigate /admin with cleared storage.",
   "rca_of_issue": "No bugs found. Both modules #46/#47/#48/#49 backend + frontend paths and admin flow work as specified."
 }

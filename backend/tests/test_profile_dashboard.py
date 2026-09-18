@@ -35,7 +35,7 @@ def _register(session, label="prof"):
     email = f"TEST_{label}_{uuid.uuid4().hex[:8]}@diyhomie.com"
     r = session.post(
         f"{API}/auth/register",
-        json={"email": email, "password": "Test1234", "name": label.title()},
+        json={"email": email, "password": __import__("os").environ.get("TEST_USER_PASSWORD", ""), "name": label.title()},
         timeout=20,
     )
     assert r.status_code == 200, r.text
@@ -122,7 +122,7 @@ class TestCustomerPortal:
         r = session.post(
             f"{API}/billing/customer-portal",
             headers=H(user_a),
-            json={"origin_url": "https://step-by-step-diy.preview.emergentagent.com"},
+            json={"origin_url": __import__("os").environ.get("TEST_BASE_URL", "http://localhost:8001")},
             timeout=60,
         )
         assert r.status_code == 200, r.text
@@ -138,7 +138,7 @@ class TestCustomerPortal:
         r1 = session.post(
             f"{API}/billing/customer-portal",
             headers=H(user_a),
-            json={"origin_url": "https://step-by-step-diy.preview.emergentagent.com"},
+            json={"origin_url": __import__("os").environ.get("TEST_BASE_URL", "http://localhost:8001")},
             timeout=60,
         )
         assert r1.status_code == 200
@@ -150,7 +150,7 @@ class TestCustomerPortal:
         r2 = session.post(
             f"{API}/billing/customer-portal",
             headers=H(user_a),
-            json={"origin_url": "https://step-by-step-diy.preview.emergentagent.com"},
+            json={"origin_url": __import__("os").environ.get("TEST_BASE_URL", "http://localhost:8001")},
             timeout=60,
         )
         assert r2.status_code == 200

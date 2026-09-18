@@ -38,7 +38,7 @@
     "backend": "100% (23/23)",
     "frontend": "100% (all three modules load; every advertised testID resolves; create/claim/close/share/join/leave flows verified visually and via console)"
   },
-  "seed_data_creation": "Registered pat_pro_test@diyhomie.com / Test1234 (Austin, TX) if not present — used as the 2nd user for cross-user claim + bulk-join. UI test also created 1 material_listing and 1 bulk_deal titled 'TEST_ UI ...' which remain in the DB (the deal was closed to 'fulfilled'; the material_listing remains open — main agent can leave it or purge).",
+  "seed_data_creation": "Registered pat_pro_test@diyhomie.com / [REDACTED] (Austin, TX) if not present — used as the 2nd user for cross-user claim + bulk-join. UI test also created 1 material_listing and 1 bulk_deal titled 'TEST_ UI ...' which remain in the DB (the deal was closed to 'fulfilled'; the material_listing remains open — main agent can leave it or purge).",
   "retest_needed": false,
   "should_main_agent_self_test": true,
   "context_for_next_testing_agent": "Test file test_realestate_circular_bulk_sheet34_36.py is idempotent and safe to re-run. It logs in as demo_home + pat_pro_test and creates TEST_-prefixed items which it closes/marks fulfilled. If pat_pro_test doesn't exist yet, the fixture auto-registers it. AI summary caching (users.realestate_ai) keys off project count; if you seed more projects, the cache invalidates automatically.",

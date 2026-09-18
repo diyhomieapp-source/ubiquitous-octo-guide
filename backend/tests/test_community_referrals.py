@@ -11,7 +11,7 @@ BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "").rstrip("/") or \
 assert BASE_URL, "EXPO_PUBLIC_BACKEND_URL must be set"
 
 DEMO_EMAIL = "demo_home@diyhomie.com"
-DEMO_PASS = "Test1234"
+DEMO_PASS = __import__("os").environ.get("TEST_USER_PASSWORD", "")
 
 
 # ------------------------------ fixtures
@@ -186,7 +186,7 @@ class TestReferrals:
 
         email = f"test_ref_{uuid.uuid4().hex[:10]}@example.com"
         r = api.post(f"{BASE_URL}/api/auth/register", json={
-            "email": email, "password": "Test1234!", "name": "TEST_Ref User",
+            "email": email, "password": __import__("os").environ.get("TEST_USER_PASSWORD", "") + "!", "name": "TEST_Ref User",
             "ref": ref_code,
         })
         assert r.status_code == 200, r.text
@@ -199,7 +199,7 @@ class TestReferrals:
     def test_register_with_bad_ref_still_succeeds(self, api):
         email = f"test_badref_{uuid.uuid4().hex[:10]}@example.com"
         r = api.post(f"{BASE_URL}/api/auth/register", json={
-            "email": email, "password": "Test1234!", "name": "TEST_BadRef",
+            "email": email, "password": __import__("os").environ.get("TEST_USER_PASSWORD", "") + "!", "name": "TEST_BadRef",
             "ref": "ZZZZZZ",
         })
         assert r.status_code == 200

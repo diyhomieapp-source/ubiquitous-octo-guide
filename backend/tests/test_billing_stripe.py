@@ -39,7 +39,7 @@ def buyer(session):
     email = f"TEST_pay_{uuid.uuid4().hex[:8]}@diyhomie.com"
     r = session.post(
         f"{API}/auth/register",
-        json={"email": email, "password": "Test1234", "name": "Buyer"},
+        json={"email": email, "password": __import__("os").environ.get("TEST_USER_PASSWORD", ""), "name": "Buyer"},
         timeout=20,
     )
     assert r.status_code == 200, r.text

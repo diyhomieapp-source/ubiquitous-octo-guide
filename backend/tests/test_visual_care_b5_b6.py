@@ -3,8 +3,8 @@ Comprehensive pytest suite for Build Doc 5 (Visual Evidence, Measurement & AR)
 and Build Doc 6 (Proactive Home Maintenance & Priority Intelligence).
 
 Namespaces: /api/hi/visual/*, /api/hi/care/*, admin: /api/hi/admin/visual|care/*
-Standard user: demo_home@diyhomie.com / Test1234
-Admin: Diyhomieapp@gmail.com / diyhomie1122
+Standard user: TEST_USER_EMAIL / TEST_USER_PASSWORD (env)
+Admin: TEST_ADMIN_EMAIL / TEST_ADMIN_PASSWORD (env)
 """
 import os
 import time
@@ -14,12 +14,12 @@ import requests
 
 BASE = (os.environ.get("EXPO_BACKEND_URL")
         or os.environ.get("EXPO_PUBLIC_BACKEND_URL")
-        or "https://step-by-step-diy.preview.emergentagent.com").rstrip("/")
+        or __import__("os").environ.get("TEST_BASE_URL", "http://localhost:8001")).rstrip("/")
 
 DEMO_EMAIL = "demo_home@diyhomie.com"
-DEMO_PASS = "Test1234"
+DEMO_PASS = __import__("os").environ.get("TEST_USER_PASSWORD", "")
 ADMIN_EMAIL = "Diyhomieapp@gmail.com"
-ADMIN_PASS = "diyhomie1122"
+ADMIN_PASS = __import__("os").environ.get("TEST_ADMIN_PASSWORD", "")
 
 
 # ------------------------- helpers / fixtures -------------------------
@@ -50,10 +50,10 @@ def second_user_token():
     # Register a fresh user for cross-user isolation tests
     email = f"TEST_b5b6_{uuid.uuid4().hex[:8]}@diyhomie.com"
     r = requests.post(f"{BASE}/api/auth/register",
-                      json={"email": email, "password": "Test1234", "name": "B5B6 Iso"}, timeout=30)
+                      json={"email": email, "password": __import__("os").environ.get("TEST_USER_PASSWORD", ""), "name": "B5B6 Iso"}, timeout=30)
     assert r.status_code in (200, 201), f"register failed: {r.status_code} {r.text[:200]}"
     body = r.json()
-    return body.get("token") or _login(email, "Test1234")
+    return body.get("token") or _login(email, __import__("os").environ.get("TEST_USER_PASSWORD", ""))
 
 
 @pytest.fixture(scope="module")

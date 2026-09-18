@@ -20,9 +20,9 @@ if not BASE_URL:
 assert BASE_URL, "BASE_URL not resolved from env or frontend/.env"
 
 DEMO_EMAIL = "demo_home@diyhomie.com"
-DEMO_PASS = "Test1234"
+DEMO_PASS = __import__("os").environ.get("TEST_USER_PASSWORD", "")
 ADMIN_EMAIL = "Diyhomieapp@gmail.com"
-ADMIN_PASS = "diyhomie1122"
+ADMIN_PASS = __import__("os").environ.get("TEST_ADMIN_PASSWORD", "")
 
 
 def _login(email, password):

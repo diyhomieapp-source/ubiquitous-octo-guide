@@ -45,7 +45,7 @@ def _register(session: requests.Session, tag: str) -> dict:
     ts = int(time.time() * 1000)
     email = f"TEST_i18n_{tag}_{ts}@diyhomie.com"
     r = session.post(f"{API}/auth/register",
-                     json={"email": email, "password": "Test1234", "name": "I18n Tester"},
+                     json={"email": email, "password": __import__("os").environ.get("TEST_USER_PASSWORD", ""), "name": "I18n Tester"},
                      timeout=30)
     assert r.status_code == 200, f"register failed {r.status_code}: {r.text}"
     data = r.json()

@@ -25,7 +25,7 @@ def _load_base_url():
 BASE_URL = _load_base_url()
 
 DEMO_EMAIL = "demo_home@diyhomie.com"
-DEMO_PASS = "Test1234"
+DEMO_PASS = __import__("os").environ.get("TEST_USER_PASSWORD", "")
 
 
 # ---- shared fixtures ----

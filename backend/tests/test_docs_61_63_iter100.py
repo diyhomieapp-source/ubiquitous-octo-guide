@@ -9,11 +9,11 @@ import uuid
 import pytest
 import requests
 
-BASE = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "https://step-by-step-diy.preview.emergentagent.com").rstrip("/")
+BASE = os.environ.get("EXPO_PUBLIC_BACKEND_URL", __import__("os").environ.get("TEST_BASE_URL", "http://localhost:8001")).rstrip("/")
 DEMO_EMAIL = "demo_home@diyhomie.com"
-DEMO_PASSWORD = "Test1234"
+DEMO_PASSWORD = __import__("os").environ.get("TEST_USER_PASSWORD", "")
 ADMIN_EMAIL = "Diyhomieapp@gmail.com"
-ADMIN_PASSWORD = "diyhomie1122"
+ADMIN_PASSWORD = __import__("os").environ.get("TEST_ADMIN_PASSWORD", "")
 
 
 def _login(email, password):
@@ -48,7 +48,7 @@ def admin_headers():
 def fresh_user_headers():
     """A brand-new user per test — free-tier project limit + first-completion achievement."""
     email = f"iter100_{uuid.uuid4().hex[:10]}@example.com"
-    tok = _register(email, "Test1234")
+    tok = _register(email, __import__("os").environ.get("TEST_USER_PASSWORD", ""))
     return {"Authorization": f"Bearer {tok}", "Content-Type": "application/json", "X-Email": email}
 
 

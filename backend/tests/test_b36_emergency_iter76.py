@@ -3,9 +3,9 @@ import os
 import pytest
 import requests
 
-BASE_URL = (os.environ.get("EXPO_BACKEND_URL") or os.environ.get("EXPO_PUBLIC_BACKEND_URL") or "https://step-by-step-diy.preview.emergentagent.com").rstrip("/")
+BASE_URL = (os.environ.get("EXPO_BACKEND_URL") or os.environ.get("EXPO_PUBLIC_BACKEND_URL") or __import__("os").environ.get("TEST_BASE_URL", "http://localhost:8001")).rstrip("/")
 USER_EMAIL = "demo_home@diyhomie.com"
-USER_PW = "Test1234"
+USER_PW = __import__("os").environ.get("TEST_USER_PASSWORD", "")
 
 
 @pytest.fixture(scope="module")

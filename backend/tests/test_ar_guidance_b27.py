@@ -6,8 +6,8 @@ import requests
 BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "").rstrip("/")
 API = f"{BASE_URL}/api"
 
-USER = {"email": "demo_home@diyhomie.com", "password": "Test1234"}
-ADMIN = {"email": "Diyhomieapp@gmail.com", "password": "diyhomie1122"}
+USER = {"email": "demo_home@diyhomie.com", "password": __import__("os").environ.get("TEST_USER_PASSWORD", "")}
+ADMIN = {"email": "Diyhomieapp@gmail.com", "password": __import__("os").environ.get("TEST_ADMIN_PASSWORD", "")}
 
 
 def _login(payload):

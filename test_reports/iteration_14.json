@@ -26,7 +26,7 @@
   ],
   "updated_files": [],
   "success_rate": {"backend": "n/a (frontend-only request)", "frontend": "~92% (hub, search, paint formula, live updates, select chips, 5 spot-checks, entry-point banner, hamburger menu item, contextual sheet open/compute/close all PASS; project page renders the contextual banner correctly but logs an Unexpected-text-node React warning on every render)"},
-  "seed_data_creation": "None. Used existing demo user 'demo_home@diyhomie.com' / Test1234 and their pre-seeded project 'Fix a loose doorknob' (id a1af99a1-3347-49a1-baab-eabb91d63ca9) which incidentally matched the cabinet-hardware calculator via the 'knob' keyword.",
+  "seed_data_creation": "None. Used existing demo user 'demo_home@diyhomie.com' / [REDACTED] and their pre-seeded project 'Fix a loose doorknob' (id a1af99a1-3347-49a1-baab-eabb91d63ca9) which incidentally matched the cabinet-hardware calculator via the 'knob' keyword.",
   "retest_needed": true,
   "should_main_agent_self_test": true,
   "context_for_next_testing_agent": "Calculators feature is fully wired and computing correctly on web preview at /calculators and /calculators/{id}. Test credentials in /app/memory/test_credentials.md. Login via /onboarding -> 'I already have an account' (auth route /auth?mode=login, testIDs auth-email-input / auth-password-input). Home page hamburger has testID 'home-menu', not 'open-menu'. Demo project 'Fix a loose doorknob' id a1af99a1-3347-49a1-baab-eabb91d63ca9 currently triggers the cabinet-hardware contextual banner; if main agent tightens the keyword list, re-test that the banner no longer appears on this project but still appears on a project titled e.g. 'Paint living room'.",

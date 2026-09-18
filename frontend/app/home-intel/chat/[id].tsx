@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, ActivityIndic
 import { Image } from "expo-image";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { HomieFace } from "@/src/components/HomieFace";
 
 import { colors, spacing, radius, font, type } from "@/src/theme";
 import { api, ApiError } from "@/src/api";
@@ -114,7 +115,7 @@ export default function ChatThread() {
           {loading ? <ActivityIndicator color={colors.brandPrimary} style={{ marginTop: spacing.xl }} /> :
             msgs.length === 0 ? (
               <View style={styles.hello}>
-                <MaterialCommunityIcons name="robot-happy-outline" size={40} color={colors.brandPrimary} />
+                <HomieFace size={56} pose="talking" />
                 <Text style={styles.helloText}>Ask me anything about your home — a repair, a plan, a product, or what to maintain next.</Text>
               </View>
             ) : msgs.map((m) => (

@@ -8,9 +8,9 @@ import time
 import pytest
 import requests
 
-BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "https://step-by-step-diy.preview.emergentagent.com").rstrip("/")
-DEMO = {"email": "demo_home@diyhomie.com", "password": "Test1234"}
-COLLAB = {"email": "collab_test@diyhomie.com", "password": "Test1234"}
+BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", __import__("os").environ.get("TEST_BASE_URL", "http://localhost:8001")).rstrip("/")
+DEMO = {"email": "demo_home@diyhomie.com", "password": __import__("os").environ.get("TEST_USER_PASSWORD", "")}
+COLLAB = {"email": "collab_test@diyhomie.com", "password": __import__("os").environ.get("TEST_USER_PASSWORD", "")}
 API = f"{BASE_URL}/api"
 EXISTING_PID = None
 try:

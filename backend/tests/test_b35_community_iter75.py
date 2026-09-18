@@ -7,13 +7,13 @@ import uuid
 import pytest
 import requests
 
-BASE_URL = (os.environ.get("EXPO_BACKEND_URL") or os.environ.get("EXPO_PUBLIC_BACKEND_URL") or "https://step-by-step-diy.preview.emergentagent.com").rstrip("/")
+BASE_URL = (os.environ.get("EXPO_BACKEND_URL") or os.environ.get("EXPO_PUBLIC_BACKEND_URL") or __import__("os").environ.get("TEST_BASE_URL", "http://localhost:8001")).rstrip("/")
 API = f"{BASE_URL}/api"
 
 USER_EMAIL = "demo_home@diyhomie.com"
-USER_PASS = "Test1234"
+USER_PASS = __import__("os").environ.get("TEST_USER_PASSWORD", "")
 ADMIN_EMAIL = "Diyhomieapp@gmail.com"
-ADMIN_PASS = "diyhomie1122"
+ADMIN_PASS = __import__("os").environ.get("TEST_ADMIN_PASSWORD", "")
 
 
 def _login(email, pw):

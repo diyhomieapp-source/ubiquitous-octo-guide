@@ -24,9 +24,9 @@ BASE_URL = _load_backend_url()
 assert BASE_URL, "EXPO_PUBLIC_BACKEND_URL not configured"
 
 USER_EMAIL = "demo_home@diyhomie.com"
-USER_PASS = "Test1234"
+USER_PASS = __import__("os").environ.get("TEST_USER_PASSWORD", "")
 ADMIN_EMAIL = "Diyhomieapp@gmail.com"
-ADMIN_PASS = "diyhomie1122"
+ADMIN_PASS = __import__("os").environ.get("TEST_ADMIN_PASSWORD", "")
 
 
 def _login(email, password):

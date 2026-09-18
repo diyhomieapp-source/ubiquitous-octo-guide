@@ -18,7 +18,7 @@ API = f"{BASE_URL}/api"
 def _register_unique() -> dict:
     ts = int(time.time() * 1000)
     email = f"TEST_blog_{ts}@diyhomie.com"
-    r = requests.post(f"{API}/auth/register", json={"email": email, "password": "Test1234", "name": "Blog Tester"}, timeout=30)
+    r = requests.post(f"{API}/auth/register", json={"email": email, "password": __import__("os").environ.get("TEST_USER_PASSWORD", ""), "name": "Blog Tester"}, timeout=30)
     assert r.status_code == 200, r.text
     return r.json()
 

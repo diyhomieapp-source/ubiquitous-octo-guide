@@ -7,12 +7,12 @@ import time
 import requests
 import pytest
 
-BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "https://step-by-step-diy.preview.emergentagent.com").rstrip("/")
+BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", __import__("os").environ.get("TEST_BASE_URL", "http://localhost:8001")).rstrip("/")
 
 OWNER_EMAIL = "demo_home@diyhomie.com"
-OWNER_PASSWORD = "Test1234"
+OWNER_PASSWORD = __import__("os").environ.get("TEST_USER_PASSWORD", "")
 INVITEE_EMAIL = "collab_test@diyhomie.com"
-INVITEE_PASSWORD = "Test1234"
+INVITEE_PASSWORD = __import__("os").environ.get("TEST_USER_PASSWORD", "")
 
 
 def _login(email, password):
@@ -39,7 +39,7 @@ def invitee():
 def stranger():
     # register a throwaway user for isolation tests
     email = f"TEST_stranger_{int(time.time())}@diyhomie.com"
-    password = "Test1234"
+    password = __import__("os").environ.get("TEST_USER_PASSWORD", "")
     reg = requests.post(f"{BASE_URL}/api/auth/register", json={
         "email": email, "password": password, "name": "Stranger Test",
     }, timeout=20)

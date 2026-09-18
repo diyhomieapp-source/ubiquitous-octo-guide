@@ -324,7 +324,7 @@ New features are now built as SEPARATE engine modules (audit_engine, certificati
 - Blueprint 04 — Maintenance Intelligence & Home Care Scheduler (tasks, recurrence/occurrences, AI suggestions, calendar, seasonal guide, reminders). Data: hi_maintenance_*.
 - Blueprint 05 — Homie AI Assistant & Conversation Hub (central chat front-door, context selector, photo ID, conversation→approved records, history). Data: hi_conversation_*.
 
-Test credentials: demo_home@diyhomie.com / Test1234 ; admin Diyhomieapp@gmail.com / diyhomie1122.
+Test credentials: demo_home@diyhomie.com (password in test_credentials.md) ; admin Diyhomieapp@gmail.com (password in test_credentials.md).
 
 **Blueprint 06 — Home Document Vault (DONE, tested iter48):**
 - Backend `document_vault_engine.py` (/api/hi/documents/*): upload (image→gpt-4o vision field extraction w/ user review; non-image→ready), list w/ category counts + review_count + needs_review/is_linked flags, detail (+extractions+relationships w/ resolved names), edit, delete (cascades ext/rels, preserves linked entities), link to property/room/asset/project/task (asset link mirrors into hi_asset_documents for guidance grounding), extraction review (confirm/reject/edit → 'Confirmed by User'), review-queue, plain-language + category search, Ask Homie (grounded, non-hallucinating). Access logs (hi_document_access) + analytics.
@@ -436,7 +436,7 @@ Test credentials: demo_home@diyhomie.com / Test1234 ; admin Diyhomieapp@gmail.co
 - Routers: /api/hi/collab/* (owned, shared-with-me, my-permissions, members, invites, invite, invites/accept, members/{id}/role|remove, activity, audit, assign, assignments, my-assignments, assignments/{id}/respond). Configured in server.py.
 - Frontend: app/home-intel/collab/{index(owner manage),shared(shared-with-me + accept + my assignments),accept(deep-link redirect)}.tsx. Entries: HI dashboard "Share & Collaborators" (hi-collab) + "Shared With Me" (hi-shared).
 - **Guided Cleanup Nudge**: project completion screen (complete.tsx) now shows a highlighted "Clean up & log leftovers" action (next-cleanup) → /home-intel/cleanup.
-- Backend curl-verified end-to-end (invite→register→accept→shared-with-me→scoped perms→403 enforcement). TEST USER: collab_test@diyhomie.com / Test1234. Frontend E2E pending testing_agent.
+- Backend curl-verified end-to-end (invite→register→accept→shared-with-me→scoped perms→403 enforcement). TEST USER: collab_test@diyhomie.com (password in test_credentials.md). Frontend E2E pending testing_agent.
 
 ### PENDING QUEUE: B14 Photo Room Design (Gemini Nano Banana); B17 AI Orchestration Gateway (route AI via Knowledge Base); Twin-from-photos; Connect Pipedream (needs key).
 
@@ -465,7 +465,7 @@ Test credentials: demo_home@diyhomie.com / Test1234 ; admin Diyhomieapp@gmail.co
 - Collections: op_metrics, op_alerts, op_insights, op_recommendations, op_approvals, ai_usage_records, op_experiments, op_settings.
 - Curl-verified: dashboard summary + connectors + 5 domains, ai-costs, refresh 200.
 
-Test credentials: demo_home@diyhomie.com / Test1234 ; admin Diyhomieapp@gmail.com / diyhomie1122.
+Test credentials: demo_home@diyhomie.com (password in test_credentials.md) ; admin Diyhomieapp@gmail.com (password in test_credentials.md).
 
 ---
 ## Session update (fork) cont. — Blueprint 26 shipped

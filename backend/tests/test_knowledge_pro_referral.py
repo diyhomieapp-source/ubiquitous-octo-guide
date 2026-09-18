@@ -10,9 +10,9 @@ BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "").rstrip("/") or \
 assert BASE_URL, "EXPO_PUBLIC_BACKEND_URL must be set"
 
 DEMO_EMAIL = "demo_home@diyhomie.com"
-DEMO_PASS = "Test1234"
+DEMO_PASS = __import__("os").environ.get("TEST_USER_PASSWORD", "")
 ADMIN_EMAIL = "Diyhomieapp@gmail.com"
-ADMIN_PASS = "diyhomie1122"
+ADMIN_PASS = __import__("os").environ.get("TEST_ADMIN_PASSWORD", "")
 
 
 # ------------------------------ fixtures
@@ -31,7 +31,7 @@ def user_token(api):
         # register fresh
         email = f"TEST_kbsearch_{uuid.uuid4().hex[:8]}@diyhomie.com"
         r = api.post(f"{BASE_URL}/api/auth/register",
-                     json={"email": email, "password": "Test1234", "name": "TEST KB"})
+                     json={"email": email, "password": __import__("os").environ.get("TEST_USER_PASSWORD", ""), "name": "TEST KB"})
         assert r.status_code in (200, 201), f"register failed: {r.status_code} {r.text}"
     return r.json()["access_token"]
 

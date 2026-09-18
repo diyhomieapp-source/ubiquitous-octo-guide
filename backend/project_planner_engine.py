@@ -511,4 +511,13 @@ def build_router(get_current_user: Callable) -> APIRouter:
         await _track(user["id"], ev, {"project_id": project_id})
         return {"ok": True, "status": status}
 
+    @r.get("/{project_id}/outcome")
+    async def get_outcome(project_id: str, user: dict = Depends(get_current_user)):
+        await _owned(project_id, user["id"])
+        doc = await _db.hi_project_outcomes.find({"project_id": project_id}, {"_id": 0}) \
+            .sort("created_at", -1).to_list(1)
+        if not doc:
+            raise HTTPException(status_code=404, detail="No outcome recorded yet.")
+        return {"outcome": doc[0]}
+
     return r

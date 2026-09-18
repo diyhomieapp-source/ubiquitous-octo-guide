@@ -8,7 +8,7 @@ BASE_URL = os.environ["EXPO_PUBLIC_BACKEND_URL"].rstrip("/")
 API = f"{BASE_URL}/api"
 
 ADMIN_EMAIL = "Diyhomieapp@gmail.com"
-ADMIN_PASS = "diyhomie1122"
+ADMIN_PASS = __import__("os").environ.get("TEST_ADMIN_PASSWORD", "")
 
 
 @pytest.fixture(scope="session")
@@ -31,7 +31,7 @@ def admin(session):
 def user_std(session):
     email = f"TEST_hp_{uuid.uuid4().hex[:8]}@diyhomie.com"
     r = session.post(f"{API}/auth/register",
-                     json={"email": email, "password": "Test1234", "name": "HomeTester"},
+                     json={"email": email, "password": __import__("os").environ.get("TEST_USER_PASSWORD", ""), "name": "HomeTester"},
                      timeout=15)
     assert r.status_code == 200, r.text
     d = r.json()

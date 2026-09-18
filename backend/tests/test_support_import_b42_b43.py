@@ -5,13 +5,13 @@ import uuid
 import pytest
 import requests
 
-BASE = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "https://step-by-step-diy.preview.emergentagent.com").rstrip("/")
+BASE = os.environ.get("EXPO_PUBLIC_BACKEND_URL", __import__("os").environ.get("TEST_BASE_URL", "http://localhost:8001")).rstrip("/")
 API = f"{BASE}/api"
 
 DEMO_EMAIL = "demo_home@diyhomie.com"
-DEMO_PASSWORD = "Test1234"
+DEMO_PASSWORD = __import__("os").environ.get("TEST_USER_PASSWORD", "")
 ADMIN_EMAIL = "Diyhomieapp@gmail.com"
-ADMIN_PASSWORD = "diyhomie1122"
+ADMIN_PASSWORD = __import__("os").environ.get("TEST_ADMIN_PASSWORD", "")
 
 
 def _login(email, password):
@@ -127,10 +127,10 @@ class TestB42Tickets:
         # Register throwaway user
         email = f"TEST_iso_{uuid.uuid4().hex[:8]}@diyhomie.com"
         reg = requests.post(f"{API}/auth/register",
-                            json={"email": email, "password": "Test1234", "name": "iso"}, timeout=30)
+                            json={"email": email, "password": __import__("os").environ.get("TEST_USER_PASSWORD", ""), "name": "iso"}, timeout=30)
         if reg.status_code not in (200, 201):
             pytest.skip(f"register unavailable: {reg.status_code}")
-        tok = reg.json().get("access_token") or _login(email, "Test1234")
+        tok = reg.json().get("access_token") or _login(email, __import__("os").environ.get("TEST_USER_PASSWORD", ""))
         h = {"Authorization": f"Bearer {tok}"}
         r = requests.get(f"{API}/hi/help/tickets/{tid}", headers=h, timeout=30)
         assert r.status_code == 404, f"cross-user isolation failed: {r.status_code} {r.text}"

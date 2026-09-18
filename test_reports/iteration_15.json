@@ -29,6 +29,6 @@
   "seed_data_creation": "Tests register fresh TEST_maint_* users for each module to avoid cross-test pollution. The demo user demo_home@diyhomie.com now has 20 generated tasks + 1 completion from UI test.",
   "retest_needed": false,
   "should_main_agent_self_test": false,
-  "context_for_next_testing_agent": "Use EXPO_PUBLIC_BACKEND_URL or EXPO_BACKEND_URL env var when running pytest. demo_home@diyhomie.com / Test1234 now has a populated maintenance plan; for empty-state generate flow, use a fresh register.",
+  "context_for_next_testing_agent": "Use EXPO_PUBLIC_BACKEND_URL or EXPO_BACKEND_URL env var when running pytest. demo_home@diyhomie.com / [REDACTED] now has a populated maintenance plan; for empty-state generate flow, use a fresh register.",
   "rca_of_issue": ""
 }

@@ -25,9 +25,9 @@ BASE_URL = _resolve_base_url()
 assert BASE_URL, "BASE_URL is empty — set EXPO_BACKEND_URL or EXPO_PUBLIC_BACKEND_URL"
 
 DEMO_EMAIL = "demo_home@diyhomie.com"
-DEMO_PASSWORD = "Test1234"
+DEMO_PASSWORD = __import__("os").environ.get("TEST_USER_PASSWORD", "")
 ADMIN_EMAIL = "Diyhomieapp@gmail.com"
-ADMIN_PASSWORD = "diyhomie1122"
+ADMIN_PASSWORD = __import__("os").environ.get("TEST_ADMIN_PASSWORD", "")
 
 
 # --------------------------------------------------------------------- fixtures

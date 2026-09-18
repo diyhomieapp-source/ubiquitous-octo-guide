@@ -35,7 +35,7 @@ assert BASE_URL, "EXPO_PUBLIC_BACKEND_URL must be set"
 API = f"{BASE_URL}/api"
 
 DEMO_EMAIL = "demo_home@diyhomie.com"
-DEMO_PASS = "Test1234"
+DEMO_PASS = __import__("os").environ.get("TEST_USER_PASSWORD", "")
 
 
 def _login(email, password, device_name=None, platform=None):
@@ -152,7 +152,7 @@ class TestFailedLoginEvent:
 
 class TestRegisterAccountCreated:
     throwaway_email = f"TEST_iter91_{uuid.uuid4().hex[:8]}@example.com"
-    throwaway_pw = "Test1234!"
+    throwaway_pw = __import__("os").environ.get("TEST_USER_PASSWORD", "") + "!"
 
     def test_register_with_device_info(self):
         body = {

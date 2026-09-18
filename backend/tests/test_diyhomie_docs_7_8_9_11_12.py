@@ -11,8 +11,8 @@ import requests
 
 BASE = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "").rstrip("/")
 
-DEMO = ("demo_home@diyhomie.com", "Test1234")
-ADMIN = ("Diyhomieapp@gmail.com", "diyhomie1122")
+DEMO = ("demo_home@diyhomie.com", __import__("os").environ.get("TEST_USER_PASSWORD", ""))
+ADMIN = ("Diyhomieapp@gmail.com", __import__("os").environ.get("TEST_ADMIN_PASSWORD", ""))
 
 # Seeded issue with a plan+BOM from prior session (per main agent)
 KNOWN_ISSUE = "72625ba1-7c0b-4686-b3e0-512bedc5cda1"
@@ -172,10 +172,10 @@ class TestHandoffPro:
         # register a fresh user
         email = f"TEST_ph_{int(time.time())}@diyhomie.com"
         reg = requests.post(f"{BASE}/api/auth/register",
-                            json={"email": email, "password": "Test1234", "name": "T"}, timeout=20)
+                            json={"email": email, "password": __import__("os").environ.get("TEST_USER_PASSWORD", ""), "name": "T"}, timeout=20)
         if reg.status_code not in (200, 201):
             pytest.skip("register unavailable")
-        tok = reg.json().get("access_token") or _login(email, "Test1234")
+        tok = reg.json().get("access_token") or _login(email, __import__("os").environ.get("TEST_USER_PASSWORD", ""))
         r = requests.get(f"{BASE}/api/hi/handoff-pro/issues/{KNOWN_ISSUE}/escalation",
                          headers=H(tok), timeout=15)
         assert r.status_code == 404

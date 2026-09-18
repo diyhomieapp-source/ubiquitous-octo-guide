@@ -18,11 +18,11 @@ import pytest
 import requests
 
 BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL",
-                          "https://step-by-step-diy.preview.emergentagent.com").rstrip("/")
+                          __import__("os").environ.get("TEST_BASE_URL", "http://localhost:8001")).rstrip("/")
 ADMIN_EMAIL = "Diyhomieapp@gmail.com"
-ADMIN_PASSWORD = "diyhomie1122"
+ADMIN_PASSWORD = __import__("os").environ.get("TEST_ADMIN_PASSWORD", "")
 DEMO_EMAIL = "demo_home@diyhomie.com"
-DEMO_PASSWORD = "Test1234"
+DEMO_PASSWORD = __import__("os").environ.get("TEST_USER_PASSWORD", "")
 
 TRANSACTIONAL_KEYS = {"welcome", "purchase", "renewal", "ticket_reply"}
 
@@ -186,7 +186,7 @@ class TestSegmentsAndCampaigns:
         # 2) register a real new user (will end up in 'All Users') — also triggers welcome enqueue
         new_email = f"TEST_camp_{uuid.uuid4().hex[:6]}@example.com".lower()
         rr = s.post(f"{BASE_URL}/api/auth/register",
-                    json={"email": new_email, "password": "Test1234", "name": "T"}, timeout=30)
+                    json={"email": new_email, "password": __import__("os").environ.get("TEST_USER_PASSWORD", ""), "name": "T"}, timeout=30)
         assert rr.status_code == 200, rr.text
 
         # snapshot queued count before
@@ -253,7 +253,7 @@ class TestWelcomeOnSignup:
         h = _ah(admin_token)
         new_email = f"TEST_wel_{uuid.uuid4().hex[:6]}@example.com".lower()
         r = s.post(f"{BASE_URL}/api/auth/register",
-                   json={"email": new_email, "password": "Test1234", "name": "Welly"}, timeout=30)
+                   json={"email": new_email, "password": __import__("os").environ.get("TEST_USER_PASSWORD", ""), "name": "Welly"}, timeout=30)
         assert r.status_code == 200, r.text
 
         # give the engine a moment
@@ -276,7 +276,7 @@ class TestPublicTracking:
         # register a fresh user to get a guaranteed welcome queue row
         new_email = f"TEST_open_{uuid.uuid4().hex[:6]}@example.com".lower()
         r = s.post(f"{BASE_URL}/api/auth/register",
-                   json={"email": new_email, "password": "Test1234", "name": "Op"}, timeout=30)
+                   json={"email": new_email, "password": __import__("os").environ.get("TEST_USER_PASSWORD", ""), "name": "Op"}, timeout=30)
         assert r.status_code == 200
 
         time.sleep(1.0)

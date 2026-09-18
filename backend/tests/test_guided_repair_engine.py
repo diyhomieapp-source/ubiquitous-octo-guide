@@ -23,13 +23,13 @@ import time
 import pytest
 import requests
 
-BASE_URL = os.environ.get("EXPO_BACKEND_URL", "https://step-by-step-diy.preview.emergentagent.com").rstrip("/")
+BASE_URL = os.environ.get("EXPO_BACKEND_URL", __import__("os").environ.get("TEST_BASE_URL", "http://localhost:8001")).rstrip("/")
 API = f"{BASE_URL}/api"
 
 DEMO_EMAIL = "demo_home@diyhomie.com"
-DEMO_PASS = "Test1234"
+DEMO_PASS = __import__("os").environ.get("TEST_USER_PASSWORD", "")
 ADMIN_EMAIL = "Diyhomieapp@gmail.com"
-ADMIN_PASS = "diyhomie1122"
+ADMIN_PASS = __import__("os").environ.get("TEST_ADMIN_PASSWORD", "")
 
 
 def _login(session, email, password):
@@ -54,7 +54,7 @@ def other_user():
     s = requests.Session()
     s.headers.update({"Content-Type": "application/json"})
     email = f"TEST_repair_{uuid.uuid4().hex[:10]}@diyhomie.com"
-    pw = "Test1234"
+    pw = __import__("os").environ.get("TEST_USER_PASSWORD", "")
     r = s.post(f"{API}/auth/register", json={"email": email, "password": pw, "full_name": "TEST Repair"}, timeout=30)
     if r.status_code in (200, 201):
         tok = r.json().get("access_token")

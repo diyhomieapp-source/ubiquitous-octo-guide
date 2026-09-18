@@ -23,9 +23,9 @@ BASE_URL = (
 assert BASE_URL, "EXPO_PUBLIC_BACKEND_URL must be set"
 
 ADMIN_EMAIL = "Diyhomieapp@gmail.com"
-ADMIN_PASS = "diyhomie1122"
+ADMIN_PASS = __import__("os").environ.get("TEST_ADMIN_PASSWORD", "")
 DEMO_EMAIL = "demo_home@diyhomie.com"
-DEMO_PASS = "Test1234"
+DEMO_PASS = __import__("os").environ.get("TEST_USER_PASSWORD", "")
 
 CITY = "Austin, TX"
 
@@ -46,7 +46,7 @@ def _register_neighbor(api, city=CITY):
     email = f"TEST_nb_{uuid.uuid4().hex[:8]}@diyhomie.com"
     r = api.post(
         f"{BASE_URL}/api/auth/register",
-        json={"email": email, "password": "Test1234", "name": f"TEST_NB {uuid.uuid4().hex[:4]}"},
+        json={"email": email, "password": __import__("os").environ.get("TEST_USER_PASSWORD", ""), "name": f"TEST_NB {uuid.uuid4().hex[:4]}"},
     )
     assert r.status_code == 200, f"register failed: {r.status_code} {r.text}"
     token = r.json()["access_token"]
@@ -127,7 +127,7 @@ class TestOptInFlow:
         email = f"TEST_noloc_{uuid.uuid4().hex[:6]}@diyhomie.com"
         r = api.post(
             f"{BASE_URL}/api/auth/register",
-            json={"email": email, "password": "Test1234", "name": "TEST_NoLoc"},
+            json={"email": email, "password": __import__("os").environ.get("TEST_USER_PASSWORD", ""), "name": "TEST_NoLoc"},
         )
         assert r.status_code == 200
         token = r.json()["access_token"]
@@ -177,7 +177,7 @@ class TestOverview:
         email = f"TEST_ovnoloc_{uuid.uuid4().hex[:6]}@diyhomie.com"
         r = api.post(
             f"{BASE_URL}/api/auth/register",
-            json={"email": email, "password": "Test1234", "name": "TEST_OvNoLoc"},
+            json={"email": email, "password": __import__("os").environ.get("TEST_USER_PASSWORD", ""), "name": "TEST_OvNoLoc"},
         )
         token = r.json()["access_token"]
         rr = api.get(f"{BASE_URL}/api/neighborhood", headers=_h(token))

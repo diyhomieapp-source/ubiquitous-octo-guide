@@ -86,3 +86,11 @@ android-sdk/
 credentials.json
 *.key
 .credentials
+
+# security remediation DIYHOMIE-EM-02
+.env
+.env.*
+!.env.test.example
+backend/.env.test
+memory/test_credentials.md
+backend/backups/

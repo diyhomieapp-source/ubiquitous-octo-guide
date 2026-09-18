@@ -18,7 +18,7 @@ API = f"{BASE_URL}/api"
 MONGO_URL = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
 DB_NAME = os.environ.get("DB_NAME", "diyhomie")
 
-USER = {"email": "demo_home@diyhomie.com", "password": "Test1234"}
+USER = {"email": "demo_home@diyhomie.com", "password": __import__("os").environ.get("TEST_USER_PASSWORD", "")}
 
 _seed_state = {"project_id": None, "step_ids": [], "created": False}
 

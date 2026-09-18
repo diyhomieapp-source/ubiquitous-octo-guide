@@ -74,4 +74,4 @@ Frontend `.env`: EXPO_PUBLIC_BACKEND_URL + Emergent packager vars (protected —
 7. **P3 — Deliberate consolidation review** of the three pro-engines and two materials layers once product direction settles.
 
 ## 6. Test credentials
-See `/app/memory/test_credentials.md` (demo_home@diyhomie.com / Test1234; admin Diyhomieapp@gmail.com / diyhomie1122).
+See `/app/memory/test_credentials.md` (demo_home@diyhomie.com (password in test_credentials.md); admin Diyhomieapp@gmail.com (password in test_credentials.md)).

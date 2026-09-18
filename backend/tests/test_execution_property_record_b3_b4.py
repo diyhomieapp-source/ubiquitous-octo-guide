@@ -13,13 +13,13 @@ import requests
 
 BASE_URL = (os.environ.get("EXPO_BACKEND_URL")
             or os.environ.get("EXPO_PUBLIC_BACKEND_URL")
-            or "https://step-by-step-diy.preview.emergentagent.com").rstrip("/")
+            or __import__("os").environ.get("TEST_BASE_URL", "http://localhost:8001")).rstrip("/")
 API = f"{BASE_URL}/api"
 
 DEMO_EMAIL = "demo_home@diyhomie.com"
-DEMO_PASS = "Test1234"
+DEMO_PASS = __import__("os").environ.get("TEST_USER_PASSWORD", "")
 ADMIN_EMAIL = "Diyhomieapp@gmail.com"
-ADMIN_PASS = "diyhomie1122"
+ADMIN_PASS = __import__("os").environ.get("TEST_ADMIN_PASSWORD", "")
 
 
 def _login(s, email, pw):
@@ -37,7 +37,7 @@ def demo():
 @pytest.fixture(scope="module")
 def other():
     s = requests.Session(); s.headers.update({"Content-Type": "application/json"})
-    email = f"TEST_b3b4_{uuid.uuid4().hex[:10]}@diyhomie.com"; pw = "Test1234"
+    email = f"TEST_b3b4_{uuid.uuid4().hex[:10]}@diyhomie.com"; pw = __import__("os").environ.get("TEST_USER_PASSWORD", "")
     r = s.post(f"{API}/auth/register", json={"email": email, "password": pw, "name": "TEST"}, timeout=30)
     tok = None
     if r.status_code in (200, 201):

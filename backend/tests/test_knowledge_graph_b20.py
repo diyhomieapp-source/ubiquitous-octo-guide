@@ -16,9 +16,9 @@ BASE_URL = os.environ["EXPO_PUBLIC_BACKEND_URL"].rstrip("/")
 API = f"{BASE_URL}/api"
 
 USER_EMAIL = "demo_home@diyhomie.com"
-USER_PASS = "Test1234"
+USER_PASS = __import__("os").environ.get("TEST_USER_PASSWORD", "")
 ADMIN_EMAIL = "Diyhomieapp@gmail.com"
-ADMIN_PASS = "diyhomie1122"
+ADMIN_PASS = __import__("os").environ.get("TEST_ADMIN_PASSWORD", "")
 
 
 def _login(email, pw):
@@ -43,7 +43,7 @@ def admin_auth():
 @pytest.fixture(scope="session")
 def other_user_auth(admin_auth):
     email = f"TEST_kg_other_{uuid.uuid4().hex[:8]}@example.com"
-    pw = "Test1234!"
+    pw = __import__("os").environ.get("TEST_USER_PASSWORD", "") + "!"
     reg = requests.post(f"{API}/auth/register", json={"email": email, "password": pw, "name": "TEST KG Other"}, timeout=30)
     if reg.status_code in (200, 201):
         j = reg.json()

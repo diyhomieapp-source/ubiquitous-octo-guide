@@ -20,20 +20,20 @@ def session():
 def user_a(session):
     email = f"TEST_a_{uuid.uuid4().hex[:8]}@diyhomie.com"
     r = session.post(f"{API}/auth/register",
-                     json={"email": email, "password": "Test1234", "name": "TesterA"}, timeout=20)
+                     json={"email": email, "password": __import__("os").environ.get("TEST_USER_PASSWORD", ""), "name": "TesterA"}, timeout=20)
     assert r.status_code == 200, r.text
     d = r.json()
-    return {"email": email, "password": "Test1234", "token": d["access_token"], "user": d["user"]}
+    return {"email": email, "password": __import__("os").environ.get("TEST_USER_PASSWORD", ""), "token": d["access_token"], "user": d["user"]}
 
 
 @pytest.fixture(scope="session")
 def user_b(session):
     email = f"TEST_b_{uuid.uuid4().hex[:8]}@diyhomie.com"
     r = session.post(f"{API}/auth/register",
-                     json={"email": email, "password": "Test1234", "name": "TesterB"}, timeout=20)
+                     json={"email": email, "password": __import__("os").environ.get("TEST_USER_PASSWORD", ""), "name": "TesterB"}, timeout=20)
     assert r.status_code == 200, r.text
     d = r.json()
-    return {"email": email, "password": "Test1234", "token": d["access_token"], "user": d["user"]}
+    return {"email": email, "password": __import__("os").environ.get("TEST_USER_PASSWORD", ""), "token": d["access_token"], "user": d["user"]}
 
 
 def auth_h(user):
@@ -64,7 +64,7 @@ class TestAuth:
 
     def test_login_success(self, session, user_a):
         r = session.post(f"{API}/auth/login",
-                         json={"email": user_a["email"], "password": "Test1234"}, timeout=10)
+                         json={"email": user_a["email"], "password": __import__("os").environ.get("TEST_USER_PASSWORD", "")}, timeout=10)
         assert r.status_code == 200
 
     def test_login_bad_password(self, session, user_a):
@@ -382,7 +382,7 @@ class TestOutOfCredits:
         """Register fresh user, drain credits via ask (cheap), assert 402 on /guide."""
         email = f"TEST_drain_{uuid.uuid4().hex[:8]}@diyhomie.com"
         r = session.post(f"{API}/auth/register",
-                         json={"email": email, "password": "Test1234", "name": "Drain"}, timeout=20)
+                         json={"email": email, "password": __import__("os").environ.get("TEST_USER_PASSWORD", ""), "name": "Drain"}, timeout=20)
         assert r.status_code == 200
         tok = r.json()["access_token"]
         h = {"Authorization": f"Bearer {tok}", "Content-Type": "application/json"}

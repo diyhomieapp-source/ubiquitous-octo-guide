@@ -13,9 +13,9 @@ BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", os.environ.get("EXPO_BACKEN
 API = f"{BASE_URL}/api"
 
 OWNER_EMAIL = "Diyhomieapp@gmail.com"
-OWNER_PASSWORD = "diyhomie1122"
+OWNER_PASSWORD = __import__("os").environ.get("TEST_ADMIN_PASSWORD", "")
 USER_EMAIL = "demo_home@diyhomie.com"
-USER_PASSWORD = "Test1234"
+USER_PASSWORD = __import__("os").environ.get("TEST_USER_PASSWORD", "")
 
 
 def _login(email, password):

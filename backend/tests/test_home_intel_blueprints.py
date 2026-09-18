@@ -29,10 +29,10 @@ import requests
 
 BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "").rstrip("/")
 if not BASE_URL:
-    BASE_URL = "https://step-by-step-diy.preview.emergentagent.com"
+    BASE_URL = __import__("os").environ.get("TEST_BASE_URL", "http://localhost:8001")
 
 DEMO_EMAIL = "demo_home@diyhomie.com"
-DEMO_PASS = "Test1234"
+DEMO_PASS = __import__("os").environ.get("TEST_USER_PASSWORD", "")
 
 # a 1x1 transparent PNG (small base64) — used for photo fields we don't want to OCR
 TINY_PNG_B64 = (
@@ -54,7 +54,7 @@ def user_ctx(api):
     email = f"TEST_hi_{uuid.uuid4().hex[:8]}@diyhomie.com"
     r = api.post(
         f"{BASE_URL}/api/auth/register",
-        json={"email": email, "password": "Test1234", "name": "HI Tester"},
+        json={"email": email, "password": __import__("os").environ.get("TEST_USER_PASSWORD", ""), "name": "HI Tester"},
         timeout=30,
     )
     assert r.status_code == 200, f"register failed: {r.status_code} {r.text[:300]}"

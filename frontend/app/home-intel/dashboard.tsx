@@ -6,6 +6,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors, spacing, radius, font, type } from "@/src/theme";
 import { api } from "@/src/api";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
+import { HomieFace } from "@/src/components/HomieFace";
 
 const STATUS_COLOR: Record<string, string> = { Urgent: "#EB5757", "Needs Attention": "#F2994A", Upcoming: "#2F80ED", Suggested: "#9B51E0", Complete: "#27AE60" };
 const TYPE_ICON: Record<string, string> = { safety: "shield-alert-outline", maintenance: "calendar-check-outline", project: "hammer-wrench", document: "file-document-outline", measurement: "tape-measure", professional_job: "account-hard-hat-outline", suggestion: "lightbulb-on-outline" };
@@ -76,7 +77,7 @@ export default function HomeDashboard() {
       <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing["3xl"] }}>
         <Text style={styles.prompt}>What would you like to do today?</Text>
         <Pressable testID="dash-ask" style={styles.askBar} onPress={() => router.push("/home-intel/chat")}>
-          <MaterialCommunityIcons name="robot-happy-outline" size={20} color={colors.brandPrimary} />
+          <HomieFace size={26} pose="idle" />
           <Text style={styles.askText}>Ask Homie anything…</Text>
         </Pressable>
 

@@ -1,7 +1,7 @@
 """Backend tests: Admin workstation + Feedback widget (iteration 10).
 
 Covers:
-- Admin seeded login (Diyhomieapp@gmail.com / diyhomie1122) → is_admin true
+- Admin seeded login (TEST_ADMIN_EMAIL / TEST_ADMIN_PASSWORD env vars) → is_admin true
 - Normal user 403 on /api/admin/*
 - POST /api/feedback persists; appears in admin list
 - Admin PATCH/DELETE feedback
@@ -15,9 +15,9 @@ import uuid
 import requests
 import pytest
 
-BASE = "https://step-by-step-diy.preview.emergentagent.com"
+BASE = __import__("os").environ.get("TEST_BASE_URL", "http://localhost:8001")
 ADMIN_EMAIL = "Diyhomieapp@gmail.com"
-ADMIN_PASSWORD = "diyhomie1122"
+ADMIN_PASSWORD = __import__("os").environ.get("TEST_ADMIN_PASSWORD", "")
 
 
 def _login(email, password):
@@ -42,7 +42,7 @@ def admin_token():
 @pytest.fixture(scope="module")
 def user_token():
     email = f"test_admin_review_{uuid.uuid4().hex[:8]}@diyhomie.com"
-    r = _register(email, "Test1234")
+    r = _register(email, __import__("os").environ.get("TEST_USER_PASSWORD", ""))
     assert r.status_code == 200, f"register failed: {r.status_code} {r.text}"
     return r.json()["access_token"]
 

@@ -17,7 +17,7 @@ def auth_session():
     ts = int(time.time())
     email = f"TEST_coremagic_{ts}@diyhomie.com"
     r = s.post(f"{API}/auth/register",
-               json={"email": email, "password": "Test1234", "name": "CoreTester"},
+               json={"email": email, "password": __import__("os").environ.get("TEST_USER_PASSWORD", ""), "name": "CoreTester"},
                timeout=20)
     assert r.status_code == 200, r.text
     token = r.json()["access_token"]
@@ -150,7 +150,7 @@ def test_guide_skip_path_no_context():
     s.headers.update({"Content-Type": "application/json"})
     ts = int(time.time())
     r = s.post(f"{API}/auth/register",
-               json={"email": f"TEST_skip_{ts}@diyhomie.com", "password": "Test1234", "name": "Skip"},
+               json={"email": f"TEST_skip_{ts}@diyhomie.com", "password": __import__("os").environ.get("TEST_USER_PASSWORD", ""), "name": "Skip"},
                timeout=20)
     assert r.status_code == 200
     s.headers.update({"Authorization": f"Bearer {r.json()['access_token']}"})

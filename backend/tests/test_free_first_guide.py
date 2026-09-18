@@ -4,7 +4,7 @@ import time
 import requests
 import pytest
 
-BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "https://step-by-step-diy.preview.emergentagent.com").rstrip("/")
+BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", __import__("os").environ.get("TEST_BASE_URL", "http://localhost:8001")).rstrip("/")
 
 
 @pytest.fixture(scope="module")
@@ -13,7 +13,7 @@ def auth_headers():
     email = f"TEST_funnel_{ts}@diyhomie.com"
     r = requests.post(
         f"{BASE_URL}/api/auth/register",
-        json={"email": email, "password": "Test1234", "name": "Funnel Tester"},
+        json={"email": email, "password": __import__("os").environ.get("TEST_USER_PASSWORD", ""), "name": "Funnel Tester"},
         timeout=30,
     )
     assert r.status_code in (200, 201), f"register failed: {r.status_code} {r.text}"

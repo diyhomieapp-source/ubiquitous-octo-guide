@@ -28,5 +28,5 @@
   "retest_needed": false,
   "should_main_agent_self_test": false,
   "context_for_next_testing_agent": "B36 (Property Risk / Emergency Readiness) backend routes live at /api/hi/emergency/*. Full pytest at /app/backend/tests/test_b36_emergency_iter76.py covers overview, categories, contacts CRUD, locations CRUD, risk profiles, mode/start with saved-contact+saved-location assembly + incident_id creation, incidents+timeline+media+status, and prep-plans with template seed items + toggle + custom item. B35 fix (admin-nav-communityhub) is stable and CommunityModule renders correctly.",
-  "rca_of_issue": "N/A — no bugs found. All flows working as designed. Note: initial UI test appeared to fail because the tester navigated directly to /home-intel/emergency without logging in first; logging in via /auth?mode=login with demo_home@diyhomie.com/Test1234 fixed the 403s and confirmed all flows."
+  "rca_of_issue": "N/A — no bugs found. All flows working as designed. Note: initial UI test appeared to fail because the tester navigated directly to /home-intel/emergency without logging in first; logging in via /auth?mode=login with demo_home@diyhomie.com/[REDACTED] fixed the 403s and confirmed all flows."
 }

@@ -9,12 +9,12 @@ import requests
 
 BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "").rstrip("/")
 if not BASE_URL:
-    BASE_URL = "https://step-by-step-diy.preview.emergentagent.com"
+    BASE_URL = __import__("os").environ.get("TEST_BASE_URL", "http://localhost:8001")
 
 ADMIN_EMAIL = "Diyhomieapp@gmail.com"
-ADMIN_PASSWORD = "diyhomie1122"
+ADMIN_PASSWORD = __import__("os").environ.get("TEST_ADMIN_PASSWORD", "")
 USER_EMAIL = "demo_home@diyhomie.com"
-USER_PASSWORD = "Test1234"
+USER_PASSWORD = __import__("os").environ.get("TEST_USER_PASSWORD", "")
 
 
 def _login(email, password):

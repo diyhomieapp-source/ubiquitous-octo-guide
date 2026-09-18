@@ -23,9 +23,9 @@ import requests
 BASE_URL = (os.environ.get("EXPO_PUBLIC_BACKEND_URL") or os.environ.get("EXPO_BACKEND_URL")).rstrip("/")
 
 ADMIN_EMAIL = "Diyhomieapp@gmail.com"
-ADMIN_PASSWORD = "diyhomie1122"
+ADMIN_PASSWORD = __import__("os").environ.get("TEST_ADMIN_PASSWORD", "")
 DEMO_EMAIL = "demo_home@diyhomie.com"
-DEMO_PASSWORD = "Test1234"
+DEMO_PASSWORD = __import__("os").environ.get("TEST_USER_PASSWORD", "")
 
 
 def _tok(email, password):
@@ -54,7 +54,7 @@ def demo_h():
 @pytest.fixture(scope="module")
 def fresh_user():
     email = f"test_expert_{uuid.uuid4().hex[:10]}@diyhomie.com"
-    tok = _register(email, "Test1234", name="TEST_ExpertUser")
+    tok = _register(email, __import__("os").environ.get("TEST_USER_PASSWORD", ""), name="TEST_ExpertUser")
     return {"email": email, "token": tok,
             "headers": {"Authorization": f"Bearer {tok}", "Content-Type": "application/json"}}
 

@@ -21,10 +21,10 @@ import requests
 
 BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "").rstrip("/")
 if not BASE_URL:
-    BASE_URL = "https://step-by-step-diy.preview.emergentagent.com"
+    BASE_URL = __import__("os").environ.get("TEST_BASE_URL", "http://localhost:8001")
 
 ADMIN_EMAIL = "Diyhomieapp@gmail.com"
-ADMIN_PASS = "diyhomie1122"
+ADMIN_PASS = __import__("os").environ.get("TEST_ADMIN_PASSWORD", "")
 
 
 # ---------------------------------------------------------------- fixtures
@@ -53,7 +53,7 @@ def user_ctx(api):
     email = f"TEST_journey_{uuid.uuid4().hex[:8]}@diyhomie.com"
     r = api.post(
         f"{BASE_URL}/api/auth/register",
-        json={"email": email, "password": "Test1234", "name": "Timeline Tester"},
+        json={"email": email, "password": __import__("os").environ.get("TEST_USER_PASSWORD", ""), "name": "Timeline Tester"},
         timeout=30,
     )
     assert r.status_code == 200, r.text
