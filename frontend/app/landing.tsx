@@ -38,7 +38,7 @@ export default function Landing() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.inner}>
-          <Logo width={150} />
+          <Logo size="lg" />
 
           <View style={styles.eyebrow}>
             <MaterialCommunityIcons name="hammer-screwdriver" size={14} color={colors.brandPrimary} />

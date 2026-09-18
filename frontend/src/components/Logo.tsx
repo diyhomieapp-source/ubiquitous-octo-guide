@@ -4,11 +4,11 @@ import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
 import { colors, spacing, font } from "@/src/theme";
 
-const MASCOT = require("../../assets/homie-mascot.png");
-// Full PNG frame aspect (1080x720). The mascot fills the frame vertically
-// (cap near the top, shirt at the very bottom), so scaling by this aspect and
-// bottom-aligning makes the head pop above the tile's top edge.
-const MASCOT_AR = 1080 / 720;
+const MASCOT = require("../../assets/homie-avatar.png");
+// Square headshot PNG (640x640, transparent top corners). The shoulders reach
+// the bottom edge, so bottom-aligning against the tile lets the cap pop above
+// the tile's top edge.
+const MASCOT_AR = 1;
 
 type Size = "sm" | "md" | "lg";
 
@@ -44,10 +44,10 @@ export function Logo({ size = "md", showWordmark = true, animated = true, intera
   const dim = size === "lg" ? 92 : size === "sm" ? 44 : 60;
   const word = size === "lg" ? 40 : size === "sm" ? 22 : 32;
 
-  // Mascot is scaled wider than the tile so the head/cap pops above the top
-  // edge while the shirt/shoulders sit flush with the tile's bottom.
-  const mW = dim * 1.9;
-  const mH = mW / MASCOT_AR; // ~1.27 * dim → head extends above the square
+  // Mascot is scaled slightly wider than the tile so the cap pops above the
+  // top edge while the shoulders sit flush with the tile's bottom.
+  const mW = dim * 1.35;
+  const mH = mW / MASCOT_AR; // square headshot → ~1.35 * dim
   const radius = dim * 0.26;
 
   // Gentle idle float so the avatar feels alive/interactive.
@@ -109,7 +109,7 @@ export function Logo({ size = "md", showWordmark = true, animated = true, intera
           pointerEvents="none"
           style={[
             styles.mascotWrap,
-            { width: mW, height: mH, left: (dim - mW) / 2, bottom: -dim * 0.1, transform: [{ translateY }, { rotate: mRotate }, { scale: mScale }] },
+            { width: mW, height: mH, left: (dim - mW) / 2, bottom: -dim * 0.06, transform: [{ translateY }, { rotate: mRotate }, { scale: mScale }] },
           ]}
         >
           <Image source={MASCOT} style={styles.mascot} contentFit="contain" />

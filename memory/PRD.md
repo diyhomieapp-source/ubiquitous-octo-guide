@@ -816,3 +816,16 @@ The user is delivering a sequential program of build docs. Status:
 ### 🧪 Testing: iteration_99 (37/37 backend + frontend, 1 HIGH bug found→fixed→retested) + iteration_100 (11/11 + frontend E2E incl. celebration overlay) — ALL GREEN.
 ### 📄 NEW: /app/memory/IMPLEMENTATION_INVENTORY.md — full Phase-1 source-of-truth inventory (user requested; no GitHub remote connected; workspace is source of truth).
 ### Queue: Doc 32 full text still pending from user. server.py routes/ refactor remains top tech-debt item.
+
+## Session addendum: Doc 32 completion + security assessment + new Homie avatar (Sept 2026)
+### ✅ Doc 32 — Data Governance completion deltas (audit-first; existing privacy/export/deletion/audit engines preserved untouched)
+- NEW /app/backend/governance_ops_engine.py (/api/hi/admin/govops, admin-only, audited to hi_admin_audit):
+  - Backups: POST /backups (gzip JSON snapshot per collection → backend/backups/<id>.json.gz, background task, excludes ig_secrets/dg_reauth_grants/dg_backups), GET list/detail (file_present), POST /{bid}/verify (manifest count integrity), POST /{bid}/restore (single collection, merge upsert-by-id or replace, confirm=true required), DELETE.
+  - Deletion execution: POST /deletions/execute (dry_run default; optional user_id + ignore_schedule override) — purges class-C collections per DATA_MAP, anonymizes users doc (email deleted-*@deleted.invalid, random hash, token_version bump), marks dg_deletion_jobs done + account state deleted.
+  - Retention enforcement: POST /retention/enforce (dry_run default) — prunes error_events/error_incidents >90d, expires stale pro_share_links, drops expired dg_exports payloads, deletes expired reauth grants.
+- Tested iteration_101: 21/21 backend green + landing smoke. Demo/admin accounts unaffected.
+### 🔐 Security assessment (read-only, user-requested "DIYHOMIE-EM-02"; attachment was never actually present — assessed from repo)
+- Findings: test+admin credentials exist in ~90 backend/tests files, 101 test_reports JSONs, and memory/*.md; preview URL hardcoded in ~40 test files; both accounts live in shared preview DB; /app git has NO remote (creds never left workspace); admin password sourced from .env (no hardcoded server creds).
+- Proposed 6-step remediation (env-var test creds via conftest.py, localhost default TEST_BASE_URL, synthetic per-run fixtures, remote-test guard, secret scanning + .gitignore, then rotate+token_version revoke) — AWAITING USER GO-AHEAD, nothing executed.
+### 🎨 Landing avatar swap
+- User-uploaded headshot → trimmed/resized 640x640 → /app/frontend/assets/homie-avatar.png; Logo.tsx MASCOT_AR=1, mW=1.35*dim, bottom -0.06*dim (animations untouched: rings/float/spring). landing.tsx Logo width prop fixed → size="lg". Old homie-mascot.png left in assets (unused by Logo now).

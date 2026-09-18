@@ -1,0 +1,38 @@
+{
+  "summary": "Doc 32 completion delta (governance_ops_engine.py) verified end-to-end. 21/21 backend tests passed: auth gating (401/403 without admin), Backups create+list+detail+verify+restore(merge)+delete happy paths, restore confirm/collection guards, Deletion job execution (dry-run then real; throwaway user data purged, user login blocked, demo user untouched), Retention enforcement dry-run + real. Regression: /api/hi/privacy/overview and /api/hi/privacy/export/categories still 200. Frontend smoke on /landing: hero 'DIY anything. Done right.' renders, new homie-avatar.png loads (natural 640x640, no broken image), Get Started + sign-in CTAs visible, no red screen / no console errors (only harmless RN Web deprecation warnings).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "landing (Logo)", "issues": ["<Logo width={150} /> passes an unsupported prop — Logo only accepts size='sm'|'md'|'lg'. width is silently ignored so the logo renders at the default md=60px. If a larger landing logo was intended, main agent should either add a numeric size prop or pass size='lg'."]}
+    ],
+    "react_native_issues": [
+      {"component": "Logo.tsx", "issue": "Uses deprecated shadow* style props (shadowColor/shadowOpacity/shadowRadius/shadowOffset) — RN Web logged deprecation warning. Migrate to boxShadow or platform-guarded styles. Reference: /app/frontend/src/components/Logo.tsx:131-137"},
+      {"component": "Logo.tsx", "issue": "Uses deprecated props.pointerEvents on Animated.View — RN Web logged deprecation warning. Move to style.pointerEvents. Reference: /app/frontend/src/components/Logo.tsx:34, 109"}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_govops_doc32_iter101.py",
+    "/app/test_reports/pytest/govops_doc32_iter101.xml"
+  ],
+  "action_items": [
+    "Optional polish: fix <Logo width={150} /> prop mismatch in /app/frontend/app/landing.tsx:41 (use size='lg' or extend Logo to accept a numeric size)",
+    "Optional polish: migrate Logo.tsx shadow* props to boxShadow and move pointerEvents to style prop to silence RN Web deprecation warnings"
+  ],
+  "critical_code_review_comments": [
+    "governance_ops_engine.py: backup restore with mode='replace' does a delete_many({}) before insert — for safety the endpoint at least requires confirm=true, but adding an explicit warning in the response for replace mode would be nice.",
+    "Deletion execution correctly anonymizes users doc (email→deleted-<uid8>@deleted.invalid, password randomized, token_version bumped, status=deleted) — never deletes the row, preserving audit references. Verified user login fails after real run.",
+    "ignore_schedule=true is properly audited via hi_admin_audit — good.",
+    "BACKUP_EXCLUDE correctly excludes dg_backups, ig_secrets, dg_reauth_grants; system.* prefix also excluded."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_govops_doc32_iter101.py (new)"
+  ],
+  "success_rate": {"backend": "100% (21/21)", "frontend": "100% (landing smoke)"},
+  "seed_data_creation": "One throwaway user TEST_deluser_<hex>@diyhomie.com registered and fully purged via deletion execute. Demo user demo_home@diyhomie.com verified intact (login still works).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Doc 32 completion (govops_engine) is fully green. Backup files land at /app/backend/backups/<id>.json.gz. When testing deletion execute, ALWAYS pass an explicit user_id in body (a fresh throwaway from /api/auth/register). Auth login response uses 'access_token' (not 'token'). Register endpoint rejects .test TLDs (email-validator) — use @diyhomie.com or similar real TLD for TEST_ accounts.",
+  "rca_of_issue": "No issues found. All Doc 32 deltas working as specified."
+}
