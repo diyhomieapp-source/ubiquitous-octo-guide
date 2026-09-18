@@ -75,6 +75,7 @@ import home_passport_engine
 import material_intelligence_engine
 import pro_collab_engine
 import celebration_engine
+import governance_ops_engine
 import notification_engine
 import compliance_engine
 import pro_workspace_engine
@@ -9198,6 +9199,10 @@ app.include_router(pro_collab_engine.build_admin_router(require_admin))
 celebration_engine.configure(db, logger)
 app.include_router(celebration_engine.build_router(get_current_user))
 app.include_router(celebration_engine.build_admin_router(require_admin))
+
+# Data Governance completion deltas — Backup, Restore, Deletion Execution & Retention (Build Document 32).
+governance_ops_engine.configure(db, logger)
+app.include_router(governance_ops_engine.build_admin_router(require_admin, data_governance_engine.DATA_MAP))
 
 # Notification, Reminder & Communication Orchestration (Build Blueprint 28).
 notification_engine.configure(db, logger)
