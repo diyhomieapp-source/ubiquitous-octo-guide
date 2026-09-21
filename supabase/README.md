@@ -10,6 +10,8 @@ imports from or depends on it.
 | Path | Purpose |
 |---|---|
 | `migrations/0001_foundation_bootstrap.sql` | Bootstrap: `canon` schema, conventions, `audit_event`, `outbox`, deny-by-default RLS skeleton |
+| `migrations/0002_em02_identity_tenancy.sql` | EM-02: identity, tenant, role/role_permission, membership, consent_record (append-only), recovery_method + domain audit/outbox triggers |
+| `tools/map_legacy_identities.py` | Read-only legacy-Mongo → canonical identity/tenant/membership mapping (idempotent) |
 
 ## Schema conventions (binding for all future canonical tables)
 
@@ -40,6 +42,8 @@ Values live only in git-ignored env files (`backend/.env` /
 | `SUPABASE_ANON_KEY` | Public anon key (client-facing; no canon access) |
 | `SUPABASE_SERVICE_ROLE_KEY` | Backend service-role key (bypasses RLS) |
 | `SUPABASE_DB_URL` | Direct Postgres connection string (migrations/verification only) |
+| `SUPABASE_ACCESS_TOKEN` | Management-API personal access token (migrations/verification) |
+| `SUPABASE_PROJECT_REF` | Non-production project ref |
 
 ## Applying (non-production only)
 
